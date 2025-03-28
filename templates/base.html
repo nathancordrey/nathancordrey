@@ -1,0 +1,17 @@
+<!DOCTYE html>
+<html>
+<head>
+    <title>Recipes</title>
+    <meta name="viewport" content="width=device-wdith, initial-scale=1, shrink-to-fit=no">
+</head>
+<body>
+    <h1>
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('recipes') }}">Recipes</a>
+    </h1>
+
+    <div>
+        {% block content %}{% endblock content %}
+    </div>
+</body>
+</html>
