@@ -1,13 +1,6 @@
 ---
-title: 'Banana Bread'
-description: >-
-  The perfect banana Bread! Randy’s favorite!
-pubDate: 2023-07-01T22:00:00.000Z
-heroImage: ../../assets/images/loafbread.jpg
-category: Breads
-tags:
-  - Banana
-  - Bread
+title: Banana Bread
+date: 2023-07-01
 ---
 
 # Banana Bread
