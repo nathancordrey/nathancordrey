@@ -1,9 +1,7 @@
 ---
 title: 'Strawberry Donuts'
-description: >-
-  Strawberry donut recipe! Quick and easy with a donut maker for a fun morning treat.
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/donut.jpg
+date: 2022-07-01
+image: ../../assets/images/donut.jpg
 category: Breakfast
 tags: 
   - Strawberry

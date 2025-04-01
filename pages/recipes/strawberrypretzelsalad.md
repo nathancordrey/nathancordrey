@@ -1,9 +1,7 @@
 ---
 title: 'Strawberry Pretzel Salad'
-description: >-
-  Perfect strawberry pretzel salad for any holiday gathering! From the kitchen of Carol Cordrey, who got the recipe when she was a teenager from her Aunt Soph from Clearfield, PA.
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/strawberry.JPG
+date: 2022-07-01
+image: ../../assets/images/strawberry.JPG
 category: Appetizers
 tags: 
   - Strawberry

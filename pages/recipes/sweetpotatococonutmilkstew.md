@@ -1,9 +1,7 @@
 ---
 title: 'Sweet Potato Coconut Milk Stew'
-description: >- 
-  Perfect vegetarian stew for fall!
-pubDate: 2024-10-20T22:00:00.000Z
-heroImage: ../../assets/images/chestnuts.jpg
+date: 2024-10-20
+image: ../../assets/images/chestnuts.jpg
 category: Main Dishes
 tags: 
   - Stew

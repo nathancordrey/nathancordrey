@@ -1,9 +1,7 @@
 ---
 title: 'Sunday Pork Tenderloin'
-description: >-
-  Sunday pork tenderloin roast. Pairs well with the fig chutney!  
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/sundayporktenderloin.jpg
+date: 2022-07-01  
+image: ../../assets/images/sundayporktenderloin.jpg
 category: Main Dishes
 tags:
   - Pork

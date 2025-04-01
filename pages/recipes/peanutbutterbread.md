@@ -1,9 +1,7 @@
 ---
 title: "Claire's Peanutbutter Cake (bread)"
-description: >-
-  Simple peanut butter cake from the oldey timey guy on tik tok. Claire had a blast making this one and eating it!
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/loafbread.jpg
+date: 2022-07-01
+image: ../../assets/images/loafbread.jpg
 category: Breads
 tags: 
   - Bread

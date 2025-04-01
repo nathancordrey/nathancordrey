@@ -1,9 +1,7 @@
 ---
 title: 'Fig Pepper Jelly'
-description: >-
-  A spicy fig jam! Pairs well with crackers and cream cheese!
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/figchutney.jpg
+date: 2022-07-01
+image: ../../assets/images/figchutney.jpg
 category: Jams and Preserves
 tags:
   - fig

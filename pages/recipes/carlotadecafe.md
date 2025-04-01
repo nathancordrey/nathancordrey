@@ -1,9 +1,7 @@
 ---
 title: 'Carlota De Cafe'
-description: >- 
-  Quick and easy tiramasu alternative.
-pubDate: 2024-10-15T22:00:00.000Z 
-heroImage: ../../assets/images/carlotadecafe.jpg
+date: 2024-10-15
+image: ../../assets/images/carlotadecafe.jpg
 category: Desserts
 tags: 
   - Tiramasu

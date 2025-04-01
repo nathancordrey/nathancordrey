@@ -1,8 +1,6 @@
 ---
 title: 'Sweet Potato Casserole'
-description: >-
-  Great sweet potato casserole for a holiday dinner!
-pubDate: 2022-07-01T22:00:00.000Z   
+date: 2022-07-01
 heroImage: ../../assets/images/strawberry.JPG
 category: Appetizers
 tags: 

@@ -1,9 +1,7 @@
 ---
 title: 'Teriyaki Sauce'
-description: >-
-  Teriyaki sauce we used to make tofu tacos October 2024
-pubDate: 2024-10-21T22:00:00.000Z
-heroImage: ../../assets/images/tofutacos.jpg
+date: 2024-10-21
+image: ../../assets/images/tofutacos.jpg
 category: Jams and Preserves
 tags:
   - Teriyaki

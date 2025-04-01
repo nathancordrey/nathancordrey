@@ -1,9 +1,7 @@
 ---
 title: 'La Scala Salad'
-description: >-
-  A wonderful salad!
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/lascalasalad.jpg
+date: 2022-07-01
+image: ../../assets/images/lascalasalad.jpg
 category: Appetizers
 tags: 
   - Salad

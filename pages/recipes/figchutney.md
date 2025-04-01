@@ -1,9 +1,7 @@
 ---
 title: 'Fig Chutney'
-description: >-
-  Pairs well with the Sunday Pork Tenderloin! First had it on Mother's Day 2023
-pubDate: 2022-07-01T22:00:00.000Z
-heroImage: ../../assets/images/figchutney.jpg
+date: 2022-07-01
+image: ../../assets/images/figchutney.jpg
 category: Jams and Preserves
 tags:
   - fig

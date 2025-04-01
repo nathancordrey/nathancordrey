@@ -1,9 +1,7 @@
 ---
 title: 'Sesame Carrot Salad'
-description: >- 
-  Sesame carrots with crispy rice.
-pubDate: 2024-10-15T22:00:00.000Z 
-heroImage: ../../assets/images/tofutacos.jpg
+date: 2024-10-15
+image: ../../assets/images/tofutacos.jpg
 category: Appetizers
 tags: 
   - Carrots

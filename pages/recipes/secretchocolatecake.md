@@ -1,9 +1,7 @@
 ---
 title: 'Secret Family Recipe Chocolate Cake'
-description: >-
-  Secret family recipe for the perfect chocolate cake! Shh don’t tell anyone.
-pubDate: 2022-07-01T22:00:00.000Z
-heroImage: ../../assets/images/secretcake.jpg
+date: 2022-07-01
+image: ../../assets/images/secretcake.jpg
 category: Desserts
 tags:
   - chocolate

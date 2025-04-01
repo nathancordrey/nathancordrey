@@ -1,9 +1,7 @@
 ---
 title: 'Chocolate Fudge Cake'
-description: >-
-  Ina Cordrey’s famous chocolate cake!
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/inacordrey.png
+date: 2022-07-01
+image: ../../assets/images/inacordrey.png
 category: Desserts
 tags: 
   - Chocolate

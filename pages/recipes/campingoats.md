@@ -1,9 +1,7 @@
 ---
 title: 'Camping oatmeal'
-description: >-
-  Great recipe for camping oatmeal! Also an easy weekday breakfast!
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/oatmealrecipe.jpg
+date: 2022-07-01
+image: ../../assets/images/oatmealrecipe.jpg
 category: Breakfast
 tags: 
   - Oats

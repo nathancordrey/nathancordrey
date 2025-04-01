@@ -1,9 +1,7 @@
 ---
 title: 'Frozen Corn'
-description: >-
-  From the kitchen of Randy and Rhonda!
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/frozencorn.jpg
+date: 2022-07-01
+image: ../../assets/images/frozencorn.jpg
 category: Appetizers
 tags: 
   - Corn

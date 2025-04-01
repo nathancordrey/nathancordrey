@@ -1,9 +1,7 @@
 ---
 title: 'Classic Fig Jam'
-description: >-
-  This is perfect stirred in yogurt with granola, served with cheese, or a base for a savory flatbread!
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/figchutney.jpg
+date: 2022-07-01   
+image: ../../assets/images/figchutney.jpg
 category: Jams and Preserves
 tags:
   - fig

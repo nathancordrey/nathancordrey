@@ -1,9 +1,7 @@
 ---
 title: 'Canned Spaghetti Sauce'
-description: >- 
-  Use up those summer tomatoes!
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/garden.jpg
+date: 2022-07-01
+image: ../../assets/images/garden.jpg
 category: Jams and Preserves
 tags: 
   - Tomato

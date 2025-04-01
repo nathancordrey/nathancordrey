@@ -1,9 +1,7 @@
 ---
 title: 'Beef and Broccoli'
-description: >-
-  A quick beef and broccoli for a weeknight dinner!
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/dill.jpg
+date: 2022-07-01
+image: ../../assets/images/dill.jpg
 category: Main Dishes
 tags: 
   - Beef

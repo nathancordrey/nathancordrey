@@ -1,9 +1,7 @@
 ---
 title: 'Miso Peanut Slow Cook Chicken'
-description: >- 
-  Great easy weeknight dinner!
-pubDate: 2022-07-01T22:00:00.000Z 
-heroImage: ../../assets/images/garden.jpg
+date: 2022-07-01
+image: ../../assets/images/garden.jpg
 category: Main Dishes
 tags: 
   - Miso

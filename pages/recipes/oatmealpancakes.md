@@ -1,9 +1,7 @@
 ---
 title: 'Oatmeal Pancakes'
-description: >-
-  Oatmeal pancakes for a nice healthy breakfast!
-pubDate: 2022-07-01T22:00:00.000Z
-heroImage: ../../assets/images/crepe.JPG
+date: 2022-07-01
+image: ../../assets/images/crepe.JPG
 category: Breakfast
 tags: 
   - pancakes

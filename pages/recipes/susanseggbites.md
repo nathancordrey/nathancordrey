@@ -1,9 +1,7 @@
 ---
 title: "Susan's Egg Bites"
-description: >-
-  Susan’s egg bites! A perfect easy weeknight breakfast!
-pubDate: 2022-07-01T22:00:00.000Z
-heroImage: ../../assets/images/eggs.jpg
+date: 2022-07-01
+image: ../../assets/images/eggs.jpg
 category: Breakfast
 tags: 
   - eggs

@@ -1,9 +1,7 @@
 ---
 title: 'Strawberry Gummy Strips'
-description: >- 
-  First try at making strawberry gummies!
-pubDate: 2022-07-01T22:00:00.000Z
-heroImage: ../../assets/images/strawberrygummies.jpg
+date: 2022-07-01
+image: ../../assets/images/strawberrygummies.jpg
 category: Desserts
 tags: 
   - Strawberry

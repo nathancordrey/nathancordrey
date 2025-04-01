@@ -1,10 +1,8 @@
 ---
 title: 'Whiskey Sour'
-description: >-
-  Ricky's Whiskey Sour Recipe!
-pubDate: 2024-03-08T22:00:00.000Z
-heroImage: ../../assets/images/whiskeysour.jpg
-category: Breads
+date: 2024-03-08
+image: ../../assets/images/whiskeysour.jpg
+category: Cocktails
 tags:
   - Whiskey
   - Cocktail

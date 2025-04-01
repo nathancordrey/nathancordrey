@@ -1,6 +1,7 @@
 ---
 title: Banana Bread
 date: 2023-07-01
+category: Breads
 ---
 
 # Banana Bread

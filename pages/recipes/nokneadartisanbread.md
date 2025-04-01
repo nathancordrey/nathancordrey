@@ -1,9 +1,7 @@
 ---
 title: 'No Knead Artisan Bread'
-description: >-
-  A quick and easy homemade bread from yeast. This is a great rustic loaf with a nice crust.
-pubDate: 2022-07-01T22:00:00.000Z   
-heroImage: ../../assets/images/bread.jpg
+date: 2022-07-01
+image: ../../assets/images/bread.jpg
 category: Breads
 tags: 
   - Bread
