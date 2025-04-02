@@ -26,7 +26,7 @@ def recipes():
             print('hello')
         else:
             categories.append(r.meta['category'])
-    return render_template('recipes2.html', recipes=latest, categories=categories, blank=blank)
+    return render_template('recipes.html', recipes=latest, categories=categories, blank=blank)
 '''
 @app.route('/debug')
 def debug():

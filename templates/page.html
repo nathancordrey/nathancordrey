@@ -1,5 +1,9 @@
 {% extends "base.html" %}
+
 {% block content %}
     {{ page.html|safe }}
+    <img src="{{ page.meta.image }}" alt="{{ page.meta.title }}" class="responsive-img">
+ 
+
 {% endblock %}
 

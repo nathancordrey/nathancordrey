@@ -1,7 +1,7 @@
 ---
 title: 'Carlota De Cafe'
 date: 2024-10-15
-image: ../../assets/images/carlotadecafe.jpg
+image: ../../static/images/recipes/carlotadecafe.jpg
 category: Desserts
 tags: 
   - Tiramasu
@@ -33,7 +33,5 @@ Easy dessert that comes together quickly with no baking!
 5. Continue layering cream and cookies ending on a layer of cream.
 6. Combine instant coffee and cocoa powder, then sift on top.
 7. Store in the fridge for about 8 hours, then enjoy! 
-
-
 
 
