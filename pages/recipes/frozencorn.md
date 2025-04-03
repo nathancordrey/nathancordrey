@@ -1,7 +1,7 @@
 ---
 title: 'Frozen Corn'
 date: 2022-07-01
-image: ../../assets/images/frozencorn.jpg
+image: ../../static/images/recipes/frozencorn.jpg
 category: Appetizers
 tags: 
   - Corn

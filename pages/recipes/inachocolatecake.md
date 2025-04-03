@@ -1,7 +1,7 @@
 ---
 title: 'Chocolate Fudge Cake'
 date: 2022-07-01
-image: ../../assets/images/inacordrey.png
+image: ../../static/images/recipes/inacordrey.png
 category: Desserts
 tags: 
   - Chocolate

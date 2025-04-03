@@ -1,7 +1,7 @@
 ---
 title: 'Teriyaki Sauce'
 date: 2024-10-21
-image: ../../assets/images/tofutacos.jpg
+image: ../../static/images/recipes/tofutacos.jpg
 category: Jams and Preserves
 tags:
   - Teriyaki

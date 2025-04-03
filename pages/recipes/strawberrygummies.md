@@ -1,7 +1,7 @@
 ---
 title: 'Strawberry Gummy Strips'
 date: 2022-07-01
-image: ../../assets/images/strawberrygummies.jpg
+image: ../../static/images/recipes/strawberrygummies.jpg
 category: Desserts
 tags: 
   - Strawberry

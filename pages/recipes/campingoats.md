@@ -1,7 +1,7 @@
 ---
 title: 'Camping oatmeal'
 date: 2022-07-01
-image: ../../assets/images/oatmealrecipe.jpg
+image: ../../static/images/recipes/oatmealrecipe.jpg
 category: Breakfast
 tags: 
   - Oats

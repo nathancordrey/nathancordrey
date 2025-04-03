@@ -3,6 +3,7 @@ title: Crepes
 description: Quick and easy crepes! Great for storing in the fridge for an easy breakfast. Goes great with any homemade jam!
 date: 2022-07-01
 category: Breakfast
+image: ../../static/images/recipes/crepe.JPG
 tags: 
     - crepes
 ---

@@ -1,7 +1,7 @@
 ---
 title: 'Bruschetta Dip'
 date: 2022-07-01
-image: ../../assets/images/garden.jpg
+image: ../../static/images/recipes/garden.jpg
 category: Appetizers
 tags:
   - tomatoes

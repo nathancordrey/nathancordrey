@@ -1,7 +1,7 @@
 ---
 title: 'La Scala Salad'
 date: 2022-07-01
-image: ../../assets/images/lascalasalad.jpg
+image: ../../statoc/images/recipes/lascalasalad.jpg
 category: Appetizers
 tags: 
   - Salad

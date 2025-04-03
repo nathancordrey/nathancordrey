@@ -1,7 +1,7 @@
 ---
 title: 'Canned Spaghetti Sauce'
 date: 2022-07-01
-image: ../../assets/images/garden.jpg
+image: ../../static/images/recipes/garden.jpg
 category: Jams and Preserves
 tags: 
   - Tomato

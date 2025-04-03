@@ -1,7 +1,7 @@
 ---
 title: 'Secret Family Recipe Chocolate Cake'
 date: 2022-07-01
-image: ../../assets/images/secretcake.jpg
+image: ../../static/images/recipes/secretcake.jpg
 category: Desserts
 tags:
   - chocolate
