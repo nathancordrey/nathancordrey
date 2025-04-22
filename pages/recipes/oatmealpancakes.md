@@ -1,7 +1,7 @@
 ---
 title: 'Oatmeal Pancakes'
 date: 2022-07-01
-image: ../../static/images/recipes/crepe.JPG
+image: static/images/recipes/crepe.JPG
 category: Breakfast
 tags: 
   - pancakes

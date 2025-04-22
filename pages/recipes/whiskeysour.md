@@ -1,7 +1,7 @@
 ---
 title: 'Whiskey Sour'
 date: 2024-03-08
-image: ../../static/images/recipes/whiskeysour.jpg
+image: static/images/recipes/whiskeysour.jpg
 category: Cocktails
 tags:
   - Whiskey

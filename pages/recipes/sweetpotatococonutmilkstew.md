@@ -1,7 +1,7 @@
 ---
 title: 'Sweet Potato Coconut Milk Stew'
 date: 2024-10-20
-image: ../../static/images/recipes/chestnuts.jpg
+image: static/images/recipes/chestnuts.jpg
 category: Main Dishes
 tags: 
   - Stew

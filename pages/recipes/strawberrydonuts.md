@@ -1,7 +1,7 @@
 ---
 title: 'Strawberry Donuts'
 date: 2022-07-01
-image: ../../static/images/recipes/donut.jpg
+image: static/images/recipes/donut.jpg
 category: Breakfast
 tags: 
   - Strawberry

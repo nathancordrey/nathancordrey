@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <link href="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/css/lightbox.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+    {{ page.html|safe }}
+    <a href="{{ url_for('static', filename=images[0][7:]) }}" data-lightbox="gallery">
+        <img src="{{ url_for('static', filename=images[0][7:]) }}" alt="test" class="responsive-img">
+    </a>
+
+{% endblock %}
+
+{% block script %}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/js/lightbox.min.js"></script>
+{% endblock %}

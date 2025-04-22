@@ -1,7 +1,7 @@
 ---
 title: 'Classic Fig Jam'
 date: 2022-07-01   
-image: ../../static/images/recipes/figchutney.jpg
+image: static/images/recipes/figchutney.jpg
 category: Jams and Preserves
 tags:
   - fig

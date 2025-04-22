@@ -1,7 +1,7 @@
 ---
 title: "Susan's Egg Bites"
 date: 2022-07-01
-image: ../../static/images/recipes/eggs.jpg
+image: static/images/recipes/eggs.jpg
 category: Breakfast
 tags: 
   - eggs

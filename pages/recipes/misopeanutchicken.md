@@ -1,7 +1,7 @@
 ---
 title: 'Miso Peanut Slow Cook Chicken'
 date: 2022-07-01
-image: ../../static/images/recipes/garden.jpg
+image: static/images/recipes/garden.jpg
 category: Main Dishes
 tags: 
   - Miso

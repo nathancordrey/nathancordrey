@@ -5,6 +5,5 @@ category: none
 ---
 
 #Hello
-<h1 class="text-center"> Nathan Cordrey's Website</h1>
 
 

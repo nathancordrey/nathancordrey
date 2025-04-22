@@ -1,7 +1,7 @@
 ---
 title: 'Outta Bounds Seafood Boil!'
 date: 2022-07-01
-image: ../../static/images/recipes/randy_boil.jpg
+image: static/images/recipes/randy_boil.jpg
 category: Main Dishes
 tags: 
   - Shrimp

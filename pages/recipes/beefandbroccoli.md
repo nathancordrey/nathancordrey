@@ -1,7 +1,7 @@
 ---
 title: 'Beef and Broccoli'
 date: 2022-07-01
-image: ../../static/images/recipes/dill.jpg
+image: static/images/recipes/dill.jpg
 category: Main Dishes
 tags: 
   - Beef

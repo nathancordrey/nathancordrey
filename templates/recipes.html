@@ -5,7 +5,8 @@
 {% endblock styles %}
 
 {% block content %}
-    {% for category in categories[1:] %}
+    {{ categories }}
+    {% for category in categories %}
         <p>{{ category }}</p>
         {% for recipe in recipes %}
             <ul>

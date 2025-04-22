@@ -3,7 +3,7 @@ title: Overnight Oats (base)
 description: Esay weeknight breakfast. Unlimited options for additional toppings!
 date: 2022-07-01
 category: Breakfast
-image: ../../static/images/recipes/oatmealrecipe.jpg
+image: static/images/recipes/oatmealrecipe.jpg
 tags: 
     - Oats
 ---

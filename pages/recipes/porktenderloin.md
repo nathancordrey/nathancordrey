@@ -1,7 +1,7 @@
 ---
 title: 'Sunday Pork Tenderloin'
 date: 2022-07-01  
-image: ../../static/images/recipes/sundayporktenderloin.jpg
+image: static/images/recipes/sundayporktenderloin.jpg
 category: Main Dishes
 tags:
   - Pork

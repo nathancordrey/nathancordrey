@@ -1,7 +1,7 @@
 ---
 title: 'Iceland'
 date: 2017-05-13
-image: ../../static/images/recipes/oatmealrecipe.jpg
+img_folder: 'static/images/travel/iceland/day1/'
 ---
 
 # Iceland 2017

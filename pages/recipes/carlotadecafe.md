@@ -1,7 +1,7 @@
 ---
 title: 'Carlota De Cafe'
 date: 2024-10-15
-image: ../../static/images/recipes/carlotadecafe.jpg
+image: static/images/recipes/carlotadecafe.jpg
 category: Desserts
 tags: 
   - Tiramasu

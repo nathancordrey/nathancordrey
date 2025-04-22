@@ -1,7 +1,7 @@
 ---
 title: "Claire's Peanutbutter Cake (bread)"
 date: 2022-07-01
-image: ../../static/images/recipes/loafbread.jpg
+image: static/images/recipes/loafbread.jpg
 category: Breads
 tags: 
   - Bread

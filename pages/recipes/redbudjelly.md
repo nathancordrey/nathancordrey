@@ -1,7 +1,7 @@
 ---
 title: 'Red Bud Jelly'
 date: 2025-04-07
-image: ../../static/images/recipes/redbudjelly.jpg
+image: static/images/recipes/redbudjelly.jpg
 category: Jams and Preserves
 tags:
   - Red Bud Flower

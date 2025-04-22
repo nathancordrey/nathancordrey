@@ -1,7 +1,7 @@
 ---
 title: 'No Knead Artisan Bread'
 date: 2022-07-01
-image: ../../static/images/recipes/bread.jpg
+image: static/images/recipes/bread.jpg
 category: Breads
 tags: 
   - Bread

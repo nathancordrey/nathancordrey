@@ -6,17 +6,22 @@
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
         <link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
 
+        {% block head %}{% endblock head %}
+
     </head>
     <body>
         <h1>
             <a href="{{ url_for('index') }}">Home</a>
             <a href="{{ url_for('recipes') }}">Recipes</a>
+            <a href="{{ url_for('travel') }}">Travel</a>
         </h1>
 
     <div>
         {% block content %}{% endblock content %}
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    {% block script %}{% endblock script %}
 
 </body>
 </html>
