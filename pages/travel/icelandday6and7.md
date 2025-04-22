@@ -1,29 +1,20 @@
 ---
 category: 'Iceland 2017'
-title: 'Day 4 and 5'
-date: 2017-05-17
+title: 'Day 6 and 7'
+date: 2017-05-19
 img_folder: 'static/images/travel/iceland/day1/'
 ---
 
 # Iceland 2017
 
-## Day 4 - Tuesday May 16th
+## Day 6 - Thursday May 18th
 
-- Pingvallakirkja, Pingvellir National Park
-- Seljalandsfoss
-- Gamla fjosio for coffee or snack
-- Skogafoss
-- Dyrholaey Arch
-- Reynisfjall
-- Vik Campground
+Reykjadalaur hot springs. We spent the night at the hveragerdi campground.
 
+## Day 7 - Friday May 19th
 
+We drove back to Reykavik and explored the city. We spent the night back at the Reykavik campground. 
 
-## Day 5 - Wednesday May 17th
+## Day 8 - Saturday May 20th
 
-We had a great experience with a 5 hour glacier hike in Skaftafell National Park.
-
-We also explored glacier bay.
-
-We drove back to the vik campground that evening.
-
+We flew back home
