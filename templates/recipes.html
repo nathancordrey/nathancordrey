@@ -5,9 +5,8 @@
 {% endblock styles %}
 
 {% block content %}
-    {{ categories }}
     {% for category in categories %}
-        <p>{{ category }}</p>
+        <h2>{{ category }}</h2>
         {% for recipe in recipes %}
             <ul>
             {% if recipe.meta['category'] == category %}

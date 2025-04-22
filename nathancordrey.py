@@ -35,10 +35,20 @@ def recipes():
 
 @app.route('/travel')
 def travel():
-    trips = (p for p in pages if p.path[:6]=='travel')
+    trips = (p for p in pages if 'date' in p.meta and p.path[:6]=='travel')
     latest = sorted(trips, reverse=True, key=lambda p: p.meta['date'])
-    years=[2017]
-    return render_template('travel.html', trips=latest, years=years)
+    categories = []
+    for t in pages:
+        print(t.path)
+        if t.path[:6] != 'travel':
+            print('hello')
+        elif t.meta['category'] in categories:
+            print('hello')
+        elif t.meta['category'] == None:
+            print('hello')
+        else:
+            categories.append(t.meta['category'])
+    return render_template('travel.html', trips=latest, categories=categories)
 
 @app.route('/<path:path>/')
 @app.route('/<path:path>')
@@ -52,7 +62,7 @@ def page(path):
         image_urls=[page.meta['image']]
     else: 
         image_urls=[]
-    return render_template('page2.html', page=page, images=image_urls)
+    return render_template('page.html', page=page, images=image_urls)
 
 
 

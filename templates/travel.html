@@ -5,11 +5,15 @@
 {% endblock styles %}
 
 {% block content %}
-    {% for trip in trips %}
-        <ul>
-            <li><a href="{{ url_for('page', path=trip.path) }}">{{ trip.title }}</a></li>
-        </ul>
+    {% for category in categories %}
+        <h2>{{ category }}</h2>
+        {% for trip in trips %}
+            <ul>
+            {% if trip.meta['category'] == category %}
+                <li><a href="{{ url_for('page', path=trip.path) }}">{{ trip.title }}</a></li>
+            {% endif %}
+            </ul>
+        {% endfor %}
     {% endfor %}
-
 {% endblock %}
 
