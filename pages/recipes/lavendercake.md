@@ -1,7 +1,7 @@
 ---
 title: Lemon Lavender Cake
 date: 2025-04-20
-image: static/images/recipes/bread.jpg
+image: static/images/recipes/lavendercake.jpg
 category: Desserts
 ---
 
