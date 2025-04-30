@@ -1,3 +1,10 @@
+---
+title: Florida Part 1
+category: Florida 2025
+date: 2025-04-29
+img_folder: static/images/travel/florida25/part1
+---
+
 We won the lottery! In June of 2024 we entered a lottery for the chance to stay at Sweetwater cabin in the Ocala forest of Florida! We secured the chance to reserve the Sweetwater cabin for the week of April 25th through May 2nd. I drove down Thursday after work and Friday morning to meet Rachel, Aunt Stephanie and the kids at the Orlando airport at 2pm on Friday. 
 
 We drove up the hour and a half from the airport to the cabin with a quick pitstop at Aldi. We did have a brief hiccup with the wrong gate code; however we quickly were able to get the right code and get settled into the cabin. We stayed at the cabin and explored the spring, and some pork chops and rice for dinner.
@@ -16,4 +23,19 @@ On Sunday we had another relaxing day and headed to clearwater lake recreation a
 
 That night we again relaxed by the spring at the cabin and had shrimp tacos for dinner!
 
+
 Monday April 28th:
+
+On Monday we made the trip to St Augustine on a mission for shark teeth. We spent the day at Vilano beach. We had a great day playing in the waves and on the beach. 
+Unfortunately we did not find any shark teeth.
+
+After the beach we went to downtown St. Augustine and got ice cream and played at the playgroud. We ended up getting delicious BBQ for dinner.
+
+
+Tuesday April 29th:
+
+We spent the day at Aquatica, the waterpark connected to Sea World, we ended up getting a good deal for tickets. This worked out as a great day for the waterpark.
+
+The park opened at 10:30 AM and closed at 5:00 pm. The park was not very crowded and the kids did not wait in any lines for the slides.
+
+
