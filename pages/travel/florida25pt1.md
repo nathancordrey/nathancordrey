@@ -2,7 +2,7 @@
 title: Florida Part 1
 category: Florida 2025
 date: 2025-04-29
-img_folder: static/images/travel/florida25/part1
+img_folder: static/images/travel/florida25/part1/
 ---
 
 # Florida 2025
