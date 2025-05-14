@@ -2,10 +2,10 @@
 title: Florida Part 3
 category: Florida 2025
 date: 2025-04-30
-img_folder: static/images/travel/florida25/part2
+img_folder: static/images/travel/florida25/part3
 ---
 
-#Florida 2025
+# Florida 2025
 
 
 ## Wednesday April 30th:
