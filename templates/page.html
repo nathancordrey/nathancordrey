@@ -8,7 +8,7 @@
     {{ page.html|safe }}
     {% for img in images %}
         <a href="{{ url_for('static', filename=img[7:]) }}" data-lightbox="gallery">
-            <img src="{{ url_for('static', filename=img[7:]) }}" alt="test" class="responsive-img">
+            <img src="{{ url_for('static', filename=img[7:]) }}" alt="img[:8]" class="responsive-img">
         </a>
     {% endfor %}
 
