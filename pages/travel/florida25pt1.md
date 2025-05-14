@@ -5,7 +5,7 @@ date: 2025-04-29
 img_folder: static/images/travel/florida25/part1
 ---
 
-#Florida 2025
+# Florida 2025
 
 We won the lottery! In June of 2024 we entered a lottery for the chance to stay at Sweetwater cabin in the Ocala forest of Florida! We secured the chance to reserve the Sweetwater cabin for the week of April 25th through May 2nd. I drove down Thursday after work and Friday morning to meet Rachel, Aunt Stephanie and the kids at the Orlando airport at 2pm on Friday. 
 
