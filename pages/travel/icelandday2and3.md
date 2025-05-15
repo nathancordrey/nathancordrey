@@ -7,7 +7,7 @@ img_folder: 'static/images/travel/iceland/day1/'
 
 # Iceland 2017
 
-## Day 2
+## Sunday May 14th
 
 We drove back towards the airport to visit Blue lagoon in the morning for our 11 AM reservation. We had a great time exploring the pools.
 
@@ -15,7 +15,7 @@ We also checked out the Gunnuhuver hot springs.
 
 That evening we stayed at the Tjaldsvaedi campsite and prepared for our trip around the Golden Circle the next day.
 
-## Day 3
+## Monday May 15th
 
 Day three we drove the "Golden Circle." Below is a list of sites we hit along the way.
 
