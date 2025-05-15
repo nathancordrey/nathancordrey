@@ -7,7 +7,7 @@ img_folder: 'static/images/travel/iceland/day1/'
 
 # Iceland 2017
 
-## Day 1
+## Saturday May 13th
 
 We traveled to Iceland for a week long trip in early May of 2017. Rachel and I were a young engaged couple just starting out in the wedding planning process.
 
