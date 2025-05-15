@@ -2,7 +2,7 @@
 category: 'Iceland 2017'
 title: 'Day 4 and 5'
 date: 2017-05-17
-img_folder: 'static/images/travel/iceland/day1/'
+img_folder: 'static/images/travel/iceland/day4and5/'
 ---
 
 # Iceland 2017
