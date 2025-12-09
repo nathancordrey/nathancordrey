@@ -9,7 +9,7 @@ tags:
 ---
 
 
-# Overnight Oats (base)
+# Oatmeal Pancakes
 
 Oatmeal pancakes for a nice healthy breakfast!
 
