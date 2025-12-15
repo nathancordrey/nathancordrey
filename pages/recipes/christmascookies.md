@@ -26,7 +26,7 @@ Christmas sugar cookies!
 
 ## Instructions
 
-1. In a large bowl, whisk together dry ingredients (flour, baking soda, salt, sugar). Set aside
+1. In a large bowl, whisk together dry ingredients (flour, baking soda, and salt). Set aside
 2. In a stand mixer mix butter with paddle attachment for 1 minute on medium speed until smooth and creamy.
 3. Add the sugar and beat on medium high speed until combined and creamy.
 4. Scrape down the sides of the bowl if needed and add in egg, milk, and vanilla. Mix on high speed for 2 minutes. Scrape down the sides of bowl as needed.
