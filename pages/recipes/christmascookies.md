@@ -35,7 +35,7 @@ Christmas sugar cookies!
 7. Preheat oven to 350°F. Line 2-3 large baking sheets with parchment paper.
 8. Generously flour your work surface and roll out the disc until 1/8 inch thick.
 9. Cut into shapes
-10. Bake cookies for about 9-10 minutes. Rotate once during bake.
+10. Bake cookies until done.
 11. Allow to cool for 5 minutes on the cookie sheet then transfer to cooling rack.
 
 ### Enjoy!
