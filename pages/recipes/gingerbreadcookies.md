@@ -32,7 +32,7 @@ Christmas gingerbread cookies!
 
 1. In a large bowl, whisk together dry ingredients (flour, baking soda, salt, ginger, cinnamon, allspice, and cloves.
 2. In a stand mixer mix butter with paddle attachment for 1 minute on medium speed until smooth and creamy.
-3. Add the brwon sugar and molasses and beat on medium high speed until combined and creamy.
+3. Add the brown sugar and molasses and beat on medium high speed until combined and creamy.
 4. Scrape down the sides of the bowl if needed and add in egg and vanilla. Mix on high speed for 2 minutes. Scrape down the sides of bowl as needed. The butter may sperate and that is okay.
 5. Add the dry ingredients to the wet ingredients. Mix on low speed until combined. The dough will be quite thick and slightly sticky.
 6. Divide the dough in half and place each into a large piece of plastic wrap. Wrap up tightly and pat down into a disc shape and chill for at least 3 hours up to 3 days.
