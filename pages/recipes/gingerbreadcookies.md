@@ -1,7 +1,7 @@
 ---
 title: 'Gingerbread Cookies'
 date: 2025-12-14
-image: static/images/recipes/christmascookiedecorating.png
+image: static/images/recipes/christmascookiedecorating.jpg
 category: Desserts
 tags: 
   - Gingerbread
