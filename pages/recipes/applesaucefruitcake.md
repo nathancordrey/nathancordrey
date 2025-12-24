@@ -16,7 +16,7 @@ Christmas fruit cake!
 ## Ingredients
 
 - 1/2 cup shortening with a little butter
-- 2 cups sugar (1 white / 1 blown?)
+- 2 cups sugar (1 white / 1 brown)
 - 1 egg beaten
 - 1 1/2 cup applesauce
 - 2 1/2 cup all purpose flour
