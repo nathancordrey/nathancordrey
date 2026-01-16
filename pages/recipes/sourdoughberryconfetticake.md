@@ -1,5 +1,5 @@
 ---
-title: 'Applesauce Fruit Cake'
+title: 'Sourdough Berry Confetti Cake'
 date: 2025-12-14
 image: static/images/recipes/fruitcakerecipe.jpg
 category: Desserts
