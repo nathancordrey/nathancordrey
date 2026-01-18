@@ -37,6 +37,7 @@ Great on toast, biscuits, pancakes, or straight from the spoon.
 6. Set Instant Pot to **Sauté (High)** and cook uncovered for **20–40 minutes**, stirring often, until thickened.
 7. Stir in vanilla extract and remove from heat.
 8. Let cool, then transfer to jars and refrigerate.
+9. If canning leave 1/4" headspace and put in a water bath for 15 minutes.
 
 ## Notes
 
