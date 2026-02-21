@@ -28,11 +28,11 @@ We had scheduled our trip to Pearl Harbor for the morning. It was a windy day so
 Next explored the various museums on site; and then ended with a tour of the Bowfin submarine. 
 
 <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin:20px 0;">
-  <img src="/static/images/travel/hawaii26/part2/a.jpg"
+  <img src="/static/images/travel/hawaii26/part2/rachel_on_bowfin.jpg"
        style="flex:1 1 260px; max-width:100%; height:auto; border-radius:8px;">
-  <img src="/static/images/travel/hawaii26/part2/b.jpg"
+  <img src="/static/images/travel/hawaii26/part2/bowfin_bunks.jpg"
        style="flex:1 1 260px; max-width:100%; height:auto; border-radius:8px;">
-  <img src="/static/images/travel/hawaii26/part2/c.jpg"
+  <img src="/static/images/travel/hawaii26/part2/bowfin_valves.jpg"
        style="flex:1 1 260px; max-width:100%; height:auto; border-radius:8px;">
 </div>
 
