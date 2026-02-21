@@ -21,6 +21,8 @@ Even with the crowds the views were great and an early morning hike is a great w
 
 ![Diamond Head Sunrise](/static/images/travel/hawaii26/part1/diamondhead_sunrise.jpg)
 
+<img src="/static/images/travel/hawaii26/part1/diamondhead_sunrise.jpg" style="max-width:600px;">
+
 After the hike we got back and showered and checked out the beach quick before heading over for an early dinner at Dukes for taco tuesday. They were excellent tacos!
 
 We stayed around the pool for the rest of the day and enjoyed the Royal Hawaiian.
