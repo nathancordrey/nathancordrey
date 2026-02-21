@@ -23,9 +23,18 @@ We had scheduled our trip to Pearl Harbor for the morning. It was a windy day so
     Arizona Memorial at Pearl Harbor
   </figcaption>
 </figure>
+<div style="clear:both;"></div>
 
+Next explored the various museums on site; and then ended with a tour of the Bowfin submarine. 
 
-Next explored the various museums on site; and then ended with a tour of a submarine. 
+<div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin:20px 0;">
+  <img src="/static/images/travel/hawaii26/part2/a.jpg"
+       style="flex:1 1 260px; max-width:100%; height:auto; border-radius:8px;">
+  <img src="/static/images/travel/hawaii26/part2/b.jpg"
+       style="flex:1 1 260px; max-width:100%; height:auto; border-radius:8px;">
+  <img src="/static/images/travel/hawaii26/part2/c.jpg"
+       style="flex:1 1 260px; max-width:100%; height:auto; border-radius:8px;">
+</div>
 
 <div style="clear:both;"></div>
 
