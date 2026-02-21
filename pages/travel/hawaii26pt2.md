@@ -24,6 +24,17 @@ We had scheduled our trip to Pearl Harbor for the morning. It was a windy day so
   </figcaption>
 </figure>
 
+<figure style="float:right; width:320px; max-width:45%; margin:0 0 12px 16px; text-align:center;">
+  <img
+    src="/static/images/travel/hawaii26/part1/diamondhead_sunrise.jpg"
+    style="width:100%; height:auto; border-radius:8px;"
+    alt="Diamond Head sunrise"
+  />
+  <figcaption style="font-size:0.85em; color:#666; margin-top:6px;">
+    Diamond Head at sunrise
+  </figcaption>
+</figure>
+
 Next explored the various museums on site; and then ended with a tour of a submarine. 
 
 
