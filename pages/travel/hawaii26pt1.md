@@ -18,6 +18,18 @@ We got to bed early as we adjusted time zones and had an early hike planned for 
 
 On February 10th we woke up early to tackle the popular Diamond Head State Monument Hike. We got to the parking lot aroudn 6:15 am and it was already busy, there were a few sunrise tour buses that got there early.
 
+<figure style="float:right; width:320px; max-width:45%; margin:0 0 12px 16px; text-align:center;">
+  <img
+    src="/static/images/travel/hawaii26/part1/diamondhead_sunrise.jpg"
+    style="width:100%; height:auto; border-radius:8px;"
+    alt="Diamond Head sunrise"
+  />
+  <figcaption style="font-size:0.85em; color:#666; margin-top:6px;">
+    Diamond Head at sunrise
+  </figcaption>
+</figure>
+
+
 Even with the crowds the views were great and an early morning hike is a great way to start the day.
 
 <figure style="text-align:center; margin:30px 0;">
