@@ -29,11 +29,11 @@ Next explored the various museums on site; and then ended with a tour of the Bow
 
 <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin:20px 0;">
   <img src="/static/images/travel/hawaii26/part2/rachel_on_bowfin.jpg"
-       style="max-width:350px; height:auto; border-radius:8px;">
+       style="width:300px; height:auto; border-radius:8px;">
   <img src="/static/images/travel/hawaii26/part2/bowfin_bunks.jpg"
-       style="max-width:350px; height:auto; border-radius:8px;">
+       style="width:300px; height:auto; border-radius:8px;">
   <img src="/static/images/travel/hawaii26/part2/bowfin_valves.jpg"
-       style="max-width:350px; height:auto; border-radius:8px;">
+       style="width:300px; height:auto; border-radius:8px;">
 </div>
 
 <div style="clear:both;"></div>
