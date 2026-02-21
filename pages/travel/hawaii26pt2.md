@@ -37,7 +37,7 @@ We had scheduled our trip to Pearl Harbor for the morning. It was a windy day so
 
 Next explored the various museums on site; and then ended with a tour of a submarine. 
 
-
+<div style="clear:both;"></div>
 
 ## February 12th
 
