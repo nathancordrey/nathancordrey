@@ -19,8 +19,6 @@ On February 10th we woke up early to tackle the popular Diamond Head State Monum
 
 Even with the crowds the views were great and an early morning hike is a great way to start the day.
 
-![Diamond Head Sunrise](/static/images/travel/hawaii26/part1/diamondhead_sunrise.jpg)
-
 <img src="/static/images/travel/hawaii26/part1/diamondhead_sunrise.jpg" style="max-width:600px;">
 
 After the hike we got back and showered and checked out the beach quick before heading over for an early dinner at Dukes for taco tuesday. They were excellent tacos!
