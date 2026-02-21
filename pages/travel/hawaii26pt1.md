@@ -12,9 +12,13 @@ Rachel and I were having a hard time making a fun plan for our 8th anniversary. 
 
 We decided to book the trip and enjoy a much deserved vacation to celebrate our anniversary, Christmas, and Valentines Day.
 
+# February 9th
+
 We arrived in Honolulu on February 9th after a long day of travels. We were able to pick up our rental car and get settled into the hotel. We found a nice restaurant nearby at the Waikiki Food hall and enjoyed happy hour Mai Tai's.
 
 We got to bed early as we adjusted time zones and had an early hike planned for the next day.
+
+# February 10th
 
 On February 10th we woke up early to tackle the popular Diamond Head State Monument Hike. We got to the parking lot aroudn 6:15 am and it was already busy, there were a few sunrise tour buses that got there early.
 
