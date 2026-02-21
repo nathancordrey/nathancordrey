@@ -6,11 +6,13 @@
 
 {% block content %}
     {{ page.html|safe }}
-    {% for img in images %}
-        <a href="{{ url_for('static', filename=img[7:]) }}" data-lightbox="gallery">
-            <img src="{{ url_for('static', filename=img[7:]) }}" alt="img[:8]" class="responsive-img">
-        </a>
-    {% endfor %}
+    {% if not page.meta.get('hide_gallery') %}
+        {% for img in images %}
+            <a href="{{ url_for('static', filename=img[7:]) }}" data-lightbox="gallery">
+                <img src="{{ url_for('static', filename=img[7:]) }}" alt="img[:8]" class="responsive-img">
+            </a>
+        {% endfor %}
+    {% endif %}
 
 {% endblock %}
 
