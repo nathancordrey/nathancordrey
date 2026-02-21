@@ -2,7 +2,7 @@
 title: Hawaii Part 1
 category: Hawaii 2026
 date: 2026-02-09
-img_folder: images/travel/hawaii26/part1
+img_folder: static/images/travel/hawaii26/part1
 ---
 
 # Hawaii 2026
