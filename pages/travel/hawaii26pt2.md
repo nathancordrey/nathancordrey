@@ -33,7 +33,7 @@ Next explored the various museums on site; and then ended with a tour of the Bow
   <img src="/static/images/travel/hawaii26/part2/bowfin_bunks.jpg"
        style="width:300px; height:auto; border-radius:8px;">
   <img src="/static/images/travel/hawaii26/part2/bowfin_valves.jpg"
-       style="width:300px; height:auto; border-radius:8px;">
+       style="width:300px; height:auto !important; border-radius:8px;">
 </div>
 <div style="clear:both;"></div>
 
