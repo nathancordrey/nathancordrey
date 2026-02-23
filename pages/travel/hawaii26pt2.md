@@ -26,29 +26,24 @@ We had scheduled our trip to Pearl Harbor for the morning. It was a windy day so
 <div style="clear:both;"></div>
 
 Next explored the various museums on site; and then ended with a tour of the Bowfin submarine. 
-<figure style="text-align:center; margin:30px 0;">
-  <img src="/static/images/travel/hawaii26/part2/rachel_on_bowfin.jpg"
-       style="max-width:300px; width:100%; height:auto; border-radius:8px;">
-  <figcaption style="font-size:0.9em; color:#666; margin-top:8px;">
-    Rachel climbing down into the Bowfin.
-  </figcaption>
-</figure>
 
-<figure style="text-align:center; margin:30px 0;">
-  <img src="/static/images/travel/hawaii26/part2/bowfin_bunks.jpg"
-       style="max-width:300px; width:100%; height:auto; border-radius:8px;">
-  <figcaption style="font-size:0.9em; color:#666; margin-top:8px;">
-    The tight sleeping quarters.
-  </figcaption>
-</figure>
+<div class="photo-row">
+  <figure>
+    <img src="/static/images/travel/hawaii26/part2/rachel_on_bowfin.jpg">
+    <figcaption>Rachel climbing down into the Bowfin.</figcaption>
+  </figure>
 
-<figure style="text-align:center; margin:30px 0;">
-  <img src="/static/images/travel/hawaii26/part2/bowfin_valves.jpg"
-       style="max-width:300px; width:100%; height:auto; border-radius:8px;">
-  <figcaption style="font-size:0.9em; color:#666; margin-top:8px;">
-    Control valves and gauges inside the submarine.
-  </figcaption>
-</figure>
+  <figure>
+    <img src="/static/images/travel/hawaii26/part2/bowfin_bunks.jpg">
+    <figcaption>The tight sleeping quarters.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="/static/images/travel/hawaii26/part2/bowfin_valves.jpg">
+    <figcaption>Control valves and gauges.</figcaption>
+  </figure>
+</div>
+
 <div style="clear:both;"></div>
 
 ## February 12th
