@@ -28,7 +28,7 @@ We had scheduled our trip to Pearl Harbor for the morning. It was a windy day so
 Next explored the various museums on site; and then ended with a tour of the Bowfin submarine. 
 <figure style="text-align:center; margin:30px 0;">
   <img src="/static/images/travel/hawaii26/part2/rachel_on_bowfin.jpg"
-       style="max-width:800px; width:100%; height:auto; border-radius:8px;">
+       style="max-width:300px; width:100%; height:auto; border-radius:8px;">
   <figcaption style="font-size:0.9em; color:#666; margin-top:8px;">
     Rachel climbing down into the Bowfin.
   </figcaption>
@@ -36,7 +36,7 @@ Next explored the various museums on site; and then ended with a tour of the Bow
 
 <figure style="text-align:center; margin:30px 0;">
   <img src="/static/images/travel/hawaii26/part2/bowfin_bunks.jpg"
-       style="max-width:800px; width:100%; height:auto; border-radius:8px;">
+       style="max-width:300px; width:100%; height:auto; border-radius:8px;">
   <figcaption style="font-size:0.9em; color:#666; margin-top:8px;">
     The tight sleeping quarters.
   </figcaption>
@@ -44,7 +44,7 @@ Next explored the various museums on site; and then ended with a tour of the Bow
 
 <figure style="text-align:center; margin:30px 0;">
   <img src="/static/images/travel/hawaii26/part2/bowfin_valves.jpg"
-       style="max-width:800px; width:100%; height:auto; border-radius:8px;">
+       style="max-width:300px; width:100%; height:auto; border-radius:8px;">
   <figcaption style="font-size:0.9em; color:#666; margin-top:8px;">
     Control valves and gauges inside the submarine.
   </figcaption>
