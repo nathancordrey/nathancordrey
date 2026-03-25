@@ -1,7 +1,7 @@
 ---
 title: 'Stolen Pie Crust Recipe'
 date: 2026-03-25
-image: static/images/recipes/secretcake.jpg
+image: static/images/recipes/pie.jpg
 category: Desserts
 tags:
   - pie
