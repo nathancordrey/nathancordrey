@@ -4,7 +4,7 @@ category: April 2026
 date: 2026-04-01
 ---
 
-# Bedside Storage Setup Summary
+# Bedside Home Defense Storage Plan
 
 ## Planned Setup
 
@@ -22,11 +22,11 @@ date: 2026-04-01
 
 A compact pistol that should fit well in a dedicated bedside pistol box.
 
-The preferred version is the **VP9A1 K OR (Optics Ready)**. That keeps the option open for a future red dot, while still using iron sights normally if no optic is installed. HK lists the OR model with a **factory tritium front sight** and a **blacked-out serrated rear**, which matches the sight setup I preferred.
+The preferred version is the **VP9A1 K OR (Optics Ready)**. That keeps the option open for a future red dot, while still using iron sights normally if no optic is installed. HK lists the OR model with a **factory tritium front sight** and a **blacked-out serrated rear**, which matches the preferred sight setup for this plan.
 
 ### Acebeam P16 2.0
 
-This light checked the boxes I cared about:
+This light checked the key boxes for this setup:
 
 - removable battery option
 - works with **2 x CR123A**
@@ -34,7 +34,7 @@ This light checked the boxes I cared about:
 - tactical-style controls
 - more reasonable price than the SureFire options
 
-Using **CR123A primary batteries** avoids keeping a rechargeable lithium-ion cell charging by the bed, which I preferred from a fire-risk standpoint.
+Using **CR123A primary batteries** avoids keeping a rechargeable lithium-ion cell charging by the bed, which helps reduce battery-related fire concerns.
 
 ### Fort Knox Original Pistol Box
 
@@ -96,9 +96,7 @@ Preferred holster direction:
 - consistent orientation in the box
 - bedside-safe use is the priority, not concealment
 
-Recommended holster:
-
-- [C&G OWB Covert for H&K VP9/A1 K](https://www.candgholsters.com/products/hk-vp9-owb-covert-kydex-holster-custom-by-cgholsters)
+Recommended holster: [C&G OWB Covert for H&K VP9/A1 K](https://www.candgholsters.com/products/hk-vp9-owb-covert-kydex-holster-custom-by-cgholsters)
 
 ## Final shopping list
 
@@ -123,5 +121,5 @@ This setup is meant to be:
 Before buying, it would still be smart to double-check:
 
 - the exact holster fit for the **VP9A1 K OR**
-- that the full kit fits the box the way I want
-- local legal requirements for firearm storage in my household
+- that the full kit fits the box as intended
+- local legal requirements and household safety considerations
