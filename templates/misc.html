@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>Misc</h2>
+    <p>Temporary notes, drafts, and shareable pages.</p>
+
+    {% if misc_pages %}
+        <ul>
+        {% for p in misc_pages %}
+            <li>
+                <a href="/{{ p.path }}">{{ p.meta.get('title', p.path) }}</a>
+                {% if p.meta.get('date') %}
+                    - {{ p.meta.get('date') }}
+                {% endif %}
+                {% if p.meta.get('summary') %}
+                    <br>
+                    <small>{{ p.meta.get('summary') }}</small>
+                {% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No misc pages yet.</p>
+    {% endif %}
+{% endblock %}
