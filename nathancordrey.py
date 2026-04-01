@@ -50,6 +50,16 @@ def travel():
             categories.append(t.meta['category'])
     return render_template('travel.html', trips=latest, categories=categories)
 
+@app.route('/misc')
+def misc():
+    misc_pages = [p for p in pages if p.path.startswith('misc')]
+    latest = sorted(
+        misc_pages,
+        reverse=True,
+        key=lambda p: p.meta.get('date', '')
+    )
+    return render_template('misc.html', misc_pages=latest)
+
 @app.route('/<path:path>/')
 @app.route('/<path:path>')
 def page(path):
