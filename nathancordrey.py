@@ -52,7 +52,7 @@ def travel():
 
 @app.route('/misc')
 def misc():
-    misc_pages = [p for p in pages if p.path.startswith('misc')]
+    misc_pages = [p for p in pages if p.path.startswith('misc/')]
     latest = sorted(
         misc_pages,
         reverse=True,
