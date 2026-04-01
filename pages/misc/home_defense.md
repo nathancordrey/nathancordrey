@@ -4,11 +4,11 @@ category: April 2026
 date: 2026-04-01
 ---
 
-# Bedside Storage Setup Summary
+# Home Defense Planning
 
 ## Planned Setup
 
-- **Pistol:** [HK VP9A1 K](https://hk-usa.com/product/vp9a1-k/)
+- **Pistol:** [HK VP9A1 K OR](https://hk-usa.com/product/vp9a1-k/) with factory **tritium front sight** and **blacked-out serrated rear**
 - **Light:** [Acebeam P16 2.0](https://www.acebeam.com/p16-20-dual-tail-switch-tactical-flashlight-with-three-modes)
 - **Lock box:** [Fort Knox Original Pistol Box](https://www.ftknox.com/product/original-pistol-box/)
 - **Holster:** rigid **Kydex holster** sized for the VP9A1 K, with full trigger coverage
@@ -16,8 +16,10 @@ date: 2026-04-01
 
 ## Why this setup makes sense
 
-### HK VP9A1 K
+### HK VP9A1 K OR
 A compact pistol that should fit well in a dedicated bedside pistol box.
+
+The preferred version is the **VP9A1 K OR (Optics Ready)**. That keeps the option open for a future red dot, while still using iron sights normally if no optic is installed. HK lists the OR model with a **factory tritium front sight** and a **blacked-out serrated rear**, which matches the sight setup you preferred.
 
 ### Acebeam P16 2.0
 This light checked the boxes you cared about:
@@ -74,7 +76,7 @@ For the **Acebeam P16 2.0**:
 
 ## Final shopping list
 
-- [HK VP9A1 K](https://hk-usa.com/product/vp9a1-k/)
+- [HK VP9A1 K OR](https://hk-usa.com/product/vp9a1-k/) with factory tritium front / black rear
 - [Acebeam P16 2.0](https://www.acebeam.com/p16-20-dual-tail-switch-tactical-flashlight-with-three-modes)
 - [Fort Knox Original Pistol Box](https://www.ftknox.com/product/original-pistol-box/)
 - Kydex holster for VP9A1 K
