@@ -19,12 +19,15 @@ date: 2026-04-01
 ## Why this setup makes sense
 
 ### HK VP9A1 K OR
+
 A compact pistol that should fit well in a dedicated bedside pistol box.
 
 The preferred version is the **VP9A1 K OR (Optics Ready)**. That keeps the option open for a future red dot, while still using iron sights normally if no optic is installed. HK lists the OR model with a **factory tritium front sight** and a **blacked-out serrated rear**, which matches the sight setup I preferred.
 
 ### Acebeam P16 2.0
+
 This light checked the boxes I cared about:
+
 - removable battery option
 - works with **2 x CR123A**
 - includes **strobe**
@@ -34,7 +37,9 @@ This light checked the boxes I cared about:
 Using **CR123A primary batteries** avoids keeping a rechargeable lithium-ion cell charging by the bed, which I preferred from a fire-risk standpoint.
 
 ### Fort Knox Original Pistol Box
+
 This seemed like the best fit because:
+
 - **Simplex mechanical lock**
 - no electronics or batteries in the lock
 - quick-access design
@@ -50,6 +55,7 @@ This seemed like the best fit because:
 - **Nothing loose**
 
 The goal is to keep:
+
 - the **trigger fully covered**
 - the pistol oriented consistently
 - the **loaded magazine separate** from the pistol
@@ -59,11 +65,13 @@ The goal is to keep:
 ## Notes on the Simplex lock
 
 The Fort Knox box uses a **mechanical Simplex push-button lock**:
+
 1. reset / clear the lock
 2. enter the button combination
 3. turn the knob to open
 
 Why it appealed here:
+
 - no batteries
 - no electronics
 - can be operated by feel in the dark
@@ -72,6 +80,7 @@ Why it appealed here:
 ## Battery plan
 
 For the **Acebeam P16 2.0**:
+
 - run **2 x CR123A primary batteries** in the light
 - keep **one spare pair** only
 - store the spare pair in a **plastic battery case**
@@ -81,12 +90,14 @@ For the **Acebeam P16 2.0**:
 ## Holster note
 
 Preferred holster direction:
+
 - rigid **Kydex**
 - full trigger coverage
 - consistent orientation in the box
 - bedside-safe use is the priority, not concealment
 
 Recommended holster:
+
 - [C&G OWB Covert for H&K VP9/A1 K](https://www.candgholsters.com/products/hk-vp9-owb-covert-kydex-holster-custom-by-cgholsters)
 
 ## Final shopping list
@@ -103,12 +114,14 @@ Recommended holster:
 ## Practical note
 
 This setup is meant to be:
+
 - organized
 - quick to access
 - safely stored
 - low-maintenance from a battery perspective
 
 Before buying, it would still be smart to double-check:
+
 - the exact holster fit for the **VP9A1 K OR**
 - that the full kit fits the box the way I want
 - local legal requirements for firearm storage in my household
