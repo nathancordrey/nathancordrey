@@ -51,6 +51,7 @@ def travel():
     return render_template('travel.html', trips=latest, categories=categories)
 
 @app.route('/misc')
+@app.route('/misc')
 def misc():
     misc_pages = [p for p in pages if p.path.startswith('misc/')]
     latest = sorted(
