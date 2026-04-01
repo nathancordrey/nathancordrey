@@ -2,7 +2,6 @@
 title: Home Defense Planning
 category: April 2026
 date: 2026-04-01
-img_folder: static/images/travel/florida25/part1/
 ---
 
 # Bedside Storage Setup Summary
