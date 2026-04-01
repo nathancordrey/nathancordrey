@@ -118,8 +118,6 @@ This setup is meant to be:
 - safely stored
 - low-maintenance from a battery perspective
 
-Before buying, it would still be smart to double-check:
+## Final note
 
-- the exact holster fit for the **VP9A1 K OR**
-- that the full kit fits the box as intended
-- local legal requirements and household safety considerations
+This setup appears to fit together well on paper: the holster is model-specific, the pistol and accessories should fit the Fort Knox box, and the storage layout is intentionally conservative with an empty chamber, separate loaded magazine, and locked storage. The main remaining consideration is making sure the setup matches household needs and local safe-storage requirements.
