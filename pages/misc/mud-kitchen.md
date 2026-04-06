@@ -15,7 +15,7 @@ image: static/images/misc/mud-kitchen-render.png
   />
 </p>
 
-A custom outdoor mud kitchen sized for two kids to use at the same time. The goal is a simple, sturdy build with a cedar frame, an Accoya benchtop, two basin zones, and open storage below.
+A custom outdoor mud kitchen sized for two kids to use at the same time. The design keeps things simple: a cedar frame, an Accoya benchtop, two basin zones, an upper shelf, and open slatted storage below.
 
 ## Specs
 
@@ -29,57 +29,57 @@ A custom outdoor mud kitchen sized for two kids to use at the same time. The goa
 - **Upper section:** shelf only, no backsplash
 - **Frame:** 6 vertical supports
 
-## Material Plan
+## Materials
 
 **Cedar**
-- legs and uprights
-- aprons and framing
-- lower shelf frame
-- lower shelf slats
-- top shelf
-- shelf supports/cleats
+- 4x4 posts/uprights
+- 2x4 rails and framing
+- 1x4 lower shelf slats
+- 1x8 top shelf
 
 **Accoya**
 - main benchtop only
+
+## Construction Approach
+
+The frame uses a straightforward **butt-joint build**.
+
+- 2x4 rails butt into the 4x4 posts
+- front and back counter rails are **continuous 60" boards**
+- side rails connect front to back
+- center support is tied into the middle of the frame
+- main joints are fastened with exterior structural screws
+
+This is the simplest and most practical approach for the build.
 
 ## First-Pass Cut List
 
 ### Cedar
 
-**Legs / uprights**
+**4x4 posts / uprights**
 - 2 pcs @ 39" rear outer uprights
 - 2 pcs @ 25" front outer legs
 - 1 pc @ 39" rear center upright
 - 1 pc @ 25" front center leg
 
-Suggested stock: **4x4 cedar**
+**2x4 counter frame**
+- 2 pcs @ 60" front/back rails
+- 2 pcs @ 21" side rails
+- 1–2 pcs @ 21" center cross members
 
-**Counter frame**
-- 2 pcs @ 60" front/back aprons
-- 4 pcs @ 21" side/internal cross members
+**2x4 lower shelf frame**
+- 2 pcs @ 60" front/back rails
+- 2 pcs @ 21" side rails
+- 1–2 pcs @ 21" center cross members
 
-Suggested stock: **2x4 cedar**
-
-**Lower shelf frame**
-- 2 pcs @ 60"
-- 4 pcs @ 21"
-
-Suggested stock: **2x4 cedar**
-
-**Lower shelf slats**
+**1x4 lower shelf slats**
 - 10 pcs @ 21" left bay
 - 10 pcs @ 21" right bay
-
-Suggested stock: **1x4 cedar**
 
 **Top shelf**
 - 1 pc @ 60" x 7"
 
 Suggested stock: **1x8 cedar**
-
-**Top shelf supports**
-- 2 outer side supports
-- optional center support/cleat
 
 ### Accoya
 
@@ -88,7 +88,7 @@ Suggested stock: **1x8 cedar**
 
 ## Basin Notes
 
-The exact cutout size can wait until the bins or pans are chosen. For now, the layout assumes two basin zones at 14" each.
+The exact sink cutouts can wait until the bins or pans are chosen. For now, the layout assumes two 14" basin zones.
 
 Good options:
 - stainless hotel pans
@@ -97,7 +97,7 @@ Good options:
 
 ## Hardware
 
-- stainless exterior screws
+- stainless or exterior-coated structural screws
 - 3–4 utility hooks under the upper shelf
 - 2 drop-in sink bins or pans
 - optional exterior-safe finish
@@ -109,17 +109,18 @@ Good options:
 - no canopy
 - no backsplash
 - open slatted lower shelf for drainage and easy cleanup
+- upper shelf centered on the rear uprights
 
 ## Vendor Quote Summary
 
 Request pricing for:
 
-- **Western Red Cedar** for the frame, shelf, and lower slatted storage
+- **Western Red Cedar** for the posts, rails, shelf, and slatted lower storage
 - **Accoya** for one 60" x 24" benchtop
 
-Rough member sizes:
-- cedar 4x4 legs/uprights/supports
-- cedar 2x4 framing
-- cedar 1x4 shelf slats
-- cedar board for 60" x 7" top shelf
+### Rough member sizes
+- cedar 4x4 posts/uprights
+- cedar 2x4 rails and framing
+- cedar 1x4 lower shelf slats
+- cedar 1x8 for 60" x 7" top shelf
 - Accoya for one 60" x 24" top
