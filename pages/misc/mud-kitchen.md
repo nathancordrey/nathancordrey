@@ -2,6 +2,7 @@
 title: Mud Kitchen Design
 category: April 2026
 date: 2026-04-06
+image: static/images/misc/mud-kitchen-render.png
 ---
 
 # Cedar Mud Kitchen Build Guide
