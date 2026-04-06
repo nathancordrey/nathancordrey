@@ -7,7 +7,7 @@ image: static/images/misc/mud-kitchen-render.png
 
 # Cedar Mud Kitchen Build Guide
 
-![Cedar mud kitchen concept render](static/images/misc/mud-kitchen-render.png)
+![Cedar mud kitchen concept render](/static/images/misc/mud-kitchen-render.png)
 
 A simple, durable outdoor mud kitchen using a **cedar frame** and an **acetylated wood benchtop**.
 
