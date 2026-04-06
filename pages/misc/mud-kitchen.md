@@ -13,7 +13,9 @@ image: static/images/misc/mud-kitchen-render.png
     style="width:100%; height:auto; border-radius:8px;"
     alt="Mud Kitchen Render"
   />
->
+</figure>
+
+
 
 A simple, durable outdoor mud kitchen using a **cedar frame** and an **acetylated wood benchtop**.
 
