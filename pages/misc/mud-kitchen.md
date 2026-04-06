@@ -15,7 +15,9 @@ image: static/images/misc/mud-kitchen-render.png
   />
 </figure>
 
-
+<p style="text-align:center;">
+  <img src="/static/img/misc/mud-kitchen-header.png" alt="Cedar mud kitchen concept" style="width:80%; max-width:700px; height:auto;">
+</p>
 
 A simple, durable outdoor mud kitchen using a **cedar frame** and an **acetylated wood benchtop**.
 
