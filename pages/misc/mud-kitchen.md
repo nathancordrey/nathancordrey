@@ -9,7 +9,7 @@ image: static/images/misc/mud-kitchen-render.png
 
 <p style="text-align:center;">
   <img
-    src="/static/images/misc/mud-kitchen-render.png"
+    src="/static/images/misc/mud-kitchen-dimensions.png"
     style="width:600px; max-width:70%; height:auto; border-radius:8px;"
     alt="Mud Kitchen Render"
   />
