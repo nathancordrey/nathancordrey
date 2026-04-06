@@ -17,7 +17,7 @@ image: static/images/misc/mud-kitchen-render.png
 
 This is the updated plan for a custom outdoor mud kitchen sized for two kids to use at the same time. The design is meant to feel more like a small outdoor workbench or potting bench than a toy kitchen: simple, sturdy, roomy, and durable enough to live outside.
 
-The build uses a **cedar frame** with an **Accoya benchtop**, keeping the premium material where it matters most while using cedar for the structure, shelf, backsplash, and upper shelf.
+The build uses a **cedar frame** with an **Accoya benchtop**, keeping the premium material where it matters most while using cedar for the structure, shelf, and lower slatted storage.
 
 ## Final Design
 
@@ -25,11 +25,11 @@ The build uses a **cedar frame** with an **Accoya benchtop**, keeping the premiu
 - **Counter height:** 25"
 - **Main structure:** Western Red Cedar
 - **Main benchtop:** Accoya
-- **Backsplash:** low cedar backsplash
 - **Upper shelf:** full-width shallow cedar shelf
 - **Lower shelf:** open slatted cedar shelf
 - **Basins:** two drop-in sink/bin openings
 - **Work area:** shared center workspace between the basins
+- **Upper section style:** open, with shelf only and no backsplash
 
 This version is sized with two kids in mind and should give both sides of the station a natural place to play without crowding.
 
@@ -45,10 +45,9 @@ This version is sized with two kids in mind and should give both sides of the st
 - **Benchtop size:** 60" x 24"
 
 ### Upper Section
-- **Backsplash height above counter:** 4"
-- **Open gap above backsplash:** 9"
 - **Top shelf width:** 60"
 - **Top shelf depth:** 7"
+- **Open space from countertop to shelf:** approximately 13"
 
 ### Lower Section
 - **Lower shelf starts:** 6" above ground
@@ -65,7 +64,7 @@ This layout keeps the station balanced and gives each child a side, with a share
 
 The layout is intentionally simple and open.
 
-A shallow full-width top shelf sits above the work surface, with an open gap below to keep the design feeling light. A low backsplash helps define the counter area without making the piece feel bulky. The lower shelf stays fully open, making it easier to clean and giving flexibility for baskets, buckets, or bins later.
+A shallow full-width top shelf sits above the work surface, supported by the rear uprights. The space between the countertop and shelf stays open to keep the design feeling light and uncluttered. The lower shelf stays fully open, making it easier to clean and giving flexibility for baskets, buckets, or bins later.
 
 The benchtop is divided into three zones:
 - one basin on the left
@@ -83,7 +82,6 @@ Use cedar for:
 - center supports
 - lower shelf frame
 - lower shelf slats
-- backsplash
 - top shelf
 - shelf supports or cleats
 
@@ -138,11 +136,6 @@ Suggested stock: **1x4 cedar**
 
 > Slatted shelf layout can be adjusted based on final spacing and how continuous or open you want each bay to feel.
 
-#### Backsplash
-- 1 pc @ **60" x 4"**
-
-Suggested stock: **1x6 cedar**, ripped down if needed
-
 #### Top Shelf
 - 1 pc @ **60" x 7"**
 
@@ -190,6 +183,7 @@ The design works best if it stays simple:
 - no enclosed storage
 - no canopy
 - no decorative burners or toy-kitchen details
+- no backsplash
 
 That keeps the build cleaner, sturdier, and better suited for outdoor use.
 
@@ -199,14 +193,13 @@ The lower shelf should remain open and slatted for better drainage and easier cl
 
 For pricing, the request is:
 
-- **Western Red Cedar** for the frame, backsplash, top shelf, and lower shelf
+- **Western Red Cedar** for the frame, top shelf, and lower shelf
 - **Accoya** for one 60" x 24" benchtop
 
 ### Rough member sizes
 - cedar 4x4 legs/uprights/supports
 - cedar 2x4 framing
 - cedar 1x4 shelf slats
-- cedar board for 60" x 4" backsplash
 - cedar board for 60" x 7" top shelf
 - Accoya for one 60" x 24" top
 
@@ -214,7 +207,9 @@ For pricing, the request is:
 
 This version feels like the best balance for two children using it together.
 
-Compared with the earlier 48" concept, the added width should make it easier for both kids to have their own zone without losing a shared central workspace. The second basin adds flexibility and should make the station more fun and more usable. The cedar-and-Accoya material plan keeps the build premium where it matters while avoiding the cost of making the entire piece from Accoya.
+Compared with the earlier 48" concept, the added width should make it easier for both kids to have their own zone without losing a shared central workspace. The second basin adds flexibility and should make the station more fun and more usable. Removing the backsplash makes the overall design cleaner, simpler, and a little more elegant.
+
+The cedar-and-Accoya material plan keeps the build premium where it matters while avoiding the cost of making the entire piece from Accoya.
 
 ## Current Preferred Version
 
@@ -223,12 +218,11 @@ Compared with the earlier 48" concept, the added width should make it easier for
 - **25" counter height**
 - **cedar frame**
 - **Accoya benchtop**
-- **4" backsplash**
-- **9" open gap**
 - **60" x 7" upper shelf**
 - **open slatted lower shelf**
 - **two 14" basin zones**
 - **32" center work zone**
 - **6-leg frame**
+- **open upper section, no backsplash**
 
 This is the version to price out and refine into a final board list and build sequence.
