@@ -9,7 +9,7 @@ image: static/images/misc/mud-kitchen-render.png
 
 <figure style="float:right; width:320px; max-width:45%; margin:0 0 12px 16px; text-align:center;">
   <img
-    src="/static/images/misc/mud-kichen-render.png"
+    src="/static/images/misc/mud-kitchen-render.png"
     style="width:100%; height:auto; border-radius:8px;"
     alt="Mud Kitchen Render"
   />
