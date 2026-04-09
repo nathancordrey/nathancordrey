@@ -1,3 +1,11 @@
+---
+title: Puppy Training
+category: April 2026
+date: 2026-04-09
+image: static/images/misc/puppy.jpg
+---
+
+
 # Puppy Training Plan
 
 A simple, positive-reinforcement puppy plan to use alongside class.
