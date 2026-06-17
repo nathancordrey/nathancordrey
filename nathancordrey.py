@@ -1,6 +1,8 @@
 from flask import Flask, render_template
 from flask_flatpages import FlatPages
 import os
+import json
+from collections import OrderedDict
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -10,6 +12,10 @@ app.config['FLATPAGES_EXTENSION'] = '.md'
 pages = FlatPages(app)
 
 recipes=[]
+
+# Resolve the worldcup data path relative to this file, so it works regardless
+# of what working directory gunicorn/systemd launches the app from on Linode.
+_WORLDCUP_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'worldcup.json')
 
 @app.route('/')
 def index():
@@ -60,6 +66,84 @@ def misc():
         key=lambda p: p.meta.get('date', '')
     )
     return render_template('misc.html', misc_pages=latest)
+
+
+@app.route('/worldcup')
+def worldcup():
+    with open(_WORLDCUP_JSON) as f:
+        data = json.load(f)
+
+    scoring = data.get('scoring', {'correct_winner': 1, 'exact_score_bonus': 2})
+    friends = data['friends']
+    games = data['games']
+
+    # Initialize per-friend score totals
+    scores = {f: {'total': 0, 'correct_winner': 0, 'exact_score': 0} for f in friends}
+
+    # Process each game: determine actual winner, score predictions
+    for game in games:
+        result = game.get('result')
+        game['result'] = result          # normalize: ensures key always exists (None if unplayed)
+        game['actual_winner'] = None
+        game['friend_results'] = {}
+
+        if result is not None:
+            hs = result['home_score']
+            aws = result['away_score']
+
+            if hs > aws:
+                game['actual_winner'] = 'home'
+            elif hs < aws:
+                game['actual_winner'] = 'away'
+            else:
+                game['actual_winner'] = 'draw'
+
+            for friend in friends:
+                pred = game['predictions'].get(friend, {})
+                pts = 0
+                winner_correct = False
+                exact = False
+
+                if pred.get('winner') == game['actual_winner']:
+                    winner_correct = True
+                    pts += scoring['correct_winner']
+                    if (pred.get('home_score') == hs and
+                            pred.get('away_score') == aws):
+                        exact = True
+                        pts += scoring['exact_score_bonus']
+
+                scores[friend]['total'] += pts
+                scores[friend]['correct_winner'] += int(winner_correct)
+                scores[friend]['exact_score'] += int(exact)
+                game['friend_results'][friend] = {
+                    'winner_correct': winner_correct,
+                    'exact_score': exact,
+                    'points': pts,
+                    'pred': pred
+                }
+
+    # Sort leaderboard by total points
+    leaderboard = sorted(
+        [{'name': f, **scores[f]} for f in friends],
+        key=lambda x: x['total'],
+        reverse=True
+    )
+
+    # Group games by stage (preserving order they appear in JSON)
+    stages_dict = OrderedDict()
+    for game in games:
+        stage = game.get('stage', 'Other')
+        if stage not in stages_dict:
+            stages_dict[stage] = []
+        stages_dict[stage].append(game)
+    stages = [{'name': k, 'games': v} for k, v in stages_dict.items()]
+
+    return render_template('worldcup.html',
+                           data=data,
+                           leaderboard=leaderboard,
+                           stages=stages,
+                           scoring=scoring)
+
 
 @app.route('/<path:path>/')
 @app.route('/<path:path>')
