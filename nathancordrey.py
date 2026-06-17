@@ -55,7 +55,7 @@ def travel():
         else:
             categories.append(t.meta['category'])
     return render_template('travel.html', trips=latest, categories=categories)
-
+'''
 @app.route('/misc')
 @app.route('/misc')
 def misc():
@@ -66,7 +66,7 @@ def misc():
         key=lambda p: p.meta.get('date', '')
     )
     return render_template('misc.html', misc_pages=latest)
-
+'''
 
 @app.route('/worldcup')
 def worldcup():
