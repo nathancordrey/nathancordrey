@@ -3,14 +3,11 @@ from flask_flatpages import FlatPages
 import os
 import json
 from collections import OrderedDict
-
 app = Flask(__name__)
 app.config.from_object(__name__)
-
 #Initialize flatpages
 app.config['FLATPAGES_EXTENSION'] = '.md'
 pages = FlatPages(app)
-
 recipes=[]
 
 # Resolve the worldcup data path relative to this file, so it works regardless
@@ -21,7 +18,6 @@ _WORLDCUP_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'
 def index():
     page = pages.get_or_404('index')
     return render_template('page.html', page=page)
-
 @app.route('/recipes')
 def recipes():
     recipes = (p for p in pages if 'date' in p.meta and p.path[:6]=='recipe')
@@ -38,7 +34,6 @@ def recipes():
         else:
             categories.append(r.meta['category'])
     return render_template('recipes.html', recipes=latest, categories=categories, blank=blank)
-
 @app.route('/travel')
 def travel():
     trips = (p for p in pages if 'date' in p.meta and p.path[:6]=='travel')
@@ -55,7 +50,6 @@ def travel():
         else:
             categories.append(t.meta['category'])
     return render_template('travel.html', trips=latest, categories=categories)
-'''
 @app.route('/misc')
 @app.route('/misc')
 def misc():
@@ -66,7 +60,6 @@ def misc():
         key=lambda p: p.meta.get('date', '')
     )
     return render_template('misc.html', misc_pages=latest)
-'''
 
 @app.route('/worldcup')
 def worldcup():
@@ -129,21 +122,41 @@ def worldcup():
         reverse=True
     )
 
-    # Group games by stage (preserving order they appear in JSON)
-    stages_dict = OrderedDict()
+    # Canonical tournament order for the stage sections. Stages not listed
+    # here (e.g. a typo or a custom label) fall to the end, alphabetically.
+    STAGE_ORDER = [
+        'Group Stage: Matchday 1',
+        'Group Stage: Matchday 2',
+        'Group Stage: Matchday 3',
+        'Round of 32',
+        'Round of 16',
+        'Round of 8',
+        'Round of 4',
+        'Final',
+    ]
+
+    def stage_rank(name):
+        # Known stages rank 0..N in tournament order; unknown labels get -1 so
+        # that, once the order is reversed for display, they fall to the bottom.
+        return STAGE_ORDER.index(name) if name in STAGE_ORDER else -1
+
+    # Group games by stage, then show most recent first: the latest round on
+    # top, and the newest games on top within each round. Games can be added
+    # to the JSON in any order and still sort correctly.
+    stages_dict = {}
     for game in games:
-        stage = game.get('stage', 'Other')
-        if stage not in stages_dict:
-            stages_dict[stage] = []
-        stages_dict[stage].append(game)
-    stages = [{'name': k, 'games': v} for k, v in stages_dict.items()]
+        stages_dict.setdefault(game.get('stage', 'Other'), []).append(game)
+    stages = [
+        {'name': name, 'games': sorted(grp, key=lambda g: g.get('date', ''), reverse=True)}
+        for name, grp in sorted(stages_dict.items(),
+                                key=lambda kv: stage_rank(kv[0]), reverse=True)
+    ]
 
     return render_template('worldcup.html',
                            data=data,
                            leaderboard=leaderboard,
                            stages=stages,
                            scoring=scoring)
-
 
 @app.route('/<path:path>/')
 @app.route('/<path:path>')
@@ -158,8 +171,5 @@ def page(path):
     else: 
         image_urls=[]
     return render_template('page.html', page=page, images=image_urls)
-
-
-
 if __name__ == '__main__':
     app.run()
