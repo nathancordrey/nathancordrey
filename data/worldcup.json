@@ -4,7 +4,7 @@
   "scoring": { "correct_winner": 1, "exact_score_bonus": 2 },
   "games": [
     {
-      "id": 1, "stage": "Group Stage", "group": "A",
+      "id": 1, "stage": "Group Stage: Matchday 1", "group": "A",
       "home": "South Korea", "away": "Czechia", "date": "2026-06-11",
       "result": { "home_score": 2, "away_score": 1 },
       "predictions": {
@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": 2, "stage": "Group Stage", "group": "B",
+      "id": 2, "stage": "Group Stage: Matchday 1", "group": "B",
       "home": "Canada", "away": "Bosnia and Herzegovina", "date": "2026-06-12",
       "result": { "home_score": 1, "away_score": 1 },
       "predictions": {
@@ -27,7 +27,7 @@
       }
     },
     {
-      "id": 3, "stage": "Group Stage", "group": "D",
+      "id": 3, "stage": "Group Stage: Matchday 1", "group": "D",
       "home": "USA", "away": "Paraguay", "date": "2026-06-12",
       "result": { "home_score": 4, "away_score": 1 },
       "predictions": {
@@ -41,7 +41,7 @@
       }
     },
     {
-      "id": 4, "stage": "Group Stage", "group": "B",
+      "id": 4, "stage": "Group Stage: Matchday 1", "group": "B",
       "home": "Qatar", "away": "Switzerland", "date": "2026-06-13",
       "result": { "home_score": 1, "away_score": 1 },
       "predictions": {
@@ -50,7 +50,7 @@
       }
     },
     {
-      "id": 5, "stage": "Group Stage", "group": "C",
+      "id": 5, "stage": "Group Stage: Matchday 1", "group": "C",
       "home": "Brazil", "away": "Morocco", "date": "2026-06-13",
       "result": { "home_score": 1, "away_score": 1 },
       "predictions": {
@@ -62,7 +62,7 @@
       }
     },
     {
-      "id": 6, "stage": "Group Stage", "group": "C",
+      "id": 6, "stage": "Group Stage: Matchday 1", "group": "C",
       "home": "Scotland", "away": "Haiti", "date": "2026-06-13",
       "result": { "home_score": 1, "away_score": 0 },
       "predictions": {
@@ -75,7 +75,7 @@
       }
     },
     {
-      "id": 7, "stage": "Group Stage", "group": "H",
+      "id": 7, "stage": "Group Stage: Matchday 1", "group": "H",
       "home": "Spain", "away": "Cape Verde", "date": "2026-06-15",
       "result": { "home_score": 0, "away_score": 0 },
       "predictions": {
@@ -87,7 +87,7 @@
       }
     },
     {
-      "id": 8, "stage": "Group Stage", "group": "G",
+      "id": 8, "stage": "Group Stage: Matchday 1", "group": "G",
       "home": "Belgium", "away": "Egypt", "date": "2026-06-15",
       "result": { "home_score": 1, "away_score": 1 },
       "predictions": {
@@ -99,7 +99,7 @@
       }
     },
     {
-      "id": 9, "stage": "Group Stage", "group": "H",
+      "id": 9, "stage": "Group Stage: Matchday 1", "group": "H",
       "home": "Saudi Arabia", "away": "Uruguay", "date": "2026-06-15",
       "result": { "home_score": 1, "away_score": 1 },
       "predictions": {
@@ -110,7 +110,7 @@
       }
     },
     {
-      "id": 10, "stage": "Group Stage", "group": "I",
+      "id": 10, "stage": "Group Stage: Matchday 1", "group": "I",
       "home": "France", "away": "Senegal", "date": "2026-06-16",
       "result": { "home_score": 3, "away_score": 1 },
       "predictions": {
@@ -124,7 +124,7 @@
       }
     },
     {
-      "id": 11, "stage": "Group Stage", "group": "I",
+      "id": 11, "stage": "Group Stage: Matchday 1", "group": "I",
       "home": "Iraq", "away": "Norway", "date": "2026-06-16",
       "result": { "home_score": 1, "away_score": 4 },
       "predictions": {
@@ -137,7 +137,7 @@
       }
     },
     {
-      "id": 12, "stage": "Group Stage", "group": "J",
+      "id": 12, "stage": "Group Stage: Matchday 1", "group": "J",
       "home": "Argentina", "away": "Algeria", "date": "2026-06-16",
       "result": { "home_score": 3, "away_score": 0 },
       "predictions": {
@@ -146,7 +146,7 @@
       }
     },
     {
-      "id": 13, "stage": "Group Stage", "group": "K",
+      "id": 13, "stage": "Group Stage: Matchday 1", "group": "K",
       "home": "Portugal", "away": "DR Congo", "date": "2026-06-17",
       "result": { "home_score": 1, "away_score": 1 },
       "predictions": {
@@ -157,9 +157,9 @@
       }
     },
     {
-      "id": 14, "stage": "Group Stage", "group": "L",
+      "id": 14, "stage": "Group Stage: Matchday 1", "group": "L",
       "home": "England", "away": "Croatia", "date": "2026-06-17",
-      "result": null,
+      "result": { "home_score": 4, "away_score": 2 },
       "predictions": {
         "Clever": { "winner": "draw", "home_score": 1, "away_score": 1 },
         "Shivan": { "winner": "home", "home_score": 1, "away_score": 0 },
