@@ -1,6 +1,6 @@
 {
   "title": "World Cup 2026",
-  "friends": ["Grant", "Peter", "Shivan", "Chris", "Ricky", "Woody", "Dino", "Clever", "Vinay"],
+  "friends": ["Grant", "Peter", "Shivan", "Chris", "Ricky", "Woody", "Dino", "Clever", "Vinay", "Nate"],
   "scoring": { "correct_winner": 1, "exact_score_bonus": 2 },
   "games": [
     {
@@ -9,7 +9,8 @@
       "result": { "home_score": 2, "away_score": 1 },
       "predictions": {
         "Chris": { "winner": "home", "home_score": 2, "away_score": 1 },
-        "Grant": { "winner": "away", "home_score": 0, "away_score": 1 }
+        "Grant": { "winner": "away", "home_score": 0, "away_score": 1 },
+        "Nate":  { "winner": "draw", "home_score": 1, "away_score": 1 }
       }
     },
     {
@@ -35,7 +36,8 @@
         "Grant":  { "winner": "home", "home_score": 3, "away_score": 1 },
         "Dino":   { "winner": "draw", "home_score": 1, "away_score": 1 },
         "Peter":  { "winner": "home", "home_score": 2, "away_score": 0 },
-        "Woody":  { "winner": "home", "home_score": 1, "away_score": 0 }
+        "Woody":  { "winner": "home", "home_score": 1, "away_score": 0 },
+        "Nate":   { "winner": "home", "home_score": 2, "away_score": 0 }
       }
     },
     {
@@ -117,7 +119,8 @@
         "Clever": { "winner": "home", "home_score": 2, "away_score": 0 },
         "Grant":  { "winner": "draw", "home_score": 1, "away_score": 1 },
         "Peter":  { "winner": "home", "home_score": 2, "away_score": 0 },
-        "Dino":   { "winner": "home", "home_score": 1, "away_score": 0 }
+        "Dino":   { "winner": "home", "home_score": 1, "away_score": 0 },
+        "Nate":   { "winner": "home", "home_score": 2, "away_score": 0 }
       }
     },
     {
