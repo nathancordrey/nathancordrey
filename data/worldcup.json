@@ -1,0 +1,58 @@
+{
+  "title": "World Cup 2026",
+  "friends": ["Alex", "Sam", "Jordan"],
+  "scoring": {
+    "correct_winner": 1,
+    "exact_score_bonus": 2
+  },
+  "games": [
+    {
+      "id": 1,
+      "stage": "Group Stage",
+      "group": "A",
+      "home": "Mexico",
+      "away": "USA",
+      "date": "2026-06-14",
+      "result": {
+        "home_score": 1,
+        "away_score": 2
+      },
+      "predictions": {
+        "Alex": { "winner": "away", "home_score": 0, "away_score": 2 },
+        "Sam":  { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Jordan": { "winner": "away", "home_score": 1, "away_score": 2 }
+      }
+    },
+    {
+      "id": 2,
+      "stage": "Group Stage",
+      "group": "A",
+      "home": "Canada",
+      "away": "Morocco",
+      "date": "2026-06-15",
+      "result": {
+        "home_score": 0,
+        "away_score": 0
+      },
+      "predictions": {
+        "Alex": { "winner": "home", "home_score": 2, "away_score": 0 },
+        "Sam":  { "winner": "draw", "home_score": 0, "away_score": 0 },
+        "Jordan": { "winner": "away", "home_score": 1, "away_score": 2 }
+      }
+    },
+    {
+      "id": 3,
+      "stage": "Group Stage",
+      "group": "B",
+      "home": "England",
+      "away": "Argentina",
+      "date": "2026-06-20",
+      "result": null,
+      "predictions": {
+        "Alex": { "winner": "away", "home_score": 1, "away_score": 2 },
+        "Sam":  { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Jordan": { "winner": "draw", "home_score": 1, "away_score": 1 }
+      }
+    }
+  ]
+}
