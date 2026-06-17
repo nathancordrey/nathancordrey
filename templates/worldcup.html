@@ -163,9 +163,9 @@
       padding: .55rem 1.1rem; background: #fff;
     }
     .preds td { padding: .6rem 1.1rem; font-size: .9rem; border-top: 1px solid #f3f5f2; }
-    .p-name { font-family: var(--disp); font-weight: 600; width: 7rem; }
+    .p-name { font-family: var(--disp); font-weight: 600; width: 9rem; white-space: nowrap; }
     .p-pick { color: #374151; }
-    .p-guess { color: var(--muted); font-family: var(--mono); font-size: .8rem; margin-left: .35rem; }
+    .p-guess { color: var(--ink); font-family: var(--mono); font-weight: 700; font-size: .8rem; margin-left: .4rem; background: #eef1f4; padding: .08rem .35rem; border-radius: 4px; }
 
     .tag {
       display: inline-block; padding: .14rem .5rem; border-radius: 5px;
@@ -270,15 +270,17 @@
           {% set pred = game.predictions.get(friend, {}) %}
           {% set fr = game.friend_results.get(friend, {}) %}
           <tr>
-            <td class="p-name">{{ friend }}</td>
+            <td class="p-name">
+              {{ friend }}
+              {% if pred.home_score is defined and pred.away_score is defined %}
+                <span class="p-guess">{{ pred.home_score }}–{{ pred.away_score }}</span>
+              {% endif %}
+            </td>
             <td class="p-pick">
               {% if pred.winner == 'home' %}{{ game.home }}
               {% elif pred.winner == 'away' %}{{ game.away }}
               {% elif pred.winner == 'draw' %}Draw
               {% else %}—{% endif %}
-              {% if pred.home_score is defined and pred.away_score is defined %}
-                <span class="p-guess">{{ pred.home_score }}–{{ pred.away_score }}</span>
-              {% endif %}
             </td>
             <td>
               {% if game.result is not none %}
