@@ -91,6 +91,9 @@
     .eyebrow-dark:first-of-type { margin-top: 0; }
 
     /* ── Standings table ── */
+    .lb-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 2rem; }
+    .pts-exact { font-size: .8rem; letter-spacing: -2px; }
+    .award { font-size: .95em; margin-left: .15rem; white-space: nowrap; }
     .standings {
       width: 100%; border-collapse: collapse;
       background: var(--card); border: 1px solid var(--line);
@@ -214,28 +217,30 @@
 
     {# ── Standings ── #}
     <div class="eyebrow-dark">Standings</div>
+    <div class="lb-scroll">
     <table class="standings">
       <thead>
         <tr>
           <th class="num">Pos</th>
           <th>Player</th>
-          <th class="num">Winners</th>
-          <th class="num">Exact</th>
+          {% for col in lb_columns %}<th class="num" title="{{ col.full }}">{{ col.short }}</th>{% endfor %}
           <th style="text-align:right">Pts</th>
         </tr>
       </thead>
       <tbody>
         {% for entry in leaderboard %}
-        <tr class="{% if loop.index == 1 and entry.total > 0 %}leader{% endif %}">
+        <tr class="{% if entry.is_leader %}leader{% endif %}">
           <td class="pos">{{ loop.index }}</td>
-          <td class="player">{{ entry.name }}</td>
-          <td class="num stat">{{ entry.correct_winner }}</td>
-          <td class="num stat">{{ entry.exact_score }}</td>
-          <td class="pts">{{ entry.total }}</td>
+          <td class="player">{{ entry.name }}{% if entry.award %} <span class="award">{{ entry.award }}</span>{% endif %}</td>
+          {% for col in lb_columns %}
+          <td class="num stat">{{ entry.by_stage.get(col.full, 0) }}</td>
+          {% endfor %}
+          <td class="pts">{{ entry.total }}{% if entry.exact_score %} <span class="pts-exact">{{ '🎯' * entry.exact_score }}</span>{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {# ── Matches by stage ── #}
     {% for stage in stages %}
