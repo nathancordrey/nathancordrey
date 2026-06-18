@@ -167,7 +167,36 @@
         "Peter":  { "winner": "home", "home_score": 2, "away_score": 1 },
         "Grant":  { "winner": "away", "home_score": 0, "away_score": 1 },
         "Dino":   { "winner": "draw", "home_score": 1, "away_score": 1 },
-        "Vinay":  { "winner": "home", "home_score": 2, "away_score": 1 }
+        "Vinay":  { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Nate":   { "winner": "home", "home_score": 1, "away_score": 0 }
+      }
+    },
+    {
+      "id": 15, "stage": "Group Stage: Matchday 1", "group": "L",
+      "home": "Ghana", "away": "Panama", "date": "2026-06-17",
+      "result": { "home_score": 1, "away_score": 0 },
+      "predictions": {
+        "Peter":  { "winner": "home", "home_score": 2, "away_score": 0 },
+        "Shivan": { "winner": "home", "home_score": 1, "away_score": 0 },
+        "Dino":   { "winner": "away", "home_score": 1, "away_score": 2 },
+        "Clever": { "winner": "home", "home_score": 3, "away_score": 0 },
+        "Grant":  { "winner": "draw", "home_score": 2, "away_score": 2 },
+        "Nate":   { "winner": "draw", "home_score": 1, "away_score": 1 }
+      }
+    },
+    {
+      "id": 16, "stage": "Group Stage: Matchday 2", "group": "A",
+      "home": "Czechia", "away": "South Africa", "date": "2026-06-18",
+      "result": null,
+      "predictions": {
+        "Nate":   { "winner": "draw", "home_score": 1, "away_score": 1 },
+        "Ricky":  { "winner": "away", "home_score": 0, "away_score": 1 },
+        "Grant":  { "winner": "home", "home_score": 2, "away_score": 0 },
+        "Shivan": { "winner": "home", "home_score": 1, "away_score": 0 },
+        "Woody":  { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Peter":  { "winner": "home", "home_score": 2, "away_score": 0 },
+        "Chris":  { "winner": "home", "home_score": 3, "away_score": 0 },
+        "Vinay":  { "winner": "home", "home_score": 2, "away_score": 0 }
       }
     }
   ]
