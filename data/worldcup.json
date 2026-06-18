@@ -187,7 +187,7 @@
     {
       "id": 16, "stage": "Group Stage: Matchday 2", "group": "A",
       "home": "Czechia", "away": "South Africa", "date": "2026-06-18",
-      "result": null,
+      "result": { "home_score": 1, "away_score": 1 },
       "predictions": {
         "Nate":   { "winner": "draw", "home_score": 1, "away_score": 1 },
         "Ricky":  { "winner": "away", "home_score": 0, "away_score": 1 },
