@@ -70,11 +70,13 @@ def worldcup():
     friends = data['friends']
     games = data['games']
 
-    # Initialize per-friend score totals
-    scores = {f: {'total': 0, 'correct_winner': 0, 'exact_score': 0} for f in friends}
+    # Initialize per-friend score totals (by_stage holds points earned in each stage)
+    scores = {f: {'total': 0, 'correct_winner': 0, 'exact_score': 0, 'by_stage': {}}
+              for f in friends}
 
     # Process each game: determine actual winner, score predictions
     for game in games:
+        stage = game.get('stage', 'Other')
         result = game.get('result')
         game['result'] = result          # normalize: ensures key always exists (None if unplayed)
         game['actual_winner'] = None
@@ -108,6 +110,8 @@ def worldcup():
                 scores[friend]['total'] += pts
                 scores[friend]['correct_winner'] += int(winner_correct)
                 scores[friend]['exact_score'] += int(exact)
+                scores[friend]['by_stage'][stage] = \
+                    scores[friend]['by_stage'].get(stage, 0) + pts
                 game['friend_results'][friend] = {
                     'winner_correct': winner_correct,
                     'exact_score': exact,
@@ -115,12 +119,37 @@ def worldcup():
                     'pred': pred
                 }
 
-    # Sort leaderboard by total points
+    _MD1 = 'Group Stage: Matchday 1'
+    _MD2 = 'Group Stage: Matchday 2'
+
+    def md_points(f, stage):
+        return scores[f]['by_stage'].get(stage, 0)
+
+    # ── Matchday 1 awards: trophies for the top 3, a joker for last place. ──
+    # Only awarded once Matchday 1 has actually been played.
+    awards = {}
+    md1_played = any(g.get('result') is not None and g.get('stage') == _MD1
+                     for g in games)
+    if md1_played:
+        ranked = sorted(friends,
+                        key=lambda f: (md_points(f, _MD1), scores[f]['exact_score']),
+                        reverse=True)
+        for medal, f in zip(('🥇', '🥈', '🥉'), ranked[:3]):
+            awards[f] = medal
+        worst = min(md_points(f, _MD1) for f in friends)
+        for f in friends:                       # clown for last place (ties allowed)
+            if md_points(f, _MD1) == worst and f not in awards:
+                awards[f] = '🤡'
+
+    # Live leaderboard is organized by Matchday 2, with total as the tiebreak.
     leaderboard = sorted(
-        [{'name': f, **scores[f]} for f in friends],
-        key=lambda x: x['total'],
+        [{'name': f, 'award': awards.get(f, ''), **scores[f]} for f in friends],
+        key=lambda x: (x['by_stage'].get(_MD2, 0), x['total']),
         reverse=True
     )
+    # Gold-highlight the row leading Matchday 2 (only once MD2 has points).
+    for i, row in enumerate(leaderboard):
+        row['is_leader'] = (i == 0 and row['by_stage'].get(_MD2, 0) > 0)
 
     # Canonical tournament order for the stage sections. Stages not listed
     # here (e.g. a typo or a custom label) fall to the end, alphabetically.
@@ -152,10 +181,29 @@ def worldcup():
                                 key=lambda kv: stage_rank(kv[0]), reverse=True)
     ]
 
+    # Short column labels for the per-stage leaderboard breakdown.
+    STAGE_SHORT = {
+        'Group Stage: Matchday 1': 'MD1',
+        'Group Stage: Matchday 2': 'MD2',
+        'Group Stage: Matchday 3': 'MD3',
+        'Round of 32': 'R32',
+        'Round of 16': 'R16',
+        'Round of 8': 'R8',
+        'Round of 4': 'R4',
+        'Final': 'F',
+    }
+    # Leaderboard columns: the stages that exist, in tournament order (so the
+    # row reads MD1 + MD2 + ... = Pts, left to right).
+    present = set(stages_dict.keys())
+    ordered = [s for s in STAGE_ORDER if s in present]
+    ordered += sorted(present - set(STAGE_ORDER))   # any custom labels last
+    lb_columns = [{'full': s, 'short': STAGE_SHORT.get(s, s)} for s in ordered]
+
     return render_template('worldcup.html',
                            data=data,
                            leaderboard=leaderboard,
                            stages=stages,
+                           lb_columns=lb_columns,
                            scoring=scoring)
 
 @app.route('/<path:path>/')
