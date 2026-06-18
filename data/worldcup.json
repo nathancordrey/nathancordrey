@@ -196,7 +196,47 @@
         "Woody":  { "winner": "home", "home_score": 2, "away_score": 1 },
         "Peter":  { "winner": "home", "home_score": 2, "away_score": 0 },
         "Chris":  { "winner": "home", "home_score": 3, "away_score": 0 },
-        "Vinay":  { "winner": "home", "home_score": 2, "away_score": 0 }
+        "Vinay":  { "winner": "home", "home_score": 2, "away_score": 0 },
+        "Dino":   { "winner": "away", "home_score": 1, "away_score": 2 }
+      }
+    },
+    {
+      "id": 17, "stage": "Group Stage: Matchday 2", "group": "B",
+      "home": "Switzerland", "away": "Bosnia and Herzegovina", "date": "2026-06-18",
+      "result": null,
+      "predictions": {
+        "Chris": { "winner": "draw", "home_score": 1, "away_score": 1 },
+        "Dino":  { "winner": "home", "home_score": 2, "away_score": 0 },
+        "Peter": { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Nate":  { "winner": "home", "home_score": 3, "away_score": 0 },
+        "Grant": { "winner": "home", "home_score": 1, "away_score": 0 },
+        "Ricky": { "winner": "home", "home_score": 2, "away_score": 0 }
+      }
+    },
+    {
+      "id": 18, "stage": "Group Stage: Matchday 2", "group": "B",
+      "home": "Canada", "away": "Qatar", "date": "2026-06-18",
+      "result": null,
+      "predictions": {
+        "Chris": { "winner": "home", "home_score": 3, "away_score": 1 },
+        "Dino":  { "winner": "draw", "home_score": 1, "away_score": 1 },
+        "Peter": { "winner": "home", "home_score": 3, "away_score": 1 },
+        "Nate":  { "winner": "home", "home_score": 2, "away_score": 0 },
+        "Grant": { "winner": "draw", "home_score": 1, "away_score": 1 },
+        "Ricky": { "winner": "home", "home_score": 2, "away_score": 0 }
+      }
+    },
+    {
+      "id": 19, "stage": "Group Stage: Matchday 2", "group": "A",
+      "home": "Mexico", "away": "South Korea", "date": "2026-06-18",
+      "result": null,
+      "predictions": {
+        "Chris": { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Dino":  { "winner": "home", "home_score": 1, "away_score": 0 },
+        "Peter": { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Nate":  { "winner": "draw", "home_score": 1, "away_score": 1 },
+        "Grant": { "winner": "draw", "home_score": 2, "away_score": 2 },
+        "Ricky": { "winner": "home", "home_score": 2, "away_score": 1 }
       }
     }
   ]
