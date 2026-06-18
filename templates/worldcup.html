@@ -223,8 +223,11 @@
         <tr>
           <th class="num">Pos</th>
           <th>Player</th>
-          {% for col in lb_columns %}<th class="num" title="{{ col.full }}">{{ col.short }}</th>{% endfor %}
-          <th style="text-align:right">Pts</th>
+          {% for col in lb_past %}<th class="num" title="{{ col.full }} — points">{{ col.short }}</th>{% endfor %}
+          {% if lb_active %}
+          <th class="num" title="{{ lb_active.full }} — games correct">{{ lb_active.short }} ✓</th>
+          <th class="num" title="{{ lb_active.full }} — exact scores">{{ lb_active.short }} 🎯</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody>
@@ -232,10 +235,13 @@
         <tr class="{% if entry.is_leader %}leader{% endif %}">
           <td class="pos">{{ loop.index }}</td>
           <td class="player">{{ entry.name }}{% if entry.award %} <span class="award">{{ entry.award }}</span>{% endif %}</td>
-          {% for col in lb_columns %}
-          <td class="num stat">{{ entry.by_stage.get(col.full, 0) }}</td>
+          {% for col in lb_past %}
+          <td class="num stat">{{ entry.by_stage.get(col.full, {}).get('points', 0) }}</td>
           {% endfor %}
-          <td class="pts">{{ entry.total }}{% if entry.exact_score %} <span class="pts-exact">{{ '🎯' * entry.exact_score }}</span>{% endif %}</td>
+          {% if lb_active %}
+          <td class="num stat">{{ entry.by_stage.get(lb_active.full, {}).get('winners', 0) }}</td>
+          <td class="num stat">{{ entry.by_stage.get(lb_active.full, {}).get('exact', 0) }}</td>
+          {% endif %}
         </tr>
         {% endfor %}
       </tbody>
