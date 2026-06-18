@@ -94,6 +94,7 @@
     .lb-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 2rem; }
     .pts-exact { font-size: .8rem; letter-spacing: -2px; }
     .award { font-size: .95em; margin-left: .15rem; white-space: nowrap; }
+    .md-pts { font-family: var(--mono); font-weight: 800; font-size: 1.05rem; }
     .standings {
       width: 100%; border-collapse: collapse;
       background: var(--card); border: 1px solid var(--line);
@@ -227,6 +228,7 @@
           {% if lb_active %}
           <th class="num" title="{{ lb_active.full }} — games correct">{{ lb_active.short }} ✓</th>
           <th class="num" title="{{ lb_active.full }} — exact scores">{{ lb_active.short }} 🎯</th>
+          <th class="num" title="{{ lb_active.full }} — points">{{ lb_active.short }} Pts</th>
           {% endif %}
         </tr>
       </thead>
@@ -241,6 +243,7 @@
           {% if lb_active %}
           <td class="num stat">{{ entry.by_stage.get(lb_active.full, {}).get('winners', 0) }}</td>
           <td class="num stat">{{ entry.by_stage.get(lb_active.full, {}).get('exact', 0) }}</td>
+          <td class="num md-pts">{{ entry.by_stage.get(lb_active.full, {}).get('points', 0) }}</td>
           {% endif %}
         </tr>
         {% endfor %}
