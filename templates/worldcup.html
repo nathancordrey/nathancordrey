@@ -95,6 +95,8 @@
     .pts-exact { font-size: .8rem; letter-spacing: -2px; }
     .award { font-size: .95em; margin-left: .15rem; white-space: nowrap; }
     .md-pts { font-family: var(--mono); font-weight: 800; font-size: 1.05rem; }
+    .daily-cell { white-space: nowrap; }
+    .daily-flag { font-size: .9em; }
     .standings {
       width: 100%; border-collapse: collapse;
       background: var(--card); border: 1px solid var(--line);
@@ -224,6 +226,7 @@
         <tr>
           <th class="num">Pos</th>
           <th>Player</th>
+          {% if daily_label %}<th class="num" title="Points on {{ daily_label }} — daily wager">{{ daily_label }} 💵</th>{% endif %}
           {% for col in lb_past %}<th class="num" title="{{ col.full }} — points">{{ col.short }}</th>{% endfor %}
           {% if lb_active %}
           <th class="num" title="{{ lb_active.full }} — games correct">{{ lb_active.short }} ✓</th>
@@ -237,6 +240,7 @@
         <tr class="{% if entry.is_leader %}leader{% endif %}">
           <td class="pos">{{ loop.index }}</td>
           <td class="player">{{ entry.name }}{% if entry.award %} <span class="award">{{ entry.award }}</span>{% endif %}</td>
+          {% if daily_label %}<td class="num stat daily-cell">{{ entry.daily }}{% if entry.daily_win %} <span class="daily-flag">💰</span>{% endif %}</td>{% endif %}
           {% for col in lb_past %}
           <td class="num stat">{{ entry.by_stage.get(col.full, {}).get('points', 0) }}</td>
           {% endfor %}
