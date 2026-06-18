@@ -2,6 +2,7 @@ from flask import Flask, render_template
 from flask_flatpages import FlatPages
 import os
 import json
+from datetime import date
 from collections import OrderedDict
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -205,12 +206,44 @@ def worldcup():
     for i, row in enumerate(leaderboard):
         row['is_leader'] = (i == 0 and active_points(row) > 0)
 
+    # ── Daily wager: points earned on the most recent day with results,
+    # counting only from the day the daily wager began. ──
+    DAILY_WAGER_FROM = '2026-06-18'   # ISO date the daily wager started
+    played_dates = [g.get('date') for g in games
+                    if g.get('result') is not None and g.get('date')
+                    and g.get('date') >= DAILY_WAGER_FROM]
+    daily_label = None
+    daily = {f: 0 for f in friends}
+    if played_dates:
+        latest_day = max(played_dates)
+        for g in games:
+            if g.get('result') is not None and g.get('date') == latest_day:
+                for f in friends:
+                    fr = g['friend_results'].get(f)
+                    if fr:
+                        daily[f] += fr['points']
+        # The day is "complete" only when every game scheduled that date is in;
+        # the 💰 winner is withheld until then (running points still show).
+        day_complete = all(g.get('result') is not None
+                           for g in games if g.get('date') == latest_day)
+        winners = set()
+        if day_complete:
+            top = max(daily.values())
+            winners = {f for f, v in daily.items() if v == top and v > 0}
+        for row in leaderboard:
+            row['daily'] = daily.get(row['name'], 0)
+            row['daily_win'] = row['name'] in winners
+        # Short, friendly date label for the column header, e.g. "Jun 18".
+        d = date.fromisoformat(latest_day)
+        daily_label = '{} {}'.format(d.strftime('%b'), d.day)
+
     return render_template('worldcup.html',
                            data=data,
                            leaderboard=leaderboard,
                            stages=stages,
                            lb_past=lb_past,
                            lb_active=lb_active,
+                           daily_label=daily_label,
                            scoring=scoring)
 
 @app.route('/<path:path>/')
