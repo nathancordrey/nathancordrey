@@ -110,8 +110,11 @@ def worldcup():
                 scores[friend]['total'] += pts
                 scores[friend]['correct_winner'] += int(winner_correct)
                 scores[friend]['exact_score'] += int(exact)
-                scores[friend]['by_stage'][stage] = \
-                    scores[friend]['by_stage'].get(stage, 0) + pts
+                sb = scores[friend]['by_stage'].setdefault(
+                    stage, {'points': 0, 'winners': 0, 'exact': 0})
+                sb['points'] += pts
+                sb['winners'] += int(winner_correct)
+                sb['exact'] += int(exact)
                 game['friend_results'][friend] = {
                     'winner_correct': winner_correct,
                     'exact_score': exact,
@@ -120,12 +123,11 @@ def worldcup():
                 }
 
     _MD1 = 'Group Stage: Matchday 1'
-    _MD2 = 'Group Stage: Matchday 2'
 
     def md_points(f, stage):
-        return scores[f]['by_stage'].get(stage, 0)
+        return scores[f]['by_stage'].get(stage, {}).get('points', 0)
 
-    # ── Matchday 1 awards: trophies for the top 3, a joker for last place. ──
+    # ── Matchday 1 awards: trophies for the top 3, a clown for last place. ──
     # Only awarded once Matchday 1 has actually been played.
     awards = {}
     md1_played = any(g.get('result') is not None and g.get('stage') == _MD1
@@ -141,18 +143,8 @@ def worldcup():
             if md_points(f, _MD1) == worst and f not in awards:
                 awards[f] = '🤡'
 
-    # Live leaderboard is organized by Matchday 2, with total as the tiebreak.
-    leaderboard = sorted(
-        [{'name': f, 'award': awards.get(f, ''), **scores[f]} for f in friends],
-        key=lambda x: (x['by_stage'].get(_MD2, 0), x['total']),
-        reverse=True
-    )
-    # Gold-highlight the row leading Matchday 2 (only once MD2 has points).
-    for i, row in enumerate(leaderboard):
-        row['is_leader'] = (i == 0 and row['by_stage'].get(_MD2, 0) > 0)
-
-    # Canonical tournament order for the stage sections. Stages not listed
-    # here (e.g. a typo or a custom label) fall to the end, alphabetically.
+    # Canonical tournament order for stage sections. Stages not listed here
+    # (e.g. a typo or custom label) fall to the end, alphabetically.
     STAGE_ORDER = [
         'Group Stage: Matchday 1',
         'Group Stage: Matchday 2',
@@ -163,25 +155,6 @@ def worldcup():
         'Round of 4',
         'Final',
     ]
-
-    def stage_rank(name):
-        # Known stages rank 0..N in tournament order; unknown labels get -1 so
-        # that, once the order is reversed for display, they fall to the bottom.
-        return STAGE_ORDER.index(name) if name in STAGE_ORDER else -1
-
-    # Group games by stage, then show most recent first: the latest round on
-    # top, and the newest games on top within each round. Games can be added
-    # to the JSON in any order and still sort correctly.
-    stages_dict = {}
-    for game in games:
-        stages_dict.setdefault(game.get('stage', 'Other'), []).append(game)
-    stages = [
-        {'name': name, 'games': sorted(grp, key=lambda g: g.get('date', ''), reverse=True)}
-        for name, grp in sorted(stages_dict.items(),
-                                key=lambda kv: stage_rank(kv[0]), reverse=True)
-    ]
-
-    # Short column labels for the per-stage leaderboard breakdown.
     STAGE_SHORT = {
         'Group Stage: Matchday 1': 'MD1',
         'Group Stage: Matchday 2': 'MD2',
@@ -192,18 +165,52 @@ def worldcup():
         'Round of 4': 'R4',
         'Final': 'F',
     }
-    # Leaderboard columns: the stages that exist, in tournament order (so the
-    # row reads MD1 + MD2 + ... = Pts, left to right).
+
+    def stage_rank(name):
+        return STAGE_ORDER.index(name) if name in STAGE_ORDER else -1
+
+    # Group games by stage.
+    stages_dict = {}
+    for game in games:
+        stages_dict.setdefault(game.get('stage', 'Other'), []).append(game)
+
+    # Stages that exist, in tournament order. The most advanced one is the
+    # "active" matchday — it gets the correct/exact breakdown in the table;
+    # earlier matchdays are settled and show just their points number.
     present = set(stages_dict.keys())
     ordered = [s for s in STAGE_ORDER if s in present]
     ordered += sorted(present - set(STAGE_ORDER))   # any custom labels last
-    lb_columns = [{'full': s, 'short': STAGE_SHORT.get(s, s)} for s in ordered]
+    active = ordered[-1] if ordered else None
+    lb_past = [{'full': s, 'short': STAGE_SHORT.get(s, s)} for s in ordered[:-1]]
+    lb_active = ({'full': active, 'short': STAGE_SHORT.get(active, active)}
+                 if active else None)
+
+    # Display sections: most recent round on top, newest games first within.
+    stages = [
+        {'name': name, 'games': sorted(grp, key=lambda g: g.get('date', ''), reverse=True)}
+        for name, grp in sorted(stages_dict.items(),
+                                key=lambda kv: stage_rank(kv[0]), reverse=True)
+    ]
+
+    # Live leaderboard is organized by the active matchday, total as tiebreak.
+    def active_points(row):
+        return row['by_stage'].get(active, {}).get('points', 0) if active else 0
+
+    leaderboard = sorted(
+        [{'name': f, 'award': awards.get(f, ''), **scores[f]} for f in friends],
+        key=lambda x: (active_points(x), x['total']),
+        reverse=True
+    )
+    # Gold-highlight the row leading the active matchday (once it has points).
+    for i, row in enumerate(leaderboard):
+        row['is_leader'] = (i == 0 and active_points(row) > 0)
 
     return render_template('worldcup.html',
                            data=data,
                            leaderboard=leaderboard,
                            stages=stages,
-                           lb_columns=lb_columns,
+                           lb_past=lb_past,
+                           lb_active=lb_active,
                            scoring=scoring)
 
 @app.route('/<path:path>/')
