@@ -7,6 +7,10 @@ import json
 import tempfile
 from datetime import date
 from collections import OrderedDict
+from dotenv import load_dotenv
+
+load_dotenv()   # put this right after the imports, before app = Flask(...)
+
 app = Flask(__name__)
 app.config.from_object(__name__)
 #Initialize flatpages
