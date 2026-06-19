@@ -7,10 +7,6 @@ import json
 import tempfile
 from datetime import date
 from collections import OrderedDict
-from dotenv import load_dotenv
-
-load_dotenv()   # put this right after the imports, before app = Flask(...)
-
 app = Flask(__name__)
 app.config.from_object(__name__)
 #Initialize flatpages
@@ -173,7 +169,7 @@ def worldcup():
     def md_points(f, stage):
         return scores[f]['by_stage'].get(stage, {}).get('points', 0)
 
-    # ── Matchday 1 awards: trophies for the top 3, a clown for last place. ──
+    # ── Matchday 1 awards: trophies for the top 3. ──
     # Only awarded once Matchday 1 has actually been played.
     awards = {}
     md1_played = any(g.get('result') is not None and g.get('stage') == _MD1
@@ -184,10 +180,6 @@ def worldcup():
                         reverse=True)
         for medal, f in zip(('🥇', '🥈', '🥉'), ranked[:3]):
             awards[f] = medal
-        worst = min(md_points(f, _MD1) for f in friends)
-        for f in friends:                       # clown for last place (ties allowed)
-            if md_points(f, _MD1) == worst and f not in awards:
-                awards[f] = '🤡'
 
     # Canonical tournament order for stage sections. Stages not listed here
     # (e.g. a typo or custom label) fall to the end, alphabetically.
@@ -251,16 +243,17 @@ def worldcup():
     for i, row in enumerate(leaderboard):
         row['is_leader'] = (i == 0 and active_points(row) > 0)
 
-    # ── Daily wager: points earned on the most recent day with results,
-    # counting only from the day the daily wager began. ──
+    # ── Daily wager: the most recent day that has games scheduled (on or after
+    # the day the wager began). It rolls forward to a new day as soon as that
+    # day's fixtures exist — showing 0s until results come in — and the 💰 is
+    # only awarded once every game that day is final. ──
     DAILY_WAGER_FROM = '2026-06-18'   # ISO date the daily wager started
-    played_dates = [g.get('date') for g in games
-                    if g.get('result') is not None and g.get('date')
-                    and g.get('date') >= DAILY_WAGER_FROM]
+    wager_dates = [g.get('date') for g in games
+                   if g.get('date') and g.get('date') >= DAILY_WAGER_FROM]
     daily_label = None
     daily = {f: 0 for f in friends}
-    if played_dates:
-        latest_day = max(played_dates)
+    if wager_dates:
+        latest_day = max(wager_dates)
         for g in games:
             if g.get('result') is not None and g.get('date') == latest_day:
                 for f in friends:
@@ -278,7 +271,7 @@ def worldcup():
         for row in leaderboard:
             row['daily'] = daily.get(row['name'], 0)
             row['daily_win'] = row['name'] in winners
-        # Short, friendly date label for the column header, e.g. "Jun 18".
+        # Short, friendly date label for the column header, e.g. "Jun 19".
         d = date.fromisoformat(latest_day)
         daily_label = '{} {}'.format(d.strftime('%b'), d.day)
 
