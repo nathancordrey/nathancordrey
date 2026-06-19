@@ -326,7 +326,8 @@ def worldcup_admin():
     data = _load_worldcup()
     # Most recent games first, so today's fixtures sit at the top.
     games = sorted(data['games'], key=lambda g: g.get('date', ''), reverse=True)
-    return render_template('worldcup_admin.html', games=games)
+    return render_template('worldcup_admin.html', games=games,
+                           friends=data['friends'], stage_choices=_STAGE_CHOICES)
 
 
 @app.route('/worldcup/admin/save', methods=['POST'])
@@ -348,6 +349,89 @@ def worldcup_admin_save():
     _save_worldcup(data)
     flash('Scores saved.')
     return redirect(url_for('worldcup_admin'))
+
+
+_STAGE_CHOICES = [
+    'Group Stage: Matchday 1', 'Group Stage: Matchday 2', 'Group Stage: Matchday 3',
+    'Round of 32', 'Round of 16', 'Round of 8', 'Round of 4', 'Final',
+]
+
+
+def _winner_from_score(hs, aws):
+    return 'home' if hs > aws else 'away' if hs < aws else 'draw'
+
+
+@app.route('/worldcup/admin/game/new', methods=['POST'])
+@admin_required
+def worldcup_admin_add_game():
+    data = _load_worldcup()
+    home = request.form.get('home', '').strip()
+    away = request.form.get('away', '').strip()
+    if not (home and away):
+        flash('Need both team names.')
+        return redirect(url_for('worldcup_admin'))
+    new_id = max((g.get('id', 0) for g in data['games']), default=0) + 1
+    data['games'].append({
+        'id': new_id,
+        'stage': request.form.get('stage') or 'Group Stage: Matchday 1',
+        'group': (request.form.get('group', '').strip() or None),
+        'home': home,
+        'away': away,
+        'date': request.form.get('date', '').strip(),
+        'result': None,
+        'predictions': {},
+    })
+    _save_worldcup(data)
+    flash('Added {} v {}. Now enter the picks.'.format(home, away))
+    return redirect(url_for('worldcup_admin_game', gid=new_id))
+
+
+@app.route('/worldcup/admin/player/new', methods=['POST'])
+@admin_required
+def worldcup_admin_add_player():
+    data = _load_worldcup()
+    name = request.form.get('name', '').strip()
+    if name and name not in data['friends']:
+        data['friends'].append(name)
+        _save_worldcup(data)
+        flash('Added player {}.'.format(name))
+    return redirect(url_for('worldcup_admin'))
+
+
+@app.route('/worldcup/admin/game/<int:gid>')
+@admin_required
+def worldcup_admin_game(gid):
+    data = _load_worldcup()
+    game = next((g for g in data['games'] if g.get('id') == gid), None)
+    if game is None:
+        abort(404)
+    return render_template('worldcup_admin_game.html',
+                           game=game, friends=data['friends'])
+
+
+@app.route('/worldcup/admin/game/<int:gid>/picks', methods=['POST'])
+@admin_required
+def worldcup_admin_save_picks(gid):
+    data = _load_worldcup()
+    game = next((g for g in data['games'] if g.get('id') == gid), None)
+    if game is None:
+        abort(404)
+    preds = {}
+    for f in data['friends']:
+        h = request.form.get('h_' + f, '').strip()
+        a = request.form.get('a_' + f, '').strip()
+        if h != '' and a != '':                 # both filled => a pick
+            try:
+                hs, aws = int(h), int(a)
+            except ValueError:
+                continue                         # skip a typo'd entry
+            preds[f] = {'winner': _winner_from_score(hs, aws),
+                        'home_score': hs, 'away_score': aws}
+        # both blank => no pick for this player (omitted)
+    game['predictions'] = preds
+    _save_worldcup(data)
+    flash('Picks saved.')
+    return redirect(url_for('worldcup_admin_game', gid=gid))
 
 @app.route('/<path:path>/')
 @app.route('/<path:path>')
