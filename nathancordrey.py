@@ -7,6 +7,16 @@ import json
 import tempfile
 from datetime import date
 from collections import OrderedDict
+
+# Load secrets from a .env file sitting next to this file (works no matter what
+# working directory gunicorn/systemd launches from). Guarded so the site still
+# runs if python-dotenv isn't installed — but you need it for the .env to load.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+except ImportError:
+    pass
+
 app = Flask(__name__)
 app.config.from_object(__name__)
 #Initialize flatpages
