@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · Prediction League</title>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{--ink:#0B1F3A;--ink-2:#102a4c;--pitch:#1F9E5A;--chalk:#F4F6F3;--line:#E3E7E2;--muted:#7B8694}
+    *{box-sizing:border-box}html,body{margin:0}
+    body{font-family:"Inter",system-ui,sans-serif;background:var(--chalk);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+    .card{width:100%;max-width:360px;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 12px 40px rgba(11,31,58,.10)}
+    .card-head{background:linear-gradient(180deg,var(--ink-2),var(--ink));border-bottom:4px solid var(--pitch);color:#fff;padding:1.5rem}
+    .eyebrow{font-family:"Archivo";font-weight:700;font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--pitch)}
+    .card-head h1{font-family:"Archivo";font-weight:900;font-size:1.4rem;margin:.3rem 0 0}
+    .card-body{padding:1.5rem}
+    label{display:block;font-family:"Archivo";font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.35rem}
+    input[type=password]{width:100%;padding:.7rem .8rem;font-size:1rem;border:1.5px solid var(--line);border-radius:9px;margin-bottom:1.1rem;background:#fbfcfb}
+    input:focus{outline:none;border-color:var(--pitch);background:#fff}
+    button{width:100%;padding:.8rem;font-family:"Archivo";font-weight:800;color:#fff;background:var(--ink);border:0;border-radius:9px;cursor:pointer}
+    .flash{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;font-size:.88rem;padding:.6rem .8rem;border-radius:8px;margin-bottom:1.1rem}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-head"><div class="eyebrow">Prediction League</div><h1>Admin</h1></div>
+    <div class="card-body">
+      {% with messages = get_flashed_messages() %}
+        {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+      {% endwith %}
+      <form method="post" action="{{ url_for('worldcup_admin_login') }}">
+        <label for="password">Admin password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required autofocus>
+        <button type="submit">Sign in</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
