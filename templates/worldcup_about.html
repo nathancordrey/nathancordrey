@@ -3,114 +3,344 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>How it works · {{ stats.title }}</title>
+  <title>{{ data.title }} · Prediction League</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root{
-      --ink:#0B1F3A;--ink-2:#102a4c;--pitch:#1F9E5A;--gold:#E8B22A;
-      --chalk:#F4F6F3;--card:#fff;--line:#E3E7E2;--text:#14181C;--muted:#7B8694;
-      --disp:"Archivo",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif;--mono:"JetBrains Mono",monospace;
+    :root {
+      --ink:      #0B1F3A;   /* floodlit stadium navy */
+      --ink-2:    #102a4c;
+      --pitch:    #1F9E5A;   /* pitch green accent     */
+      --gold:     #E8B22A;   /* league leader          */
+      --chalk:    #F4F6F3;   /* cool off-white field   */
+      --card:     #FFFFFF;
+      --line:     #E3E7E2;
+      --text:     #14181C;
+      --muted:    #7B8694;
+      --win:      #15803d;
+      --win-bg:   #dcfce7;
+      --exact:    #6d28d9;
+      --exact-bg: #ede9fe;
+      --wrong:    #b91c1c;
+      --wrong-bg: #fee2e2;
+      --disp: "Archivo", system-ui, sans-serif;
+      --body: "Inter", system-ui, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
     }
-    *{box-sizing:border-box}html,body{margin:0}
-    body{font-family:var(--body);color:var(--text);background:var(--chalk);line-height:1.55;-webkit-font-smoothing:antialiased}
-    .site-header{
-      background:radial-gradient(120% 140% at 85% -20%,rgba(31,158,90,.35),transparent 55%),linear-gradient(180deg,var(--ink-2),var(--ink));
-      color:#fff;padding:2.2rem 1.25rem 1.9rem;border-bottom:4px solid var(--pitch);
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font-family: var(--body);
+      color: var(--text);
+      background: var(--chalk);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.45;
     }
-    .header-inner{max-width:760px;margin:0 auto}
-    .eyebrow{font-family:var(--disp);font-weight:700;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--pitch)}
-    .site-title{font-family:var(--disp);font-weight:900;font-size:clamp(2rem,6vw,3rem);letter-spacing:-.02em;line-height:1;margin:.45rem 0 0;text-transform:uppercase}
-    .header-stats{margin-top:1rem;display:flex;flex-wrap:wrap;gap:1.4rem;font-size:.82rem;color:#c7d2e0}
-    .header-stats b{color:#fff;font-family:var(--mono);font-weight:700}
-    .back{display:inline-block;margin-top:1rem;color:var(--pitch);font-family:var(--disp);font-weight:700;font-size:.8rem;letter-spacing:.04em;text-decoration:none}
-    .wrap{max-width:760px;margin:0 auto;padding:2.2rem 1.25rem 4rem}
-    h2{font-family:var(--disp);font-weight:800;font-size:1.25rem;margin:2.2rem 0 .6rem}
-    h2:first-child{margin-top:0}
-    p{margin:.5rem 0}
-    .lead{font-size:1.05rem;color:#333}
-    .points{display:flex;gap:.8rem;flex-wrap:wrap;margin:1rem 0}
-    .point{flex:1;min-width:200px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1rem 1.1rem}
-    .point .n{font-family:var(--mono);font-weight:700;font-size:1.6rem;color:var(--pitch)}
-    .point .n.gold{color:var(--gold)}
-    .point .lbl{font-family:var(--disp);font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;margin-top:.2rem}
-    .point .desc{color:var(--muted);font-size:.86rem;margin-top:.25rem}
-    .legend{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:.8rem 0}
-    .legend-row{display:flex;align-items:flex-start;gap:.8rem;padding:.7rem 1rem;border-top:1px solid #f1f3f0}
-    .legend-row:first-child{border-top:0}
-    .sym{flex-shrink:0;width:2.2rem;text-align:center;font-size:1.15rem}
-    .sym.mono{font-family:var(--mono);font-weight:700;color:var(--ink);font-size:.95rem;line-height:1.5}
-    .legend-row .t{font-size:.92rem}
-    .legend-row .t b{font-family:var(--disp)}
-    .note{background:#f0f7f3;border:1px solid #cce8da;border-radius:10px;padding:.8rem 1rem;font-size:.9rem;color:#246b4b;margin:1rem 0}
-    a.inline{color:var(--pitch)}
-    footer{text-align:center;color:var(--muted);font-size:.78rem;padding:0 1.25rem 3rem;font-family:var(--mono)}
+
+    /* ── Standalone header (scoreboard banner) ── */
+    .site-header {
+      background:
+        radial-gradient(120% 140% at 85% -20%, rgba(31,158,90,.35), transparent 55%),
+        linear-gradient(180deg, var(--ink-2), var(--ink));
+      color: #fff;
+      padding: 2.4rem 1.25rem 2rem;
+      border-bottom: 4px solid var(--pitch);
+    }
+    .header-inner { max-width: 920px; margin: 0 auto; }
+    .eyebrow {
+      font-family: var(--disp);
+      font-weight: 700; font-size: .72rem;
+      letter-spacing: .22em; text-transform: uppercase;
+      color: var(--pitch);
+      display: flex; align-items: center; gap: .6rem;
+    }
+    .eyebrow::after {
+      content: ""; flex: 1; height: 1px;
+      background: linear-gradient(90deg, rgba(31,158,90,.6), transparent);
+    }
+    .site-title {
+      font-family: var(--disp);
+      font-weight: 900;
+      font-size: clamp(2.2rem, 7vw, 3.6rem);
+      letter-spacing: -.02em; line-height: .98;
+      margin: .5rem 0 0;
+      text-transform: uppercase;
+    }
+    .site-title .yr { color: var(--gold); }
+    .header-stats {
+      margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 1.5rem;
+      font-size: .82rem; color: #c7d2e0;
+    }
+    .header-stats b { color: #fff; font-family: var(--mono); font-weight: 700; }
+
+    /* ── Layout ── */
+    .wrap { max-width: 920px; margin: 0 auto; padding: 2.2rem 1.25rem 4rem; }
+    .eyebrow-dark {
+      font-family: var(--disp);
+      font-weight: 700; font-size: .72rem;
+      letter-spacing: .18em; text-transform: uppercase;
+      color: var(--muted);
+      margin: 2.4rem 0 .9rem;
+      display: flex; align-items: center; gap: .7rem;
+    }
+    .eyebrow-dark::after {
+      content: ""; flex: 1; height: 1px; background: var(--line);
+    }
+    .eyebrow-dark:first-of-type { margin-top: 0; }
+
+    /* ── Standings table ── */
+    .lb-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1rem; }
+    .lb-key { font-size: .82rem; color: var(--muted); background: #fbfcfb;
+      border: 1px solid var(--line); border-radius: 10px; padding: .75rem .95rem; margin-bottom: 2.2rem; }
+    .lb-key > div { margin: .3rem 0; line-height: 1.45; }
+    .lb-key .k { font-family: var(--disp); font-weight: 700; color: var(--text); white-space: nowrap; }
+    .lb-key .k-more { margin-top: .5rem; }
+    .lb-key .k-more a { color: var(--pitch); font-family: var(--disp); font-weight: 700; font-size: .78rem; text-decoration: none; }
+    .pts-exact { font-size: .8rem; letter-spacing: -2px; }
+    .award { font-size: .95em; margin-left: .15rem; white-space: nowrap; }
+    .md-pts { font-family: var(--mono); font-weight: 800; font-size: 1.05rem; }
+    .daily-cell { white-space: nowrap; }
+    .daily-flag { font-size: .9em; }
+    .standings {
+      width: 100%; border-collapse: collapse;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 14px; overflow: hidden;
+    }
+    .standings th {
+      font-family: var(--disp); font-weight: 700;
+      font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--muted); text-align: left;
+      padding: .8rem 1rem; background: #fbfcfb;
+      border-bottom: 1px solid var(--line);
+    }
+    .standings th.num, .standings td.num { text-align: center; }
+    .standings td {
+      padding: .85rem 1rem; border-bottom: 1px solid #f1f3f0;
+    }
+    .standings tr:last-child td { border-bottom: 0; }
+    .pos { font-family: var(--mono); font-weight: 700; color: var(--muted); width: 2.5rem; }
+    .player { font-family: var(--disp); font-weight: 700; font-size: 1.02rem; }
+    .stat { font-family: var(--mono); color: #4b5563; font-size: .9rem; }
+    .pts {
+      font-family: var(--mono); font-weight: 800;
+      font-size: 1.3rem; text-align: right; width: 4.5rem;
+    }
+    /* leader treatment */
+    .standings tr.leader td { background: linear-gradient(90deg, rgba(232,178,42,.10), transparent 60%); }
+    .standings tr.leader { box-shadow: inset 3px 0 0 var(--gold); }
+    .standings tr.leader .player::after {
+      content: "👑"; margin-left: .45rem; font-size: .85em;
+    }
+    .standings tr.leader .pts { color: #b8860b; }
+
+    /* ── Match cards ── */
+    .match {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 14px; margin-bottom: 1rem; overflow: hidden;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .match:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(11,31,58,.07); }
+    .match-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; padding: .95rem 1.1rem;
+      background: #fbfcfb; border-bottom: 1px solid var(--line);
+    }
+    .fixture { font-family: var(--disp); font-weight: 800; font-size: 1.05rem; }
+    .fixture .vs { color: var(--muted); font-weight: 600; margin: 0 .45rem; font-size: .85em; }
+    .match-meta {
+      font-size: .73rem; color: var(--muted); margin-top: .15rem;
+      font-family: var(--mono); letter-spacing: .02em;
+    }
+    /* LED scoreline */
+    .scoreline {
+      font-family: var(--mono); font-weight: 800; font-size: 1.25rem;
+      color: #fff; background: var(--ink);
+      padding: .25rem .7rem; border-radius: 8px;
+      letter-spacing: .05em; white-space: nowrap;
+    }
+    .upcoming {
+      font-family: var(--disp); font-weight: 700;
+      font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--pitch); border: 1.5px solid var(--pitch);
+      padding: .3rem .6rem; border-radius: 999px; white-space: nowrap;
+    }
+
+    .preds { width: 100%; border-collapse: collapse; }
+    .preds th {
+      font-family: var(--disp); font-weight: 700;
+      font-size: .64rem; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--muted); text-align: left;
+      padding: .55rem 1.1rem; background: #fff;
+    }
+    .preds td { padding: .6rem 1.1rem; font-size: .9rem; border-top: 1px solid #f3f5f2; }
+    .p-name { font-family: var(--disp); font-weight: 600; width: 9rem; white-space: nowrap; }
+    .p-pick { color: #374151; }
+    .p-guess { color: var(--ink); font-family: var(--mono); font-weight: 700; font-size: .8rem; margin-left: .4rem; background: #eef1f4; padding: .08rem .35rem; border-radius: 4px; }
+
+    .tag {
+      display: inline-block; padding: .14rem .5rem; border-radius: 5px;
+      font-family: var(--disp); font-size: .72rem; font-weight: 700;
+      white-space: nowrap;
+    }
+    .tag-exact { background: var(--exact-bg); color: var(--exact); }
+    .tag-win   { background: var(--win-bg);   color: var(--win); }
+    .tag-wrong { background: var(--wrong-bg); color: var(--wrong); }
+    .tag-pts   { font-family: var(--mono); color: var(--muted); margin-left: .25rem; font-size: .78rem; }
+    .pending   { color: #cbd2cc; font-family: var(--mono); }
+
+    /* ── Footer ── */
+    .site-footer {
+      text-align: center; color: var(--muted);
+      font-size: .78rem; padding: 2rem 1.25rem 3rem;
+      font-family: var(--mono);
+    }
+
+    @media (max-width: 560px) {
+      .p-name { width: auto; }
+      .preds th:nth-child(2), .preds td:nth-child(2) { display: none; } /* hide prediction col on tiny screens, keep name + result */
+      .match-head { flex-direction: row; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .match { transition: none; }
+      .match:hover { transform: none; }
+    }
   </style>
 </head>
 <body>
+
   <header class="site-header">
     <div class="header-inner">
       <div class="eyebrow">Friends Prediction League</div>
-      <h1 class="site-title">How it works</h1>
+      <h1 class="site-title">{{ data.title }}</h1>
       <div class="header-stats">
-        <span><b>{{ stats.players }}</b> players</span>
-        <span><b>{{ stats.games }}</b> games tracked</span>
-        <span><b>{{ stats.played }}</b> played so far</span>
+        <span><b>{{ data.friends|length }}</b> players</span>
+        <span><b>{{ data.games|length }}</b> matches</span>
+        <span><b>{{ scoring.correct_winner }}</b> pt winner &nbsp;·&nbsp; <b>+{{ scoring.exact_score_bonus }}</b> exact score</span>
       </div>
-      <a class="back" href="/worldcup">← Back to the standings</a>
+      <a href="/worldcup/about" style="display:inline-block;margin-top:.9rem;color:var(--pitch);font-family:var(--disp);font-weight:700;font-size:.78rem;letter-spacing:.04em;text-decoration:none">How it works →</a>
     </div>
   </header>
 
   <main class="wrap">
-    <p class="lead">A running prediction league for the {{ stats.title }} among friends. Before each match, everyone calls a winner and a scoreline. Points pile up, matchdays get trophies, and there's a side bet on every day's games. It's bragging rights, not a sportsbook.</p>
 
-    <h2>Scoring</h2>
-    <p>Every prediction is two calls: who wins (or a draw), and the exact scoreline.</p>
-    <div class="points">
-      <div class="point">
-        <div class="n">+{{ scoring.correct_winner }}</div>
-        <div class="lbl">Correct result</div>
-        <div class="desc">You called the right winner — or the draw.</div>
+    {# ── Standings ── #}
+    <div class="eyebrow-dark">Standings</div>
+    <div class="lb-scroll">
+    <table class="standings">
+      <thead>
+        <tr>
+          <th class="num">Pos</th>
+          <th>Player</th>
+          {% if daily_label %}<th class="num" title="Points on {{ daily_label }} — daily wager">{{ daily_label }} 💵</th>{% endif %}
+          {% for col in lb_past %}<th class="num" title="{{ col.full }} — points">{{ col.short }}</th>{% endfor %}
+          {% if lb_active %}
+          <th class="num" title="{{ lb_active.full }} — games correct">{{ lb_active.short }} ✓</th>
+          <th class="num" title="{{ lb_active.full }} — exact scores">{{ lb_active.short }} 🎯</th>
+          <th class="num" title="{{ lb_active.full }} — points">{{ lb_active.short }} Pts</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in leaderboard %}
+        <tr class="{% if entry.is_leader %}leader{% endif %}">
+          <td class="pos">{{ loop.index }}</td>
+          <td class="player">{{ entry.name }}{% if entry.award %} <span class="award">{{ entry.award }}</span>{% endif %}</td>
+          {% if daily_label %}<td class="num stat daily-cell">{{ entry.daily }}{% if entry.daily_win %} <span class="daily-flag">💰</span>{% endif %}</td>{% endif %}
+          {% for col in lb_past %}
+          <td class="num stat">{{ entry.by_stage.get(col.full, {}).get('points', 0) }}</td>
+          {% endfor %}
+          {% if lb_active %}
+          <td class="num stat">{{ entry.by_stage.get(lb_active.full, {}).get('winners', 0) }}</td>
+          <td class="num stat">{{ entry.by_stage.get(lb_active.full, {}).get('exact', 0) }}</td>
+          <td class="num md-pts">{{ entry.by_stage.get(lb_active.full, {}).get('points', 0) }}</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+
+    {# ── How to read the standings ── #}
+    <div class="lb-key">
+      {% if daily_label %}<div><span class="k">{{ daily_label }} 💵</span> — points scored on the most recent match day; <span class="k">💰</span> marks that day's winner once all its games are final.</div>{% endif %}
+      {% for col in lb_past %}<div><span class="k">{{ col.short }}</span> — total points from that completed matchday.</div>{% endfor %}
+      {% if lb_active %}<div><span class="k">{{ lb_active.short }} ✓ / 🎯 / Pts</span> — games called right, exact scores nailed, and points in the matchday now in progress (the table is ranked by this).</div>{% endif %}
+      <div class="k-more"><a href="/worldcup/about">Full rules &amp; symbols →</a></div>
+    </div>
+
+    {# ── Matches by stage ── #}
+    {% for stage in stages %}
+    <div class="eyebrow-dark">{{ stage.name }}</div>
+
+    {% for game in stage.games %}
+    <div class="match">
+      <div class="match-head">
+        <div>
+          <div class="fixture">{{ game.home }}<span class="vs">v</span>{{ game.away }}</div>
+          <div class="match-meta">
+            {% if game.get('group') %}Group {{ game.group }} · {% endif %}{{ game.date }}
+          </div>
+        </div>
+        {% if game.result is not none %}
+          <div class="scoreline">{{ game.result.home_score }}–{{ game.result.away_score }}</div>
+        {% else %}
+          <div class="upcoming">Upcoming</div>
+        {% endif %}
       </div>
-      <div class="point">
-        <div class="n gold">+{{ scoring.exact_score_bonus }}</div>
-        <div class="lbl">Exact score bonus</div>
-        <div class="desc">On top of the result point, for nailing the precise scoreline — worth {{ scoring.correct_winner + scoring.exact_score_bonus }} in total.</div>
-      </div>
+
+      <table class="preds">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Prediction</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for friend in data.friends %}
+          {% set pred = game.predictions.get(friend, {}) %}
+          {% set fr = game.friend_results.get(friend, {}) %}
+          <tr>
+            <td class="p-name">
+              {{ friend }}
+              {% if pred.home_score is defined and pred.away_score is defined %}
+                <span class="p-guess">{{ pred.home_score }}–{{ pred.away_score }}</span>
+              {% endif %}
+            </td>
+            <td class="p-pick">
+              {% if pred.winner == 'home' %}{{ game.home }}
+              {% elif pred.winner == 'away' %}{{ game.away }}
+              {% elif pred.winner == 'draw' %}Draw
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if game.result is not none %}
+                {% if fr.exact_score %}
+                  <span class="tag tag-exact">🎯 Exact</span><span class="tag-pts">+{{ fr.points }}</span>
+                {% elif fr.winner_correct %}
+                  <span class="tag tag-win">✓ Winner</span><span class="tag-pts">+{{ fr.points }}</span>
+                {% else %}
+                  <span class="tag tag-wrong">✗ Miss</span><span class="tag-pts">+0</span>
+                {% endif %}
+              {% else %}
+                <span class="pending">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <p>So getting the winner right is {{ scoring.correct_winner }} point; getting the exact score is {{ scoring.correct_winner + scoring.exact_score_bonus }}. Miss the result entirely and you get nothing for that game.</p>
+    {% endfor %}
+    {% endfor %}
 
-    <h2>Reading the standings</h2>
-    <p>The table is organised by the current matchday. Settled matchdays collapse to a single points number; the matchday in progress is broken out so you can see the race in detail.</p>
-    <div class="legend">
-      <div class="legend-row"><div class="sym mono">MD1</div><div class="t"><b>Past matchday</b> — total points earned in a finished matchday.</div></div>
-      <div class="legend-row"><div class="sym">✓</div><div class="t"><b>Games correct</b> — winners called right in the current matchday.</div></div>
-      <div class="legend-row"><div class="sym">🎯</div><div class="t"><b>Exact scores</b> — precise scorelines nailed in the current matchday.</div></div>
-      <div class="legend-row"><div class="sym mono">Pts</div><div class="t"><b>Matchday points</b> — the current matchday's running total.</div></div>
-    </div>
-
-    <h2>Trophies &amp; the dunce cap</h2>
-    <p>When a matchday is settled, its podium is immortalised next to the winners' names, and whoever finished bottom wears the clown.</p>
-    <div class="legend">
-      <div class="legend-row"><div class="sym">🥇</div><div class="t"><b>Gold / silver / bronze</b> — the top three of a completed matchday (🥈 🥉 too).</div></div>
-      <div class="legend-row"><div class="sym">🤡</div><div class="t"><b>The clown</b> — last place for the matchday. Better luck next round.</div></div>
-      <div class="legend-row"><div class="sym">👑</div><div class="t"><b>Crown</b> — whoever currently leads the live matchday.</div></div>
-    </div>
-
-    <h2>The daily wager</h2>
-    <p>Each day has its own little contest: most points across that day's games wins the day. The latest day's haul shows in its own column, and once every game that day is final, the winner takes the money bag.</p>
-    <div class="legend">
-      <div class="legend-row"><div class="sym">💵</div><div class="t"><b>Today's column</b> — points scored on the most recent match day.</div></div>
-      <div class="legend-row"><div class="sym">💰</div><div class="t"><b>Daily winner</b> — top scorer once the day's games are all complete (held back until then).</div></div>
-    </div>
-
-    <h2>Making picks</h2>
-    <p>Predictions can be sent any time before a match kicks off. Each pick is a winner and a scoreline — for example, “Brazil 2–1” or “1–1 draw.” Miss a game and you simply score nothing for it; you're never penalised for sitting one out.</p>
-
-    <div class="note">Friendly reminder: this is a free, just-for-fun pool among friends — bragging rights and the occasional informal wager, nothing more.</div>
   </main>
 
-  <footer>{{ stats.title }} · <a class="inline" href="/worldcup">standings</a></footer>
+  <footer class="site-footer">
+    {{ data.title }} — predictions locked before kickoff.
+  </footer>
+
 </body>
 </html>
