@@ -1,7 +1,10 @@
-from flask import Flask, render_template
+from flask import (Flask, render_template, request, redirect, url_for,
+                   session, flash, abort)
 from flask_flatpages import FlatPages
+from functools import wraps
 import os
 import json
+import tempfile
 from datetime import date
 from collections import OrderedDict
 app = Flask(__name__)
@@ -14,6 +17,45 @@ recipes=[]
 # Resolve the worldcup data path relative to this file, so it works regardless
 # of what working directory gunicorn/systemd launches the app from on Linode.
 _WORLDCUP_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'worldcup.json')
+
+# Secrets come from environment variables (keep them out of git).
+#   WORLDCUP_SECRET_KEY  – signs the admin session cookie
+#   WORLDCUP_ADMIN_PW    – the single shared admin password you type on your phone
+app.secret_key = os.environ.get('WORLDCUP_SECRET_KEY', 'dev-only-change-me')
+_ADMIN_PW = os.environ.get('WORLDCUP_ADMIN_PW')
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=True,      # requires HTTPS (you have it)
+)
+
+
+def _load_worldcup():
+    with open(_WORLDCUP_JSON) as f:
+        return json.load(f)
+
+
+def _save_worldcup(data):
+    """Write the JSON atomically so a crash mid-write can't corrupt the file."""
+    folder = os.path.dirname(_WORLDCUP_JSON)
+    fd, tmp = tempfile.mkstemp(dir=folder, suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.write('\n')
+        os.replace(tmp, _WORLDCUP_JSON)   # atomic on the same filesystem
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get('wc_admin'):
+            return redirect(url_for('worldcup_admin_login'))
+        return view(*args, **kwargs)
+    return wrapped
 
 @app.route('/')
 def index():
@@ -64,8 +106,7 @@ def misc():
 
 @app.route('/worldcup')
 def worldcup():
-    with open(_WORLDCUP_JSON) as f:
-        data = json.load(f)
+    data = _load_worldcup()
 
     scoring = data.get('scoring', {'correct_winner': 1, 'exact_score_bonus': 2})
     friends = data['friends']
@@ -245,6 +286,68 @@ def worldcup():
                            lb_active=lb_active,
                            daily_label=daily_label,
                            scoring=scoring)
+
+# ───────────────────────── World Cup admin (results entry) ─────────────────────────
+
+@app.route('/worldcup/about')
+def worldcup_about():
+    data = _load_worldcup()
+    scoring = data.get('scoring', {'correct_winner': 1, 'exact_score_bonus': 2})
+    stats = {
+        'players': len(data.get('friends', [])),
+        'games': len(data.get('games', [])),
+        'played': sum(1 for g in data.get('games', []) if g.get('result') is not None),
+        'title': data.get('title', 'World Cup 2026'),
+    }
+    return render_template('worldcup_about.html', scoring=scoring, stats=stats)
+
+
+@app.route('/worldcup/admin/login', methods=['GET', 'POST'])
+def worldcup_admin_login():
+    if session.get('wc_admin'):
+        return redirect(url_for('worldcup_admin'))
+    if request.method == 'POST':
+        if _ADMIN_PW and request.form.get('password') == _ADMIN_PW:
+            session['wc_admin'] = True
+            return redirect(url_for('worldcup_admin'))
+        flash('Incorrect password.')
+    return render_template('worldcup_admin_login.html')
+
+
+@app.route('/worldcup/admin/logout', methods=['POST'])
+def worldcup_admin_logout():
+    session.pop('wc_admin', None)
+    return redirect(url_for('worldcup_admin_login'))
+
+
+@app.route('/worldcup/admin')
+@admin_required
+def worldcup_admin():
+    data = _load_worldcup()
+    # Most recent games first, so today's fixtures sit at the top.
+    games = sorted(data['games'], key=lambda g: g.get('date', ''), reverse=True)
+    return render_template('worldcup_admin.html', games=games)
+
+
+@app.route('/worldcup/admin/save', methods=['POST'])
+@admin_required
+def worldcup_admin_save():
+    data = _load_worldcup()
+    for game in data['games']:
+        gid = str(game.get('id'))
+        home = request.form.get('home_' + gid, '').strip()
+        away = request.form.get('away_' + gid, '').strip()
+        # Both boxes filled with valid numbers => final; otherwise => upcoming.
+        if home != '' and away != '':
+            try:
+                game['result'] = {'home_score': int(home), 'away_score': int(away)}
+            except ValueError:
+                pass   # ignore a typo'd entry, leave that game unchanged
+        else:
+            game['result'] = None
+    _save_worldcup(data)
+    flash('Scores saved.')
+    return redirect(url_for('worldcup_admin'))
 
 @app.route('/<path:path>/')
 @app.route('/<path:path>')
