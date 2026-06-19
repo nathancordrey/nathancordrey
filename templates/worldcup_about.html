@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How it works · {{ stats.title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --ink:#0B1F3A;--ink-2:#102a4c;--pitch:#1F9E5A;--gold:#E8B22A;
+      --chalk:#F4F6F3;--card:#fff;--line:#E3E7E2;--text:#14181C;--muted:#7B8694;
+      --disp:"Archivo",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif;--mono:"JetBrains Mono",monospace;
+    }
+    *{box-sizing:border-box}html,body{margin:0}
+    body{font-family:var(--body);color:var(--text);background:var(--chalk);line-height:1.55;-webkit-font-smoothing:antialiased}
+    .site-header{
+      background:radial-gradient(120% 140% at 85% -20%,rgba(31,158,90,.35),transparent 55%),linear-gradient(180deg,var(--ink-2),var(--ink));
+      color:#fff;padding:2.2rem 1.25rem 1.9rem;border-bottom:4px solid var(--pitch);
+    }
+    .header-inner{max-width:760px;margin:0 auto}
+    .eyebrow{font-family:var(--disp);font-weight:700;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--pitch)}
+    .site-title{font-family:var(--disp);font-weight:900;font-size:clamp(2rem,6vw,3rem);letter-spacing:-.02em;line-height:1;margin:.45rem 0 0;text-transform:uppercase}
+    .header-stats{margin-top:1rem;display:flex;flex-wrap:wrap;gap:1.4rem;font-size:.82rem;color:#c7d2e0}
+    .header-stats b{color:#fff;font-family:var(--mono);font-weight:700}
+    .back{display:inline-block;margin-top:1rem;color:var(--pitch);font-family:var(--disp);font-weight:700;font-size:.8rem;letter-spacing:.04em;text-decoration:none}
+    .wrap{max-width:760px;margin:0 auto;padding:2.2rem 1.25rem 4rem}
+    h2{font-family:var(--disp);font-weight:800;font-size:1.25rem;margin:2.2rem 0 .6rem}
+    h2:first-child{margin-top:0}
+    p{margin:.5rem 0}
+    .lead{font-size:1.05rem;color:#333}
+    .points{display:flex;gap:.8rem;flex-wrap:wrap;margin:1rem 0}
+    .point{flex:1;min-width:200px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1rem 1.1rem}
+    .point .n{font-family:var(--mono);font-weight:700;font-size:1.6rem;color:var(--pitch)}
+    .point .n.gold{color:var(--gold)}
+    .point .lbl{font-family:var(--disp);font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;margin-top:.2rem}
+    .point .desc{color:var(--muted);font-size:.86rem;margin-top:.25rem}
+    .legend{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:.8rem 0}
+    .legend-row{display:flex;align-items:flex-start;gap:.8rem;padding:.7rem 1rem;border-top:1px solid #f1f3f0}
+    .legend-row:first-child{border-top:0}
+    .sym{flex-shrink:0;width:2.2rem;text-align:center;font-size:1.15rem}
+    .sym.mono{font-family:var(--mono);font-weight:700;color:var(--ink);font-size:.95rem;line-height:1.5}
+    .legend-row .t{font-size:.92rem}
+    .legend-row .t b{font-family:var(--disp)}
+    .note{background:#f0f7f3;border:1px solid #cce8da;border-radius:10px;padding:.8rem 1rem;font-size:.9rem;color:#246b4b;margin:1rem 0}
+    a.inline{color:var(--pitch)}
+    footer{text-align:center;color:var(--muted);font-size:.78rem;padding:0 1.25rem 3rem;font-family:var(--mono)}
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="eyebrow">Friends Prediction League</div>
+      <h1 class="site-title">How it works</h1>
+      <div class="header-stats">
+        <span><b>{{ stats.players }}</b> players</span>
+        <span><b>{{ stats.games }}</b> games tracked</span>
+        <span><b>{{ stats.played }}</b> played so far</span>
+      </div>
+      <a class="back" href="/worldcup">← Back to the standings</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <p class="lead">A running prediction league for the {{ stats.title }} among friends. Before each match, everyone calls a winner and a scoreline. Points pile up, matchdays get trophies, and there's a side bet on every day's games. It's bragging rights, not a sportsbook.</p>
+
+    <h2>Scoring</h2>
+    <p>Every prediction is two calls: who wins (or a draw), and the exact scoreline.</p>
+    <div class="points">
+      <div class="point">
+        <div class="n">+{{ scoring.correct_winner }}</div>
+        <div class="lbl">Correct result</div>
+        <div class="desc">You called the right winner — or the draw.</div>
+      </div>
+      <div class="point">
+        <div class="n gold">+{{ scoring.exact_score_bonus }}</div>
+        <div class="lbl">Exact score bonus</div>
+        <div class="desc">On top of the result point, for nailing the precise scoreline — worth {{ scoring.correct_winner + scoring.exact_score_bonus }} in total.</div>
+      </div>
+    </div>
+    <p>So getting the winner right is {{ scoring.correct_winner }} point; getting the exact score is {{ scoring.correct_winner + scoring.exact_score_bonus }}. Miss the result entirely and you get nothing for that game.</p>
+
+    <h2>Reading the standings</h2>
+    <p>The table is organised by the current matchday. Settled matchdays collapse to a single points number; the matchday in progress is broken out so you can see the race in detail.</p>
+    <div class="legend">
+      <div class="legend-row"><div class="sym mono">MD1</div><div class="t"><b>Past matchday</b> — total points earned in a finished matchday.</div></div>
+      <div class="legend-row"><div class="sym">✓</div><div class="t"><b>Games correct</b> — winners called right in the current matchday.</div></div>
+      <div class="legend-row"><div class="sym">🎯</div><div class="t"><b>Exact scores</b> — precise scorelines nailed in the current matchday.</div></div>
+      <div class="legend-row"><div class="sym mono">Pts</div><div class="t"><b>Matchday points</b> — the current matchday's running total.</div></div>
+    </div>
+
+    <h2>Trophies &amp; the dunce cap</h2>
+    <p>When a matchday is settled, its podium is immortalised next to the winners' names, and whoever finished bottom wears the clown.</p>
+    <div class="legend">
+      <div class="legend-row"><div class="sym">🥇</div><div class="t"><b>Gold / silver / bronze</b> — the top three of a completed matchday (🥈 🥉 too).</div></div>
+      <div class="legend-row"><div class="sym">🤡</div><div class="t"><b>The clown</b> — last place for the matchday. Better luck next round.</div></div>
+      <div class="legend-row"><div class="sym">👑</div><div class="t"><b>Crown</b> — whoever currently leads the live matchday.</div></div>
+    </div>
+
+    <h2>The daily wager</h2>
+    <p>Each day has its own little contest: most points across that day's games wins the day. The latest day's haul shows in its own column, and once every game that day is final, the winner takes the money bag.</p>
+    <div class="legend">
+      <div class="legend-row"><div class="sym">💵</div><div class="t"><b>Today's column</b> — points scored on the most recent match day.</div></div>
+      <div class="legend-row"><div class="sym">💰</div><div class="t"><b>Daily winner</b> — top scorer once the day's games are all complete (held back until then).</div></div>
+    </div>
+
+    <h2>Making picks</h2>
+    <p>Predictions can be sent any time before a match kicks off. Each pick is a winner and a scoreline — for example, “Brazil 2–1” or “1–1 draw.” Miss a game and you simply score nothing for it; you're never penalised for sitting one out.</p>
+
+    <div class="note">Friendly reminder: this is a free, just-for-fun pool among friends — bragging rights and the occasional informal wager, nothing more.</div>
+  </main>
+
+  <footer>{{ stats.title }} · <a class="inline" href="/worldcup">standings</a></footer>
+</body>
+</html>
