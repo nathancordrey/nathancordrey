@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edit picks · Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root{--ink:#0B1F3A;--ink-2:#102a4c;--pitch:#1F9E5A;--chalk:#F4F6F3;--card:#fff;--line:#E3E7E2;--text:#14181C;--muted:#7B8694;
+      --disp:"Archivo",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif;--mono:"JetBrains Mono",monospace}
+    *{box-sizing:border-box}html,body{margin:0}
+    body{font-family:var(--body);color:var(--text);background:var(--chalk);padding-bottom:6rem}
+    header{background:linear-gradient(180deg,var(--ink-2),var(--ink));border-bottom:4px solid var(--pitch);color:#fff;padding:1.3rem 1.25rem}
+    .wrap{max-width:640px;margin:0 auto;padding:0 1.25rem}
+    header .wrap{padding:0}
+    .back{color:var(--pitch);font-family:var(--disp);font-weight:700;font-size:.75rem;letter-spacing:.04em;text-decoration:none}
+    header h1{font-family:var(--disp);font-weight:900;font-size:1.4rem;margin:.5rem 0 0}
+    header .meta{font-family:var(--mono);font-size:.75rem;color:#c7d2e0;margin-top:.25rem}
+    .hint{color:#c7d2e0;font-size:.82rem;margin-top:.5rem}
+    .flash{max-width:640px;margin:1rem auto 0;background:#dcfce7;border:1px solid #86efac;color:#15803d;font-size:.9rem;padding:.6rem .9rem;border-radius:9px}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:.6rem .85rem;margin-bottom:.55rem}
+    .pname{font-family:var(--disp);font-weight:700;font-size:.98rem}
+    .scores{display:flex;align-items:center;gap:.35rem;flex-shrink:0}
+    .scores input{width:2.8rem;padding:.5rem 0;text-align:center;font-family:var(--mono);font-weight:700;font-size:1.1rem;border:1.5px solid var(--line);border-radius:8px;background:#fbfcfb}
+    .scores input:focus{outline:none;border-color:var(--pitch);background:#fff}
+    .scores .team{font-size:.62rem;color:var(--muted);font-family:var(--disp);font-weight:700;text-transform:uppercase;width:2.8rem;text-align:center}
+    .scores .dash{color:var(--muted);font-weight:700}
+    .teamhdr{display:flex;justify-content:flex-end;gap:.35rem;margin-bottom:.4rem;padding-right:.85rem}
+    .teamhdr .team{font-size:.62rem;color:var(--muted);font-family:var(--disp);font-weight:700;text-transform:uppercase;width:2.8rem;text-align:center}
+    .teamhdr .spacer{width:.7rem}
+    .savebar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:.8rem 1.25rem;box-shadow:0 -6px 20px rgba(11,31,58,.07)}
+    button.save{width:100%;padding:.85rem;font-family:var(--disp);font-weight:800;font-size:1rem;color:#fff;background:var(--pitch);border:0;border-radius:10px;cursor:pointer}
+    .tip{color:var(--muted);font-size:.8rem;margin:.6rem 0 0}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <a class="back" href="{{ url_for('worldcup_admin') }}">← All games</a>
+      <h1>{{ game.home }} <span style="color:var(--muted);font-weight:600">v</span> {{ game.away }}</h1>
+      <div class="meta">{{ game.stage }}{% if game.group %} · Group {{ game.group }}{% endif %} · {{ game.date }}</div>
+      <div class="hint">Type each player's predicted scoreline. Leave both blank for no pick. The winner is set from the score automatically.</div>
+    </div>
+  </header>
+
+  {% with messages = get_flashed_messages() %}
+    {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+  {% endwith %}
+
+  <form method="post" action="{{ url_for('worldcup_admin_save_picks', gid=game.id) }}">
+  <div class="wrap" style="padding-top:1.4rem">
+    <div class="teamhdr">
+      <span class="team">{{ game.home[:3]|upper }}</span>
+      <span class="spacer"></span>
+      <span class="team">{{ game.away[:3]|upper }}</span>
+    </div>
+    {% for f in friends %}
+      {% set p = game.predictions.get(f) %}
+      <div class="row">
+        <div class="pname">{{ f }}</div>
+        <div class="scores">
+          <input type="number" inputmode="numeric" min="0" name="h_{{ f }}"
+                 value="{{ p.home_score if p else '' }}" aria-label="{{ game.home }} score for {{ f }}">
+          <span class="dash">–</span>
+          <input type="number" inputmode="numeric" min="0" name="a_{{ f }}"
+                 value="{{ p.away_score if p else '' }}" aria-label="{{ game.away }} score for {{ f }}">
+        </div>
+      </div>
+    {% endfor %}
+    <p class="tip">A draw is just equal scores (e.g. 1–1). Clearing both boxes removes that player's pick.</p>
+  </div>
+
+  <div class="savebar"><div class="wrap"><button class="save" type="submit">Save picks</button></div></div>
+  </form>
+</body>
+</html>
