@@ -324,7 +324,10 @@
       "home": "Netherlands", "away": "Sweden", "date": "2026-06-20",
       "result": null,
       "predictions": {
-        "Shivan": { "winner": "home", "home_score": 2, "away_score": 1 }
+        "Shivan": { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Ricky":  { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Chris":  { "winner": "draw", "home_score": 2, "away_score": 2 },
+        "Grant":  { "winner": "draw", "home_score": 1, "away_score": 1 }
       }
     },
     {
@@ -332,7 +335,10 @@
       "home": "Germany", "away": "Ivory Coast", "date": "2026-06-20",
       "result": null,
       "predictions": {
-        "Shivan": { "winner": "home", "home_score": 2, "away_score": 1 }
+        "Shivan": { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Ricky":  { "winner": "home", "home_score": 2, "away_score": 0 },
+        "Chris":  { "winner": "home", "home_score": 2, "away_score": 1 },
+        "Grant":  { "winner": "home", "home_score": 2, "away_score": 0 }
       }
     },
     {
@@ -340,7 +346,10 @@
       "home": "Ecuador", "away": "Curacao", "date": "2026-06-20",
       "result": null,
       "predictions": {
-        "Shivan": { "winner": "home", "home_score": 2, "away_score": 0 }
+        "Shivan": { "winner": "home", "home_score": 2, "away_score": 0 },
+        "Ricky":  { "winner": "home", "home_score": 3, "away_score": 0 },
+        "Chris":  { "winner": "home", "home_score": 3, "away_score": 0 },
+        "Grant":  { "winner": "home", "home_score": 2, "away_score": 0 }
       }
     },
     {
@@ -348,7 +357,10 @@
       "home": "Tunisia", "away": "Japan", "date": "2026-06-20",
       "result": null,
       "predictions": {
-        "Shivan": { "winner": "away", "home_score": 1, "away_score": 2 }
+        "Shivan": { "winner": "away", "home_score": 1, "away_score": 2 },
+        "Ricky":  { "winner": "away", "home_score": 0, "away_score": 1 },
+        "Chris":  { "winner": "away", "home_score": 0, "away_score": 3 },
+        "Grant":  { "winner": "away", "home_score": 0, "away_score": 1 }
       }
     }
   ]
