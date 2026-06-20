@@ -91,12 +91,21 @@
     .eyebrow-dark:first-of-type { margin-top: 0; }
 
     /* ── Standings table ── */
-    .lb-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 2rem; }
+    .lb-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1rem; }
+    .lb-key { font-size: .82rem; color: var(--muted); background: #fbfcfb;
+      border: 1px solid var(--line); border-radius: 10px; padding: .75rem .95rem; margin-bottom: 2.2rem; }
+    .lb-key > div { margin: .3rem 0; line-height: 1.45; }
+    .lb-key .k { font-family: var(--disp); font-weight: 700; color: var(--text); white-space: nowrap; }
+    .lb-key .k-more { margin-top: .5rem; }
+    .lb-key .k-more a { color: var(--pitch); font-family: var(--disp); font-weight: 700; font-size: .78rem; text-decoration: none; }
     .pts-exact { font-size: .8rem; letter-spacing: -2px; }
     .award { font-size: .95em; margin-left: .15rem; white-space: nowrap; }
     .md-pts { font-family: var(--mono); font-weight: 800; font-size: 1.05rem; }
     .daily-cell { white-space: nowrap; }
     .daily-flag { font-size: .9em; }
+    .money { font-family: var(--mono); font-weight: 700; }
+    .money.pos { color: #1F9E5A; }
+    .money.neg { color: #C2410C; }
     .standings {
       width: 100%; border-collapse: collapse;
       background: var(--card); border: 1px solid var(--line);
@@ -227,6 +236,7 @@
         <tr>
           <th class="num">Pos</th>
           <th>Player</th>
+          {% if show_money %}<th class="num" title="Season wager — $1 a day, winner takes the pot">$</th>{% endif %}
           {% if daily_label %}<th class="num" title="Points on {{ daily_label }} — daily wager">{{ daily_label }} 💵</th>{% endif %}
           {% for col in lb_past %}<th class="num" title="{{ col.full }} — points">{{ col.short }}</th>{% endfor %}
           {% if lb_active %}
@@ -241,6 +251,7 @@
         <tr class="{% if entry.is_leader %}leader{% endif %}">
           <td class="pos">{{ loop.index }}</td>
           <td class="player">{{ entry.name }}{% if entry.award %} <span class="award">{{ entry.award }}</span>{% endif %}</td>
+          {% if show_money %}<td class="num money {% if entry.money > 0 %}pos{% elif entry.money < 0 %}neg{% endif %}">{{ entry.money_str }}</td>{% endif %}
           {% if daily_label %}<td class="num stat daily-cell">{{ entry.daily }}{% if entry.daily_win %} <span class="daily-flag">💰</span>{% endif %}</td>{% endif %}
           {% for col in lb_past %}
           <td class="num stat">{{ entry.by_stage.get(col.full, {}).get('points', 0) }}</td>
@@ -254,6 +265,14 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
+
+    {# ── How to read the standings ── #}
+    <div class="lb-key">
+      {% if daily_label %}<div><span class="k">{{ daily_label }} 💵</span> — points scored on the most recent match day; <span class="k">💰</span> marks that day's winner once all its games are final.</div>{% endif %}
+      {% for col in lb_past %}<div><span class="k">{{ col.short }}</span> — total points from that completed matchday.</div>{% endfor %}
+      {% if lb_active %}<div><span class="k">{{ lb_active.short }} ✓ / 🎯 / Pts</span> — games called right, exact scores nailed, and points in the matchday now in progress (the table is ranked by this).</div>{% endif %}
+      <div class="k-more"><a href="/worldcup/about">Full rules &amp; symbols →</a></div>
     </div>
 
     {# ── Matches by stage ── #}
