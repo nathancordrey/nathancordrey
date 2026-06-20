@@ -253,13 +253,14 @@ def worldcup():
     for i, row in enumerate(leaderboard):
         row['is_leader'] = (i == 0 and active_points(row) > 0)
 
-    # ── Daily wager: the most recent day that has games scheduled (on or after
-    # the day the wager began). It rolls forward to a new day as soon as that
-    # day's fixtures exist — showing 0s until results come in — and the 💰 is
-    # only awarded once every game that day is final. ──
-    DAILY_WAGER_FROM = '2026-06-18'   # ISO date the daily wager started
+    # ── Daily wager: shows the most recent day that has results. While today's
+    # games are still upcoming it stays on the last settled day (keeping that
+    # day's 💰 winner visible); it flips to the new day as soon as that day's
+    # first result is in. The 💰 is only awarded once a day is fully complete. ──
+    DAILY_WAGER_FROM = '2026-06-19'   # ISO date the daily wager started
     wager_dates = [g.get('date') for g in games
-                   if g.get('date') and g.get('date') >= DAILY_WAGER_FROM]
+                   if g.get('result') is not None and g.get('date')
+                   and g.get('date') >= DAILY_WAGER_FROM]
     daily_label = None
     daily = {f: 0 for f in friends}
     if wager_dates:
@@ -285,6 +286,62 @@ def worldcup():
         d = date.fromisoformat(latest_day)
         daily_label = '{} {}'.format(d.strftime('%b'), d.day)
 
+    # ── Season wager ledger: every player antes $1 each wager day (so a full
+    # field makes a $N pot). The day's top scorer takes the pot; ties split it
+    # evenly. A day in progress shows everyone down their $1 ante until it
+    # settles. Net running total per player goes in the leftmost "$" column. ──
+    WAGER_STAKE = 1
+    n_players = len(friends)
+    result_dates = [g.get('date') for g in games
+                    if g.get('result') is not None and g.get('date')]
+    money = {f: 0 for f in friends}
+    wager_active = False
+    if result_dates:
+        last_result_date = max(result_dates)
+        # Wager days = dates that have games, from the start through the most
+        # recent day with any result (so future, all-upcoming days don't ante).
+        wager_days = sorted({g.get('date') for g in games
+                             if g.get('date')
+                             and DAILY_WAGER_FROM <= g.get('date') <= last_result_date})
+        for wd in wager_days:
+            day_games = [g for g in games if g.get('date') == wd]
+            complete = all(g.get('result') is not None for g in day_games)
+            dp = {f: 0 for f in friends}
+            for g in day_games:
+                if g.get('result') is None:
+                    continue
+                for f in friends:
+                    fr = g['friend_results'].get(f)
+                    if fr:
+                        dp[f] += fr['points']
+            pot = WAGER_STAKE * n_players
+            if complete:
+                top = max(dp.values())
+                day_winners = [f for f in friends if dp[f] == top and top > 0]
+                if day_winners:                     # void a day nobody scored on
+                    wager_active = True
+                    share = pot / len(day_winners)
+                    for f in friends:
+                        money[f] -= WAGER_STAKE
+                        if f in day_winners:
+                            money[f] += share
+            else:
+                # In-progress day: ante is in, pot still on the table.
+                wager_active = True
+                for f in friends:
+                    money[f] -= WAGER_STAKE
+
+    def _fmt_money(v):
+        rv = round(v, 2)
+        if rv == 0:
+            return '$0'
+        body = '{:d}'.format(abs(int(rv))) if rv == int(rv) else '{:.2f}'.format(abs(rv))
+        return ('+$' if rv > 0 else '\u2212$') + body
+
+    for row in leaderboard:
+        row['money'] = round(money.get(row['name'], 0), 2)
+        row['money_str'] = _fmt_money(money.get(row['name'], 0))
+
     return render_template('worldcup.html',
                            data=data,
                            leaderboard=leaderboard,
@@ -292,6 +349,7 @@ def worldcup():
                            lb_past=lb_past,
                            lb_active=lb_active,
                            daily_label=daily_label,
+                           show_money=wager_active,
                            scoring=scoring)
 
 # ───────────────────────── World Cup admin (results entry) ─────────────────────────
@@ -439,6 +497,228 @@ def worldcup_admin_save_picks(gid):
     _save_worldcup(data)
     flash('Picks saved.')
     return redirect(url_for('worldcup_admin_game', gid=gid))
+
+
+# ── AI-assisted entry: type picks/results in plain English, preview, confirm ──
+_OPENAI_MODEL = os.environ.get('WORLDCUP_AI_MODEL', 'gpt-4o-mini')
+
+
+def _ai_context(data):
+    lines = []
+    for g in data['games']:
+        r = g.get('result')
+        rt = '{}-{}'.format(r['home_score'], r['away_score']) if r else 'not played'
+        lines.append('id {}: {} (home) vs {} (away), {} [{}]'.format(
+            g.get('id'), g.get('home'), g.get('away'), g.get('date', '?'), rt))
+    return 'Players: {}\n\nGames:\n{}'.format(', '.join(data['friends']), '\n'.join(lines))
+
+
+def _ai_parse(text, data):
+    """Ask OpenAI to turn plain-English input into structured changes."""
+    from openai import OpenAI
+    client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+    system = (
+        "You convert a friends' World Cup prediction pool's updates from plain "
+        "English into JSON. You are given the players and the games (with ids, "
+        "which team is home vs away, and current results).\n\n"
+        "Each input describes either PREDICTIONS (a player's picks) or RESULTS "
+        "(actual final scores):\n"
+        "- \"X's picks are ...\", \"X: ...\" => predictions for player X.\n"
+        "- \"final\", \"the score was\", \"result\", \"X beat Y\" => a result.\n"
+        "- If it is unclear whether a line is a pick or a result, treat it as a "
+        "PREDICTION and add a warning saying so.\n\n"
+        "Scores: \"A-B TEAM\" means TEAM won A-B (A = TEAM's goals); \"1-1\" is a "
+        "draw. Convert each to the game's home_score/away_score based on which "
+        "side the named team is on. Match team references to the correct game_id "
+        "by name (nicknames ok: Scots=Scotland, T/P=Turkey vs Paraguay, "
+        "Para=Paraguay).\n\n"
+        "Respond with ONLY this JSON object:\n"
+        "{\"changes\":[{\"type\":\"prediction\" or \"result\",\"player\":name or "
+        "null,\"game_id\":int,\"home_score\":int,\"away_score\":int,"
+        "\"summary\":short line}],\"warnings\":[anything you could not map]}\n"
+        "Only include changes the text clearly states. Never invent results."
+    )
+    user = _ai_context(data) + '\n\nInput:\n' + text
+    resp = client.chat.completions.create(
+        model=_OPENAI_MODEL,
+        messages=[{'role': 'system', 'content': system},
+                  {'role': 'user', 'content': user}],
+        response_format={'type': 'json_object'},
+        temperature=0,
+    )
+    return json.loads(resp.choices[0].message.content)
+
+
+@app.route('/worldcup/admin/ai')
+@admin_required
+def worldcup_admin_ai():
+    return render_template('worldcup_admin_ai.html', proposed=None, raw_text='')
+
+
+@app.route('/worldcup/admin/ai/parse', methods=['POST'])
+@admin_required
+def worldcup_admin_ai_parse():
+    text = request.form.get('text', '').strip()
+    if not text:
+        flash('Type something to parse.')
+        return redirect(url_for('worldcup_admin_ai'))
+    if not os.environ.get('OPENAI_API_KEY'):
+        flash('OPENAI_API_KEY is not set on the server.')
+        return redirect(url_for('worldcup_admin_ai'))
+    data = _load_worldcup()
+    try:
+        parsed = _ai_parse(text, data)
+    except Exception as e:                       # noqa: BLE001 (admin-only surface)
+        flash('AI parse failed: {}'.format(e))
+        return redirect(url_for('worldcup_admin_ai'))
+    # Validate everything the model proposed against the real data.
+    by_id = {g.get('id'): g for g in data['games']}
+    clean, warnings = [], list(parsed.get('warnings', []) or [])
+    for ch in parsed.get('changes', []) or []:
+        g = by_id.get(ch.get('game_id'))
+        if g is None:
+            warnings.append('Unknown game id {}'.format(ch.get('game_id')))
+            continue
+        try:
+            hs, aws = int(ch['home_score']), int(ch['away_score'])
+        except (KeyError, ValueError, TypeError):
+            warnings.append('Bad score in: {}'.format(ch.get('summary', ch)))
+            continue
+        if ch.get('type') == 'prediction':
+            player = ch.get('player')
+            if player not in data['friends']:
+                warnings.append('Unknown player "{}"'.format(player))
+                continue
+            clean.append({'type': 'prediction', 'player': player, 'game_id': g['id'],
+                          'home_score': hs, 'away_score': aws,
+                          'label': '{} predicts {} {}-{} {}'.format(
+                              player, g['home'], hs, aws, g['away'])})
+        elif ch.get('type') == 'result':
+            clean.append({'type': 'result', 'game_id': g['id'],
+                          'home_score': hs, 'away_score': aws,
+                          'label': 'RESULT: {} {}-{} {}'.format(
+                              g['home'], hs, aws, g['away'])})
+        else:
+            warnings.append('Unclear change: {}'.format(ch.get('summary', ch)))
+    proposed = {'changes': clean, 'warnings': warnings, 'payload': json.dumps(clean)}
+    return render_template('worldcup_admin_ai.html', proposed=proposed, raw_text=text)
+
+
+# Model used for the web-search fixtures lookup (separate so you can point it at
+# a search-capable model if needed).
+_FIXTURES_MODEL = os.environ.get('WORLDCUP_FIXTURES_MODEL', 'gpt-4o-mini')
+
+
+def _ai_fixtures(today_iso):
+    """Use OpenAI web search to find today's World Cup fixtures."""
+    from openai import OpenAI
+    client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+    prompt = (
+        "Search the web for the FIFA World Cup 2026 matches scheduled on "
+        + today_iso + ". For each match give the two teams (home team first), "
+        "the stage, and the group letter if it's a group game. Use stage strings "
+        "exactly like 'Group Stage: Matchday 1', 'Group Stage: Matchday 2', "
+        "'Group Stage: Matchday 3', 'Round of 32', 'Round of 16', 'Round of 8', "
+        "'Round of 4', or 'Final'. Use common short English team names "
+        "(e.g. 'South Korea', 'Turkey', 'USA', 'Bosnia and Herzegovina'). "
+        "Respond with ONLY a JSON object of the form "
+        "{\"fixtures\":[{\"home\":\"..\",\"away\":\"..\","
+        "\"stage\":\"..\",\"group\":\"A\"}]}. Use null for group if not "
+        "applicable. If there are no matches that day, return an empty list."
+    )
+    resp = client.responses.create(
+        model=_FIXTURES_MODEL,
+        tools=[{'type': 'web_search_preview'}],
+        input=prompt,
+    )
+    raw = resp.output_text
+    start, end = raw.find('{'), raw.rfind('}')
+    if start == -1 or end == -1:
+        return []
+    return json.loads(raw[start:end + 1]).get('fixtures', [])
+
+
+@app.route('/worldcup/admin/ai/fixtures', methods=['POST'])
+@admin_required
+def worldcup_admin_ai_fixtures():
+    if not os.environ.get('OPENAI_API_KEY'):
+        flash('OPENAI_API_KEY is not set on the server.')
+        return redirect(url_for('worldcup_admin_ai'))
+    data = _load_worldcup()
+    today_iso = date.today().isoformat()
+    try:
+        fixtures = _ai_fixtures(today_iso)
+    except Exception as e:                       # noqa: BLE001 (admin-only surface)
+        flash('Fixture lookup failed: {}'.format(e))
+        return redirect(url_for('worldcup_admin_ai'))
+    # Skip fixtures already in the data (same teams, same day).
+    existing = {(g.get('home', '').lower(), g.get('away', '').lower(), g.get('date'))
+                for g in data['games']}
+    clean, warnings = [], []
+    for fx in fixtures:
+        home = (fx.get('home') or '').strip()
+        away = (fx.get('away') or '').strip()
+        if not (home and away):
+            continue
+        if (home.lower(), away.lower(), today_iso) in existing:
+            warnings.append('Already in the pool: {} v {}'.format(home, away))
+            continue
+        clean.append({'type': 'game', 'home': home, 'away': away,
+                      'stage': fx.get('stage') or 'Group Stage: Matchday 1',
+                      'group': fx.get('group'), 'date': today_iso,
+                      'label': 'Add {} v {}  ({})'.format(
+                          home, away, fx.get('stage') or 'group stage')})
+    if not clean and not warnings:
+        warnings.append('No World Cup matches found for {}.'.format(today_iso))
+    proposed = {'changes': clean, 'warnings': warnings, 'payload': json.dumps(clean)}
+    return render_template('worldcup_admin_ai.html', proposed=proposed, raw_text='')
+
+
+@app.route('/worldcup/admin/ai/apply', methods=['POST'])
+@admin_required
+def worldcup_admin_ai_apply():
+    try:
+        changes = json.loads(request.form.get('payload', '[]'))
+    except ValueError:
+        flash('Could not read the proposed changes.')
+        return redirect(url_for('worldcup_admin_ai'))
+    data = _load_worldcup()
+    by_id = {g.get('id'): g for g in data['games']}
+    applied = 0
+    for ch in changes:
+        typ = ch.get('type')
+        if typ == 'game':                         # add a new fixture (no result)
+            home = (ch.get('home') or '').strip()
+            away = (ch.get('away') or '').strip()
+            if home and away:
+                new_id = max((g.get('id', 0) for g in data['games']), default=0) + 1
+                data['games'].append({
+                    'id': new_id,
+                    'stage': ch.get('stage') or 'Group Stage: Matchday 1',
+                    'group': (ch.get('group') or None),
+                    'home': home, 'away': away,
+                    'date': ch.get('date', ''),
+                    'result': None, 'predictions': {}})
+                applied += 1
+            continue
+        g = by_id.get(ch.get('game_id'))
+        if g is None:
+            continue
+        try:
+            hs, aws = int(ch['home_score']), int(ch['away_score'])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if typ == 'prediction' and ch.get('player') in data['friends']:
+            g.setdefault('predictions', {})[ch['player']] = {
+                'winner': _winner_from_score(hs, aws),
+                'home_score': hs, 'away_score': aws}
+            applied += 1
+        elif typ == 'result':
+            g['result'] = {'home_score': hs, 'away_score': aws}
+            applied += 1
+    _save_worldcup(data)
+    flash('Applied {} change(s).'.format(applied))
+    return redirect(url_for('worldcup_admin_ai'))
 
 @app.route('/<path:path>/')
 @app.route('/<path:path>')
