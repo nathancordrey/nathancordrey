@@ -288,7 +288,7 @@
     {
       "id": 22, "stage": "Group Stage: Matchday 2", "group": null,
       "home": "Brazil", "away": "Haiti", "date": "2026-06-19",
-      "result": null,
+      "result": { "home_score": 3, "away_score": 0 },
       "predictions": {
         "Grant":  { "winner": "home", "home_score": 4, "away_score": 0 },
         "Chris":  { "winner": "home", "home_score": 5, "away_score": 0 },
@@ -305,7 +305,7 @@
     {
       "id": 23, "stage": "Group Stage: Matchday 2", "group": "D",
       "home": "Turkey", "away": "Paraguay", "date": "2026-06-19",
-      "result": null,
+      "result": { "home_score": 0, "away_score": 1 },
       "predictions": {
         "Grant":  { "winner": "home", "home_score": 2, "away_score": 1 },
         "Chris":  { "winner": "home", "home_score": 3, "away_score": 0 },
