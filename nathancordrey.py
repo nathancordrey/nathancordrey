@@ -513,30 +513,49 @@ def _ai_context(data):
     return 'Players: {}\n\nGames:\n{}'.format(', '.join(data['friends']), '\n'.join(lines))
 
 
+def _team_match(name, team):
+    """Loose match of a named team to one of a game's sides."""
+    n = (name or '').strip().lower()
+    t = (team or '').strip().lower()
+    if not n or not t:
+        return False
+    return n == t or n in t or t in n or n[:4] == t[:4]
+
+
 def _ai_parse(text, data):
-    """Ask OpenAI to turn plain-English input into structured changes."""
+    """Ask OpenAI to turn plain-English input into structured changes.
+
+    The model only has to NAME the winning team and the scoreline — it never
+    decides home vs away. The server orients the score itself, which removes the
+    most common error (flipping the scoreline when the away team is picked).
+    """
     from openai import OpenAI
     client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
     system = (
         "You convert a friends' World Cup prediction pool's updates from plain "
-        "English into JSON. You are given the players and the games (with ids, "
-        "which team is home vs away, and current results).\n\n"
+        "English into JSON. You are given the players and the games (with ids "
+        "and the two teams in each).\n\n"
         "Each input describes either PREDICTIONS (a player's picks) or RESULTS "
         "(actual final scores):\n"
         "- \"X's picks are ...\", \"X: ...\" => predictions for player X.\n"
         "- \"final\", \"the score was\", \"result\", \"X beat Y\" => a result.\n"
-        "- If it is unclear whether a line is a pick or a result, treat it as a "
-        "PREDICTION and add a warning saying so.\n\n"
-        "Scores: \"A-B TEAM\" means TEAM won A-B (A = TEAM's goals); \"1-1\" is a "
-        "draw. Convert each to the game's home_score/away_score based on which "
-        "side the named team is on. Match team references to the correct game_id "
-        "by name (nicknames ok: Scots=Scotland, T/P=Turkey vs Paraguay, "
+        "- If unclear whether a line is a pick or a result, treat it as a "
+        "PREDICTION and add a warning.\n\n"
+        "For each game pick, identify: the game_id, the WINNING TEAM, and the "
+        "score. Notation \"A-B TEAM\" or \"TEAM A-B\" means TEAM won A-B (A is "
+        "TEAM's goals, B the opponent's). \"2-2\" with no clear winner is a "
+        "draw. Do NOT reason about home vs away at all — just name the winning "
+        "team exactly as it appears in the game, and give its goals and the "
+        "opponent's goals. Match nicknames (Scots=Scotland, German=Germany, "
         "Para=Paraguay).\n\n"
         "Respond with ONLY this JSON object:\n"
         "{\"changes\":[{\"type\":\"prediction\" or \"result\",\"player\":name or "
-        "null,\"game_id\":int,\"home_score\":int,\"away_score\":int,"
-        "\"summary\":short line}],\"warnings\":[anything you could not map]}\n"
-        "Only include changes the text clearly states. Never invent results."
+        "null,\"game_id\":int,\"winner\":exact winning team name or \"draw\","
+        "\"winner_goals\":int,\"loser_goals\":int,\"summary\":short line}],"
+        "\"warnings\":[anything you could not map]}\n"
+        "For a draw, set winner to \"draw\" and winner_goals = loser_goals = the "
+        "drawn score. Only include changes the text clearly states; never invent "
+        "results."
     )
     user = _ai_context(data) + '\n\nInput:\n' + text
     resp = client.chat.completions.create(
@@ -579,10 +598,23 @@ def worldcup_admin_ai_parse():
         if g is None:
             warnings.append('Unknown game id {}'.format(ch.get('game_id')))
             continue
+        # Orient the score ourselves from the named winner — the model never
+        # decides home/away, so an away-team pick can't get flipped.
         try:
-            hs, aws = int(ch['home_score']), int(ch['away_score'])
+            wg, lg = int(ch['winner_goals']), int(ch['loser_goals'])
         except (KeyError, ValueError, TypeError):
             warnings.append('Bad score in: {}'.format(ch.get('summary', ch)))
+            continue
+        winner = (ch.get('winner') or '').strip()
+        if winner.lower() == 'draw':
+            hs = aws = wg
+        elif _team_match(winner, g.get('home')):
+            hs, aws = wg, lg
+        elif _team_match(winner, g.get('away')):
+            hs, aws = lg, wg
+        else:
+            warnings.append('Couldn\'t tell which team "{}" is in {} v {}'.format(
+                winner, g.get('home'), g.get('away')))
             continue
         if ch.get('type') == 'prediction':
             player = ch.get('player')
