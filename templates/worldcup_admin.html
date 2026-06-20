@@ -60,6 +60,7 @@
   {% endwith %}
 
   <div class="tools">
+    <a href="{{ url_for('worldcup_admin_ai') }}" style="display:block;text-align:center;text-decoration:none;background:var(--ink);color:#fff;font-family:var(--disp);font-weight:800;padding:.8rem;border-radius:11px">✨ Quick entry — type picks in plain English</a>
     <details class="tool">
       <summary>Add a game</summary>
       <form method="post" action="{{ url_for('worldcup_admin_add_game') }}" class="tool-body">
