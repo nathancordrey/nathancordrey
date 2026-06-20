@@ -318,6 +318,38 @@
         "Vinay":  { "winner": "draw", "home_score": 1, "away_score": 1 },
         "Dino":   { "winner": "away", "home_score": 1, "away_score": 2 }
       }
+    },
+    {
+      "id": 24, "stage": "Group Stage: Matchday 2", "group": null,
+      "home": "Netherlands", "away": "Sweden", "date": "2026-06-20",
+      "result": null,
+      "predictions": {
+        "Shivan": { "winner": "home", "home_score": 2, "away_score": 1 }
+      }
+    },
+    {
+      "id": 25, "stage": "Group Stage: Matchday 2", "group": null,
+      "home": "Germany", "away": "Ivory Coast", "date": "2026-06-20",
+      "result": null,
+      "predictions": {
+        "Shivan": { "winner": "home", "home_score": 2, "away_score": 1 }
+      }
+    },
+    {
+      "id": 26, "stage": "Group Stage: Matchday 2", "group": null,
+      "home": "Ecuador", "away": "Curacao", "date": "2026-06-20",
+      "result": null,
+      "predictions": {
+        "Shivan": { "winner": "home", "home_score": 2, "away_score": 0 }
+      }
+    },
+    {
+      "id": 27, "stage": "Group Stage: Matchday 2", "group": null,
+      "home": "Tunisia", "away": "Japan", "date": "2026-06-20",
+      "result": null,
+      "predictions": {
+        "Shivan": { "winner": "away", "home_score": 1, "away_score": 2 }
+      }
     }
   ]
 }
