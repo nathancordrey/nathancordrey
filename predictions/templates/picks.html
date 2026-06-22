@@ -1,74 +1,48 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>My Picks · {{ pool.name }}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+{% extends "base.html" %}
+{% block title %}My picks · {{ pool.name }}{% endblock %}
+
+{% block extra_css %}
 <style>
-  :root{
-    --navy:#0B1F3A; --navy2:#13294d; --pitch:#1F9E5A; --gold:#E8B22A;
-    --line:#22324f; --muted:#9fb0c8; --disp:'Archivo',sans-serif;
-    --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  .daygrp { font-family:var(--mono); font-size:.72rem; color:var(--muted); margin:1.2rem 0 .4rem; letter-spacing:.04em; text-transform:uppercase; }
+  .pick-row { display:flex; align-items:center; gap:.6rem; padding:.62rem .15rem; border-bottom:1px solid var(--line); }
+  .pick-row:last-child { border-bottom:0; }
+  .pick-row .teams { flex:1; min-width:0; }
+  .pick-row .grp { color:var(--muted); font-size:.66rem; font-family:var(--mono); letter-spacing:.04em; }
+  .pick-row .matchup { font-family:var(--disp); font-weight:800; font-size:.95rem; }
+  .pick-row .matchup .vs { color:var(--muted); font-weight:600; margin:0 .3rem; font-size:.85em; }
+  .score-in { display:flex; align-items:center; gap:.35rem; }
+  .score-in input {
+    width:2.7rem; padding:.45rem; text-align:center; font-family:var(--mono); font-weight:800; font-size:1rem;
+    background:#fff; border:1px solid var(--line); border-radius:8px; color:var(--ink);
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--navy);color:#eaf1fb;font-family:var(--body);line-height:1.5}
-  .wrap{max-width:680px;margin:0 auto;padding:1.1rem}
-  header{border-bottom:1px solid var(--line);padding-bottom:1rem;margin-bottom:1.2rem}
-  .topbar{display:flex;justify-content:space-between;align-items:center;gap:1rem}
-  .eyebrow{color:var(--pitch);font-family:var(--disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
-  h1{font-family:var(--disp);font-weight:800;font-size:1.5rem;margin:.2rem 0 0}
-  .logout{color:var(--muted);font-size:.78rem;text-decoration:none;border:1px solid var(--line);padding:.35rem .6rem;border-radius:7px;white-space:nowrap;background:transparent;cursor:pointer}
-  .nav a{color:var(--pitch);font-family:var(--disp);font-weight:700;font-size:.76rem;text-decoration:none;letter-spacing:.03em}
-  .flash{background:rgba(31,158,90,.15);border:1px solid var(--pitch);color:#bfe9d2;padding:.55rem .8rem;border-radius:8px;font-size:.85rem;margin-bottom:1rem}
-  .sect{color:var(--gold);font-family:var(--disp);font-weight:700;font-size:.74rem;letter-spacing:.07em;text-transform:uppercase;margin:1.6rem 0 .5rem}
-  .daygrp{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin:1rem 0 .35rem;letter-spacing:.04em}
-  .game{display:flex;align-items:center;gap:.5rem;padding:.6rem .2rem;border-bottom:1px solid var(--line)}
-  .teams{flex:1;min-width:0}
-  .teams .grp{color:var(--muted);font-size:.66rem;font-family:var(--mono);letter-spacing:.04em}
-  .teams .matchup{font-weight:600;font-size:.95rem}
-  .score-in{display:flex;align-items:center;gap:.3rem}
-  .score-in input{width:2.6rem;padding:.45rem;text-align:center;font-family:var(--mono);font-weight:700;font-size:1rem;
-    background:var(--navy2);border:1px solid var(--line);border-radius:8px;color:#fff}
-  .score-in input:focus{outline:none;border-color:var(--pitch)}
-  .score-in .dash{color:var(--muted);font-family:var(--mono)}
-  .ro{font-family:var(--mono);font-weight:700;font-size:.95rem;text-align:right;white-space:nowrap}
-  .ro .mine{color:var(--muted);font-size:.78rem;font-weight:600}
-  .res{font-family:var(--mono);font-weight:700;color:#fff}
-  .pts{font-family:var(--disp);font-weight:800;font-size:.8rem;padding:.1rem .45rem;border-radius:6px;margin-left:.4rem}
-  .pts.hit{background:rgba(31,158,90,.2);color:var(--pitch)} .pts.exact{background:rgba(232,178,42,.2);color:var(--gold)}
-  .pts.miss{color:var(--muted)}
-  .save{position:sticky;bottom:0;background:linear-gradient(transparent,var(--navy) 30%);padding:1rem 0 .4rem;margin-top:.5rem}
-  .save button{width:100%;background:var(--pitch);color:#fff;border:none;font-family:var(--disp);font-weight:800;
-    font-size:1rem;padding:.8rem;border-radius:10px;cursor:pointer}
-  .empty{color:var(--muted);font-size:.9rem;padding:.8rem 0}
-  .hint{color:var(--muted);font-size:.78rem;margin:.2rem 0 0}
+  .score-in input:focus { outline:none; border-color:var(--pitch); box-shadow:0 0 0 3px rgba(31,158,90,.15); }
+  .score-in .dash { color:var(--muted); font-family:var(--mono); }
+  .save-bar { position:sticky; bottom:0; background:linear-gradient(transparent, var(--chalk) 35%); padding:1rem 0 .4rem; margin-top:.4rem; }
+  .save-bar button {
+    width:100%; background:var(--pitch); color:#fff; border:none; font-family:var(--disp);
+    font-weight:800; font-size:1rem; padding:.85rem; border-radius:10px; cursor:pointer;
+  }
+  .ro { font-family:var(--mono); font-weight:700; font-size:.92rem; text-align:right; white-space:nowrap; }
+  .ro .res { color:var(--ink); }
+  .ro .mine { color:var(--muted); font-size:.76rem; font-weight:600; }
+  .pts { font-family:var(--disp); font-weight:800; font-size:.78rem; padding:.12rem .45rem; border-radius:6px; margin-left:.5rem; }
+  .pts.hit { background:var(--win-bg); color:var(--win); }
+  .pts.exact { background:var(--exact-bg); color:var(--exact); }
+  .pts.miss { background:var(--miss-bg); color:var(--miss); }
+  .hint { color:var(--muted); font-size:.78rem; margin:.4rem 0 0; }
 </style>
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <div class="topbar">
-      <div>
-        <div class="eyebrow">{{ pool.name }}</div>
-        <h1>Your picks, {{ me.name }}</h1>
-      </div>
-      <form method="post" action="{{ url_for('auth.logout') }}" style="margin:0">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="logout" type="submit">Sign out</button>
-      </form>
-    </div>
-    <div class="nav" style="margin-top:.6rem"><a href="/worldcup">← Standings</a></div>
-  </header>
+{% endblock %}
 
-  {% with msgs = get_flashed_messages() %}
-    {% for m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}
-  {% endwith %}
+{% block content %}
+<div class="page-head">
+  <div class="eyebrow">{{ pool.name }}</div>
+  <h1 class="page-title">Your picks, {{ me.name }}</h1>
+</div>
 
+<main class="wrap narrow">
   <form method="post" action="{{ url_for('picks.save_picks') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="sect">Open for picks</div>
+    <div class="section-label">Open for picks</div>
     {% if open_games %}
       {% set ns = namespace(day='') %}
       {% for row in open_games %}
@@ -77,39 +51,37 @@
           {% set ns.day = g.kickoff_at.strftime('%Y-%m-%d') %}
           <div class="daygrp">{{ g.kickoff_at.strftime('%a %b %-d') }}</div>
         {% endif %}
-        <div class="game">
+        <div class="pick-row">
           <div class="teams">
             {% if g.group_label %}<div class="grp">Group {{ g.group_label }}</div>{% endif %}
-            <div class="matchup">{{ g.home }} <span style="color:var(--muted)">v</span> {{ g.away }}</div>
+            <div class="matchup">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
           </div>
           <div class="score-in">
-            <input type="number" min="0" name="h_{{ g.id }}" value="{{ row.pick.home_score if row.pick else '' }}" aria-label="{{ g.home }} score">
+            <input type="number" min="0" inputmode="numeric" name="h_{{ g.id }}" value="{{ row.pick.home_score if row.pick else '' }}" aria-label="{{ g.home }} score">
             <span class="dash">–</span>
-            <input type="number" min="0" name="a_{{ g.id }}" value="{{ row.pick.away_score if row.pick else '' }}" aria-label="{{ g.away }} score">
+            <input type="number" min="0" inputmode="numeric" name="a_{{ g.id }}" value="{{ row.pick.away_score if row.pick else '' }}" aria-label="{{ g.away }} score">
           </div>
         </div>
       {% endfor %}
       <p class="hint">Enter a score for both sides. Picks lock at kickoff.</p>
-      <div class="save"><button type="submit">Save picks</button></div>
+      <div class="save-bar"><button type="submit">Save picks</button></div>
     {% else %}
       <div class="empty">No games open right now. New games appear the morning of match day.</div>
     {% endif %}
   </form>
 
   {% if locked_games %}
-    <div class="sect">Locked &amp; past</div>
+    <div class="section-label">Locked &amp; past</div>
     {% for row in locked_games %}
       {% set g = row.game %}
-      <div class="game">
+      <div class="pick-row">
         <div class="teams">
           {% if g.group_label %}<div class="grp">Group {{ g.group_label }}</div>{% endif %}
-          <div class="matchup">{{ g.home }} <span style="color:var(--muted)">v</span> {{ g.away }}</div>
+          <div class="matchup">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
         </div>
         <div class="ro">
           {% if g.is_final %}<span class="res">{{ g.home_score }}–{{ g.away_score }}</span>{% else %}<span style="color:var(--muted)">live/soon</span>{% endif %}
-          <div class="mine">
-            {% if row.pick %}you: {{ row.pick.home_score }}–{{ row.pick.away_score }}{% else %}no pick{% endif %}
-          </div>
+          <div class="mine">{% if row.pick %}you: {{ row.pick.home_score }}–{{ row.pick.away_score }}{% else %}no pick{% endif %}</div>
         </div>
         {% if g.is_final %}
           {% if row.pick and row.exact %}<span class="pts exact">+{{ row.points }}</span>
@@ -119,6 +91,5 @@
       </div>
     {% endfor %}
   {% endif %}
-</div>
-</body>
-</html>
+</main>
+{% endblock %}
