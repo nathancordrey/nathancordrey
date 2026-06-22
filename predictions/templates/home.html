@@ -30,14 +30,14 @@
                 <th>Player</th>
                 {% if show_money %}<th class="num">$</th>{% endif %}
                 {% if daily_label %}<th class="num">{{ daily_label }} 💵</th>{% endif %}
-                {% for s in lb_past %}<th class="num">{{ s.short }}</th>{% endfor %}
                 {% if lb_active %}
+                  <th class="num">{{ lb_active.short }} Pts</th>
                   <th class="num">{{ lb_active.short }} ✓</th>
                   <th class="num">{{ lb_active.short }} 🎯</th>
-                  <th class="num">{{ lb_active.short }} Pts</th>
                 {% else %}
                   <th class="num">Pts</th>
                 {% endif %}
+                {% for s in lb_past %}<th class="num">{{ s.short }}</th>{% endfor %}
               </tr>
             </thead>
             <tbody>
@@ -47,14 +47,14 @@
                 <td class="player">{{ row.name }}{% if row.award %} {{ row.award }}{% endif %}{% if row.is_leader %} 👑{% endif %}</td>
                 {% if show_money %}<td class="stat num money {% if row.money > 0 %}pos{% elif row.money < 0 %}neg{% endif %}">{{ row.money_str }}</td>{% endif %}
                 {% if daily_label %}<td class="stat num">{{ row.daily }}{% if row.daily_win %} 💰{% endif %}</td>{% endif %}
-                {% for p in row.past_points %}<td class="stat num">{{ p }}</td>{% endfor %}
                 {% if lb_active %}
+                  <td class="points num">{{ row.active_points }}</td>
                   <td class="stat num">{{ row.active_winners }}</td>
                   <td class="stat num">{{ row.active_exact }}</td>
-                  <td class="points num">{{ row.active_points }}</td>
                 {% else %}
                   <td class="points num">{{ row.total }}</td>
                 {% endif %}
+                {% for p in row.past_points %}<td class="stat num">{{ p }}</td>{% endfor %}
               </tr>
               {% endfor %}
             </tbody>
