@@ -4,9 +4,9 @@ Routes are registered under /predictions by wc_app.py.
 
 This pass:
   - keeps picks hidden before kickoff
-  - shows a name roster with check marks before kickoff
+  - shows a simple submitted/pending name roster before kickoff
   - reveals everyone's score predictions after kickoff
-  - shows final results with each player's prediction and points
+  - shows final results with target/check/x result labels
 """
 
 import datetime as dt
@@ -22,7 +22,6 @@ public = Blueprint("public", __name__, template_folder="templates")
 
 APP_TZ = ZoneInfo("America/New_York")
 
-# Season money wager started this date (ISO). Mirrors the old /worldcup page.
 DAILY_WAGER_FROM = "2026-06-19"
 WAGER_STAKE = 1
 
@@ -71,11 +70,7 @@ def _as_app_tz(value):
 
 
 def _et_date(game):
-    """ET calendar date (ISO string) of a game's kickoff.
-
-    This matches the day grouping the old /worldcup page uses for the daily
-    wager and ledger.
-    """
+    """ET calendar date (ISO string) of a game's kickoff."""
     return _as_app_tz(game.kickoff_at).date().isoformat()
 
 
@@ -107,16 +102,11 @@ def _first_pool():
 
 
 def _leaderboard(pool):
-    """Build standings for one pool.
-
-    Includes per-matchday breakdown, Matchday 1 trophies, daily wager
-    column, and season money ledger to mirror the old /worldcup page.
-    """
+    """Build standings for one pool."""
     members = [m.user for m in pool.members]
     member_ids = [u.id for u in members]
     open_date = _pick_open_date()
 
-    # Only games whose match day has arrived count toward standings.
     games = [
         g for g in sorted(pool.competition.games, key=lambda g: g.kickoff_at)
         if _as_app_tz(g.kickoff_at).date() <= open_date
@@ -272,7 +262,6 @@ def _leaderboard(pool):
                 top = max(day_points.values())
                 day_winners = [uid for uid in member_ids if day_points[uid] == top and top > 0]
                 if day_winners:
-                    # Void a day nobody scored on.
                     wager_active = True
                     share = pot / len(day_winners)
                     for uid in member_ids:
@@ -288,7 +277,6 @@ def _leaderboard(pool):
             rows[uid]["money"] = round(money[uid], 2)
             rows[uid]["money_str"] = _fmt_money(money[uid])
 
-    # Rank by active matchday points, total as tiebreak.
     ranked_rows = sorted(
         rows.values(),
         key=lambda r: (active_points(r["user"].id), r["total"]),
@@ -463,16 +451,12 @@ def home():
         if _as_app_tz(game.kickoff_at).date() <= open_date
     ]
 
-    # Non-final games that are visible today. Before kickoff, score picks are
-    # hidden but the submitted/pending roster is visible. After kickoff, picks
-    # are revealed.
     current_games = [
         _game_card(pool, game, pred_index.get(game.id, {}), member_count)
         for game in visible_games
         if not game.is_final
     ]
 
-    # Recent final games, newest first, with all score predictions shown.
     recent_results = [
         _game_card(pool, game, pred_index.get(game.id, {}), member_count)
         for game in sorted(games, key=lambda g: g.kickoff_at, reverse=True)
