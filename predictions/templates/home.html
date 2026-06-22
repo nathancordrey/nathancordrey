@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ competition.name }} · {{ pool.name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink:#0B1F3A;
+      --ink-2:#102a4c;
+      --pitch:#1F9E5A;
+      --gold:#E8B22A;
+      --chalk:#F4F6F3;
+      --card:#FFFFFF;
+      --line:#E3E7E2;
+      --text:#14181C;
+      --muted:#7B8694;
+      --exact:#6d28d9;
+      --exact-bg:#ede9fe;
+      --open:#15803d;
+      --open-bg:#dcfce7;
+      --locked:#C2410C;
+      --locked-bg:#ffedd5;
+      --disp:"Archivo", system-ui, sans-serif;
+      --body:"Inter", system-ui, sans-serif;
+      --mono:"JetBrains Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing:border-box; }
+    html, body { margin:0; }
+    body {
+      font-family:var(--body);
+      color:var(--text);
+      background:var(--chalk);
+      -webkit-font-smoothing:antialiased;
+      line-height:1.45;
+    }
+
+    .site-header {
+      background:
+        radial-gradient(120% 140% at 85% -20%, rgba(31,158,90,.35), transparent 55%),
+        linear-gradient(180deg, var(--ink-2), var(--ink));
+      color:#fff;
+      padding:2.3rem 1.25rem 1.8rem;
+      border-bottom:4px solid var(--pitch);
+    }
+    .header-inner { max-width:960px; margin:0 auto; }
+    .eyebrow {
+      font-family:var(--disp);
+      font-weight:700;
+      font-size:.72rem;
+      letter-spacing:.22em;
+      text-transform:uppercase;
+      color:var(--pitch);
+      display:flex;
+      align-items:center;
+      gap:.6rem;
+    }
+    .eyebrow::after {
+      content:"";
+      flex:1;
+      height:1px;
+      background:linear-gradient(90deg, rgba(31,158,90,.6), transparent);
+    }
+    .site-title {
+      font-family:var(--disp);
+      font-weight:900;
+      font-size:clamp(2rem, 7vw, 3.4rem);
+      letter-spacing:-.02em;
+      line-height:.98;
+      margin:.5rem 0 0;
+      text-transform:uppercase;
+    }
+    .subtitle {
+      margin:.55rem 0 0;
+      color:#c7d2e0;
+      max-width:44rem;
+    }
+    .header-stats {
+      margin-top:1rem;
+      display:flex;
+      flex-wrap:wrap;
+      gap:1.2rem;
+      font-size:.82rem;
+      color:#c7d2e0;
+    }
+    .header-stats b {
+      color:#fff;
+      font-family:var(--mono);
+    }
+    .header-actions {
+      margin-top:1.05rem;
+      display:flex;
+      flex-wrap:wrap;
+      gap:.65rem;
+    }
+    .header-actions a {
+      display:inline-block;
+      color:#fff;
+      border:1px solid rgba(255,255,255,.25);
+      text-decoration:none;
+      font-family:var(--disp);
+      font-weight:700;
+      font-size:.78rem;
+      padding:.45rem .7rem;
+      border-radius:999px;
+    }
+    .header-actions a.primary {
+      background:var(--pitch);
+      border-color:var(--pitch);
+    }
+
+    .wrap { max-width:960px; margin:0 auto; padding:2rem 1.25rem 4rem; }
+    .section-label {
+      font-family:var(--disp);
+      font-weight:700;
+      font-size:.72rem;
+      letter-spacing:.18em;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin:2.1rem 0 .85rem;
+      display:flex;
+      align-items:center;
+      gap:.7rem;
+    }
+    .section-label::after {
+      content:"";
+      flex:1;
+      height:1px;
+      background:var(--line);
+    }
+    .section-label:first-of-type { margin-top:0; }
+
+    .grid {
+      display:grid;
+      grid-template-columns:1.35fr .9fr;
+      gap:1rem;
+      align-items:start;
+    }
+
+    .card {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+    }
+
+    .standings-scroll {
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    .standings {
+      width:100%;
+      border-collapse:collapse;
+      min-width:560px;
+    }
+    .standings th {
+      font-family:var(--disp);
+      font-weight:700;
+      font-size:.68rem;
+      letter-spacing:.1em;
+      text-transform:uppercase;
+      color:var(--muted);
+      text-align:left;
+      padding:.8rem 1rem;
+      background:#fbfcfb;
+      border-bottom:1px solid var(--line);
+    }
+    .standings th.num,
+    .standings td.num { text-align:center; }
+    .standings td {
+      padding:.78rem 1rem;
+      border-bottom:1px solid #f1f3f0;
+    }
+    .standings tr:last-child td { border-bottom:0; }
+    .standings tr.me td {
+      background:linear-gradient(90deg, rgba(31,158,90,.10), transparent 70%);
+    }
+    .rank {
+      font-family:var(--mono);
+      color:var(--muted);
+      font-weight:700;
+    }
+    .player {
+      font-family:var(--disp);
+      font-weight:800;
+    }
+    .stat {
+      font-family:var(--mono);
+      color:#4b5563;
+      font-size:.9rem;
+    }
+    .points {
+      font-family:var(--mono);
+      font-weight:800;
+      font-size:1.2rem;
+      text-align:right;
+    }
+
+    .game-list { display:grid; gap:.75rem; }
+    .game {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+    }
+    .game-head {
+      display:flex;
+      justify-content:space-between;
+      gap:1rem;
+      align-items:center;
+      padding:.9rem 1rem;
+      background:#fbfcfb;
+      border-bottom:1px solid var(--line);
+    }
+    .fixture {
+      font-family:var(--disp);
+      font-weight:800;
+      font-size:1rem;
+    }
+    .fixture .vs {
+      color:var(--muted);
+      font-weight:600;
+      margin:0 .35rem;
+      font-size:.85em;
+    }
+    .meta {
+      margin-top:.14rem;
+      color:var(--muted);
+      font-family:var(--mono);
+      font-size:.72rem;
+    }
+    .badge {
+      display:inline-block;
+      font-family:var(--disp);
+      font-weight:800;
+      font-size:.68rem;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      padding:.24rem .55rem;
+      border-radius:999px;
+      white-space:nowrap;
+    }
+    .badge.open { color:var(--open); background:var(--open-bg); }
+    .badge.locked { color:var(--locked); background:var(--locked-bg); }
+    .badge.final { color:var(--exact); background:var(--exact-bg); }
+    .game-body {
+      padding:.75rem 1rem;
+      display:flex;
+      justify-content:space-between;
+      gap:1rem;
+      align-items:center;
+      color:#4b5563;
+      font-size:.86rem;
+    }
+    .pick-count {
+      font-family:var(--mono);
+      font-weight:700;
+      color:var(--ink);
+    }
+    .scoreline {
+      font-family:var(--mono);
+      font-weight:800;
+      color:#fff;
+      background:var(--ink);
+      padding:.22rem .6rem;
+      border-radius:8px;
+      letter-spacing:.04em;
+    }
+    .empty {
+      color:var(--muted);
+      padding:1rem;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+    }
+    .note {
+      color:var(--muted);
+      font-size:.82rem;
+      margin:.8rem 0 0;
+    }
+
+    @media (max-width:760px) {
+      .grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="eyebrow">DB-backed prediction league</div>
+      <h1 class="site-title">{{ competition.name }}</h1>
+      <p class="subtitle">{{ pool.name }} dashboard. This is the new database version running beside the old JSON page.</p>
+      <div class="header-stats">
+        <span><b>{{ member_count }}</b> players</span>
+        <span><b>{{ final_games }}</b>/<b>{{ total_games }}</b> matches final</span>
+        <span><b>{{ pool.score_correct_winner }}</b> pt winner &nbsp;·&nbsp; <b>+{{ pool.score_exact_bonus }}</b> exact</span>
+      </div>
+      <div class="header-actions">
+        <a class="primary" href="{{ url_for('picks.my_picks') }}">My picks →</a>
+        <a href="/worldcup">Old /worldcup page</a>
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('auth.change_password') }}">Change password</a>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}">Log in</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+      <section>
+        <div class="section-label">Standings</div>
+        <div class="card standings-scroll">
+          <table class="standings">
+            <thead>
+              <tr>
+                <th class="num">Pos</th>
+                <th>Player</th>
+                <th class="num">Correct</th>
+                <th class="num">Exact</th>
+                <th class="num">Picks</th>
+                <th class="num">Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in leaderboard %}
+              <tr class="{% if row.is_me %}me{% endif %}">
+                <td class="rank num">{{ row.rank }}</td>
+                <td class="player">{{ row.name }}</td>
+                <td class="stat num">{{ row.winners }}</td>
+                <td class="stat num">{{ row.exact }}</td>
+                <td class="stat num">{{ row.submitted }}</td>
+                <td class="points num">{{ row.total }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="note">First-pass DB scoring: total points, correct winners, exact scores, and submitted picks.</p>
+      </section>
+
+      <aside>
+        <div class="section-label">Open / current</div>
+        <div class="game-list">
+          {% if current_games %}
+            {% for row in current_games %}
+              {% set g = row.game %}
+              <article class="game">
+                <div class="game-head">
+                  <div>
+                    <div class="fixture">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
+                    <div class="meta">
+                      {% if g.group_label %}Group {{ g.group_label }} · {% endif %}
+                      {{ row.date_label }} · {{ row.time_label }}
+                    </div>
+                  </div>
+                  <span class="badge {% if row.status_label == 'Open' %}open{% else %}locked{% endif %}">{{ row.status_label }}</span>
+                </div>
+                <div class="game-body">
+                  <span><span class="pick-count">{{ row.pick_count }}/{{ member_count }}</span> picks in</span>
+                  {% if row.missing_count %}<span>{{ row.missing_count }} missing</span>{% else %}<span>all set</span>{% endif %}
+                </div>
+              </article>
+            {% endfor %}
+          {% else %}
+            <div class="empty">No open/current games right now.</div>
+          {% endif %}
+        </div>
+
+        <div class="section-label">Recent finals</div>
+        <div class="game-list">
+          {% if recent_results %}
+            {% for row in recent_results %}
+              {% set g = row.game %}
+              <article class="game">
+                <div class="game-head">
+                  <div>
+                    <div class="fixture">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
+                    <div class="meta">
+                      {% if g.group_label %}Group {{ g.group_label }} · {% endif %}
+                      {{ row.date_label }}
+                    </div>
+                  </div>
+                  <span class="badge final">Final</span>
+                </div>
+                <div class="game-body">
+                  <span><span class="pick-count">{{ row.pick_count }}/{{ member_count }}</span> picks</span>
+                  <span class="scoreline">{{ row.scoreline }}</span>
+                </div>
+              </article>
+            {% endfor %}
+          {% else %}
+            <div class="empty">No final results yet.</div>
+          {% endif %}
+        </div>
+      </aside>
+    </div>
+  </main>
+
+</body>
+</html>
