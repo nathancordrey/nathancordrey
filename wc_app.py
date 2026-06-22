@@ -2,7 +2,11 @@
 
 Runs alongside the live JSON site without touching it.
 
-Expected layout:
+Public URL plan:
+  /worldcup      -> existing JSON site
+  /predictions   -> new DB/user app
+
+Expected repo layout:
 
   nathancordrey.py
   wsgi.py
@@ -35,7 +39,8 @@ Server:
 import os
 from pathlib import Path
 
-from flask import Flask, redirect, url_for
+from flask import Flask, flash, redirect, request, url_for
+from flask_wtf.csrf import CSRFError, CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 try:
@@ -43,12 +48,13 @@ try:
 except ImportError:
     load_dotenv = None
 
-from predictions.models import db
 from predictions.auth import auth, login_manager
+from predictions.models import db
 from predictions.picks import picks
 
 
 HERE = Path(__file__).resolve().parent
+csrf = CSRFProtect()
 
 
 def _load_env():
@@ -90,7 +96,7 @@ def create_app():
         __name__,
         template_folder=str(HERE / "predictions" / "templates"),
         static_folder=str(HERE / "predictions" / "static"),
-        static_url_path="/predictions-static",
+        static_url_path="/predictions/static",
     )
 
     app_env = os.environ.get("APP_ENV", os.environ.get("FLASK_ENV", "development"))
@@ -100,9 +106,19 @@ def create_app():
         SECRET_KEY=os.environ.get("WORLDCUP_SECRET_KEY", "dev-only-change-me"),
         SQLALCHEMY_DATABASE_URI=_database_url(),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+
+        # Session cookie hardening.
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=_bool_env("SESSION_COOKIE_SECURE", is_production),
+
+        # Flask-WTF CSRF protection. 12 hours keeps a picks page open
+        # on a phone without expiring too quickly.
+        WTF_CSRF_TIME_LIMIT=int(
+            os.environ.get("WTF_CSRF_TIME_LIMIT", str(12 * 60 * 60))
+        ),
+
+        # Picks forms are tiny.
         MAX_CONTENT_LENGTH=256 * 1024,
     )
 
@@ -114,15 +130,32 @@ def create_app():
 
     db.init_app(app)
     login_manager.init_app(app)
+    csrf.init_app(app)
 
-    app.register_blueprint(auth)
-    app.register_blueprint(picks)
+    # All routes in these blueprints live under /predictions.
+    app.register_blueprint(auth, url_prefix="/predictions")
+    app.register_blueprint(picks, url_prefix="/predictions")
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(error):
+        flash("That form expired or was invalid. Please try again.")
+
+        # Conservative same-site referrer redirect.
+        if request.referrer and request.referrer.startswith(request.host_url):
+            return redirect(request.referrer)
+
+        return redirect(url_for("predictions_home"))
 
     @app.route("/")
-    def home():
+    def root():
+        return redirect(url_for("predictions_home"))
+
+    @app.route("/predictions")
+    @app.route("/predictions/")
+    def predictions_home():
         return redirect(url_for("picks.my_picks"))
 
-    @app.route("/healthz")
+    @app.route("/predictions/healthz")
     def healthz():
         return {"ok": True}
 
