@@ -1,0 +1,30 @@
+{# Role-aware navigation. Included by base.html inside the top bar.
+   Active link is highlighted by matching request.endpoint. #}
+<nav class="nav-links">
+  <a href="{{ url_for('public.home') }}"
+     class="{% if request.endpoint == 'public.home' %}active{% endif %}">Standings</a>
+
+  {% if current_user.is_authenticated %}
+    <a href="{{ url_for('picks.my_picks') }}"
+       class="{% if request.endpoint == 'picks.my_picks' %}active{% endif %}">My picks</a>
+
+    {% if current_user.is_site_admin %}
+      <a href="{{ url_for('admin.results') }}"
+         class="admin {% if request.endpoint == 'admin.results' %}active{% endif %}">Admin</a>
+    {% endif %}
+
+    <a href="{{ url_for('auth.change_password') }}"
+       class="{% if request.endpoint == 'auth.change_password' %}active{% endif %}">Password</a>
+
+    <a href="/worldcup">Old&nbsp;page</a>
+
+    <form class="nav-logout" method="post" action="{{ url_for('auth.logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">Sign out</button>
+    </form>
+  {% else %}
+    <a href="/worldcup">Old&nbsp;page</a>
+    <a href="{{ url_for('auth.login') }}"
+       class="{% if request.endpoint == 'auth.login' %}active{% endif %}">Log in</a>
+  {% endif %}
+</nav>
