@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enter Results · Predictions Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink:#0B1F3A;
+      --ink-2:#102a4c;
+      --pitch:#1F9E5A;
+      --chalk:#F4F6F3;
+      --card:#FFFFFF;
+      --line:#E3E7E2;
+      --text:#14181C;
+      --muted:#7B8694;
+      --final:#6d28d9;
+      --final-bg:#ede9fe;
+      --live:#C2410C;
+      --live-bg:#ffedd5;
+      --scheduled:#64748b;
+      --scheduled-bg:#f1f5f9;
+      --danger:#b91c1c;
+      --disp:"Archivo", system-ui, sans-serif;
+      --body:"Inter", system-ui, sans-serif;
+      --mono:"JetBrains Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      font-family:var(--body);
+      color:var(--text);
+      background:var(--chalk);
+      -webkit-font-smoothing:antialiased;
+      line-height:1.45;
+    }
+
+    .site-header {
+      background:
+        radial-gradient(120% 140% at 85% -20%, rgba(31,158,90,.35), transparent 55%),
+        linear-gradient(180deg, var(--ink-2), var(--ink));
+      color:#fff;
+      padding:2rem 1.25rem 1.55rem;
+      border-bottom:4px solid var(--pitch);
+    }
+    .header-inner { max-width:1080px; margin:0 auto; }
+    .eyebrow {
+      font-family:var(--disp);
+      font-weight:700;
+      font-size:.72rem;
+      letter-spacing:.22em;
+      text-transform:uppercase;
+      color:var(--pitch);
+    }
+    h1 {
+      font-family:var(--disp);
+      font-weight:900;
+      font-size:clamp(2rem, 6vw, 3rem);
+      letter-spacing:-.02em;
+      line-height:1;
+      margin:.5rem 0 0;
+      text-transform:uppercase;
+    }
+    .subtitle {
+      margin:.55rem 0 0;
+      color:#c7d2e0;
+      max-width:48rem;
+    }
+    .actions {
+      margin-top:1rem;
+      display:flex;
+      flex-wrap:wrap;
+      gap:.65rem;
+    }
+    .actions a {
+      display:inline-block;
+      color:#fff;
+      border:1px solid rgba(255,255,255,.25);
+      text-decoration:none;
+      font-family:var(--disp);
+      font-weight:700;
+      font-size:.78rem;
+      padding:.45rem .7rem;
+      border-radius:999px;
+    }
+    .actions a.primary {
+      background:var(--pitch);
+      border-color:var(--pitch);
+    }
+
+    .wrap { max-width:1080px; margin:0 auto; padding:1.4rem 1.25rem 4rem; }
+
+    .flash {
+      background:#fff7ed;
+      border:1px solid #fed7aa;
+      color:#9a3412;
+      padding:.75rem .9rem;
+      border-radius:12px;
+      margin:0 0 1rem;
+    }
+
+    .stats {
+      display:grid;
+      grid-template-columns:repeat(5, minmax(0, 1fr));
+      gap:.75rem;
+      margin-bottom:1rem;
+    }
+    .stat-card {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:.85rem;
+    }
+    .stat-card .label {
+      color:var(--muted);
+      font-family:var(--disp);
+      font-size:.67rem;
+      font-weight:800;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+    }
+    .stat-card .num {
+      margin-top:.2rem;
+      font-family:var(--mono);
+      font-weight:900;
+      font-size:1.35rem;
+      color:var(--ink);
+    }
+
+    .filters {
+      display:flex;
+      flex-wrap:wrap;
+      gap:.5rem;
+      margin:0 0 1rem;
+    }
+    .filters a {
+      text-decoration:none;
+      color:var(--ink);
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:.45rem .7rem;
+      font-family:var(--disp);
+      font-size:.76rem;
+      font-weight:800;
+    }
+    .filters a.active {
+      background:var(--ink);
+      color:#fff;
+      border-color:var(--ink);
+    }
+
+    .game-list {
+      display:grid;
+      gap:.85rem;
+    }
+    .game {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+    }
+    .game-head {
+      display:flex;
+      justify-content:space-between;
+      gap:1rem;
+      align-items:flex-start;
+      padding:.9rem 1rem;
+      background:#fbfcfb;
+      border-bottom:1px solid var(--line);
+    }
+    .fixture {
+      font-family:var(--disp);
+      font-weight:900;
+      font-size:1.05rem;
+    }
+    .fixture .vs {
+      color:var(--muted);
+      font-weight:600;
+      margin:0 .35rem;
+      font-size:.85em;
+    }
+    .meta {
+      margin-top:.15rem;
+      color:var(--muted);
+      font-family:var(--mono);
+      font-size:.72rem;
+    }
+    .badge {
+      display:inline-block;
+      font-family:var(--disp);
+      font-weight:800;
+      font-size:.68rem;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      padding:.24rem .55rem;
+      border-radius:999px;
+      white-space:nowrap;
+    }
+    .badge.final { color:var(--final); background:var(--final-bg); }
+    .badge.live { color:var(--live); background:var(--live-bg); }
+    .badge.scheduled { color:var(--scheduled); background:var(--scheduled-bg); }
+
+    .form-row {
+      padding:.85rem 1rem 1rem;
+      display:grid;
+      grid-template-columns:minmax(170px, 1fr) 84px 84px auto auto auto;
+      gap:.55rem;
+      align-items:end;
+    }
+    label {
+      display:block;
+      color:var(--muted);
+      font-family:var(--disp);
+      font-weight:800;
+      font-size:.63rem;
+      letter-spacing:.1em;
+      text-transform:uppercase;
+      margin-bottom:.25rem;
+    }
+    input[type="number"] {
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:.55rem .6rem;
+      font-family:var(--mono);
+      font-weight:800;
+      font-size:1rem;
+      background:#fff;
+    }
+    .current-score {
+      color:#4b5563;
+      font-size:.85rem;
+    }
+    .current-score strong {
+      font-family:var(--mono);
+      color:var(--ink);
+    }
+    button {
+      border:0;
+      border-radius:10px;
+      padding:.62rem .72rem;
+      font-family:var(--disp);
+      font-size:.74rem;
+      font-weight:900;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    button.final {
+      background:var(--pitch);
+      color:#fff;
+    }
+    button.live {
+      background:var(--live-bg);
+      color:var(--live);
+    }
+    button.clear {
+      background:#fee2e2;
+      color:var(--danger);
+    }
+    .empty {
+      color:var(--muted);
+      padding:1rem;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+    }
+
+    @media (max-width:900px) {
+      .stats { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .form-row {
+        grid-template-columns:1fr 1fr;
+      }
+      .form-row .current-score {
+        grid-column:1 / -1;
+      }
+    }
+    @media (max-width:520px) {
+      .stats { grid-template-columns:1fr; }
+      .game-head { flex-direction:column; }
+      .form-row { grid-template-columns:1fr 1fr; }
+      .form-row button {
+        grid-column:auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="eyebrow">Admin</div>
+      <h1>Enter Results</h1>
+      <p class="subtitle">Enter final scores once matches are complete. The public dashboard and leaderboard update from these database results.</p>
+      <div class="actions">
+        <a class="primary" href="{{ url_for('public.home') }}">Dashboard</a>
+        <a href="{{ url_for('picks.my_picks') }}">My picks</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <section class="stats">
+      <div class="stat-card"><div class="label">Total</div><div class="num">{{ stats.total }}</div></div>
+      <div class="stat-card"><div class="label">Needs result</div><div class="num">{{ stats.needs }}</div></div>
+      <div class="stat-card"><div class="label">Live</div><div class="num">{{ stats.live }}</div></div>
+      <div class="stat-card"><div class="label">Final</div><div class="num">{{ stats.final }}</div></div>
+      <div class="stat-card"><div class="label">Future</div><div class="num">{{ stats.future }}</div></div>
+    </section>
+
+    <nav class="filters">
+      <a class="{% if filter_value == 'needs' %}active{% endif %}" href="{{ url_for('admin.results', filter='needs') }}">Needs result</a>
+      <a class="{% if filter_value == 'live' %}active{% endif %}" href="{{ url_for('admin.results', filter='live') }}">Live</a>
+      <a class="{% if filter_value == 'future' %}active{% endif %}" href="{{ url_for('admin.results', filter='future') }}">Future</a>
+      <a class="{% if filter_value == 'final' %}active{% endif %}" href="{{ url_for('admin.results', filter='final') }}">Final</a>
+      <a class="{% if filter_value == 'all' %}active{% endif %}" href="{{ url_for('admin.results', filter='all') }}">All</a>
+    </nav>
+
+    <section class="game-list">
+      {% if rows %}
+        {% for row in rows %}
+          {% set g = row.game %}
+          <article class="game" id="game-{{ g.id }}">
+            <div class="game-head">
+              <div>
+                <div class="fixture">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
+                <div class="meta">
+                  {% if g.group_label %}Group {{ g.group_label }} · {% endif %}
+                  {{ row.date_label }} · {{ row.time_label }} · {{ row.prediction_count }} picks
+                </div>
+              </div>
+              <span class="badge {{ row.status_class }}">{{ row.status_label }}</span>
+            </div>
+
+            <form class="form-row" method="post" action="{{ url_for('admin.results', filter=filter_value) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="game_id" value="{{ g.id }}">
+              <input type="hidden" name="filter" value="{{ filter_value }}">
+
+              <div class="current-score">
+                <label>Current result</label>
+                {% if g.is_final %}
+                  <strong>{{ g.home }} {{ g.home_score }}–{{ g.away_score }} {{ g.away }}</strong>
+                {% else %}
+                  <strong>No final score yet</strong>
+                {% endif %}
+              </div>
+
+              <div>
+                <label>{{ g.home }}</label>
+                <input type="number" name="home_score" min="0" max="50" inputmode="numeric" value="{{ g.home_score if g.home_score is not none else '' }}">
+              </div>
+
+              <div>
+                <label>{{ g.away }}</label>
+                <input type="number" name="away_score" min="0" max="50" inputmode="numeric" value="{{ g.away_score if g.away_score is not none else '' }}">
+              </div>
+
+              <button class="final" type="submit" name="action" value="final">Save final</button>
+              <button class="live" type="submit" name="action" value="live">Mark live</button>
+              <button class="clear" type="submit" name="action" value="clear">Clear</button>
+            </form>
+          </article>
+        {% endfor %}
+      {% else %}
+        <div class="empty">No games in this filter.</div>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>
