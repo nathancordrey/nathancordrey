@@ -2,10 +2,11 @@
 
 Routes are registered under /predictions by wc_app.py.
 
-This pass adds:
-  - recent final results with each player's score prediction
-  - revealed picks after kickoff
-  - hidden picks before kickoff
+This pass:
+  - keeps picks hidden before kickoff
+  - shows a name roster with check marks before kickoff
+  - reveals everyone's score predictions after kickoff
+  - shows final results with each player's prediction and points
 """
 
 import datetime as dt
@@ -24,6 +25,7 @@ APP_TZ = ZoneInfo("America/New_York")
 # Season money wager started this date (ISO). Mirrors the old /worldcup page.
 DAILY_WAGER_FROM = "2026-06-19"
 WAGER_STAKE = 1
+
 _MD1 = "Group Stage: Matchday 1"
 
 STAGE_ORDER = [
@@ -36,6 +38,7 @@ STAGE_ORDER = [
     "Round of 4",
     "Final",
 ]
+
 STAGE_SHORT = {
     "Group Stage: Matchday 1": "MD1",
     "Group Stage: Matchday 2": "MD2",
@@ -53,13 +56,7 @@ def _fmt_money(value):
     if rv == 0:
         return "$0"
     body = "{:d}".format(abs(int(rv))) if rv == int(rv) else "{:.2f}".format(abs(rv))
-    return ("+$" if rv > 0 else "\u2212$") + body
-
-
-def _et_date(game):
-    """ET calendar date (ISO string) of a game's kickoff -- matches the day
-    grouping the old /worldcup page uses for the daily wager and ledger."""
-    return _as_app_tz(game.kickoff_at).date().isoformat()
+    return ("+$" if rv > 0 else "−$") + body
 
 
 def _as_utc(value):
@@ -71,6 +68,15 @@ def _as_utc(value):
 
 def _as_app_tz(value):
     return _as_utc(value).astimezone(APP_TZ)
+
+
+def _et_date(game):
+    """ET calendar date (ISO string) of a game's kickoff.
+
+    This matches the day grouping the old /worldcup page uses for the daily
+    wager and ledger.
+    """
+    return _as_app_tz(game.kickoff_at).date().isoformat()
 
 
 def _pick_open_date():
@@ -101,62 +107,84 @@ def _first_pool():
 
 
 def _leaderboard(pool):
-    """Build standings for one pool: per-matchday breakdown, MD1 trophies, the
-    daily wager column, and the season money ledger -- matching /worldcup.
+    """Build standings for one pool.
 
-    Returns a dict: rows + the column metadata the template needs.
+    Includes per-matchday breakdown, Matchday 1 trophies, daily wager
+    column, and season money ledger to mirror the old /worldcup page.
     """
     members = [m.user for m in pool.members]
     member_ids = [u.id for u in members]
     open_date = _pick_open_date()
 
-    # Only games whose match day has arrived count toward standings (the same
-    # rule the public board and the old /worldcup page use). Future fixtures sit
-    # idle until their day, so the active matchday doesn't jump ahead.
-    games = [g for g in sorted(pool.competition.games, key=lambda g: g.kickoff_at)
-             if _as_app_tz(g.kickoff_at).date() <= open_date]
-    visible_ids = {g.id for g in games}
+    # Only games whose match day has arrived count toward standings.
+    games = [
+        g for g in sorted(pool.competition.games, key=lambda g: g.kickoff_at)
+        if _as_app_tz(g.kickoff_at).date() <= open_date
+    ]
 
     preds = {(p.user_id, p.game_id): p for p in pool.predictions}
 
-    rows = {u.id: {"user": u, "name": u.name, "total": 0, "winners": 0, "exact": 0,
-                   "submitted": 0, "by_stage": {}, "award": "", "daily": 0,
-                   "daily_win": False, "money": 0, "money_str": "$0",
-                   "is_leader": False} for u in members}
+    rows = {
+        u.id: {
+            "user": u,
+            "name": u.name,
+            "total": 0,
+            "winners": 0,
+            "exact": 0,
+            "submitted": 0,
+            "by_stage": {},
+            "award": "",
+            "daily": 0,
+            "daily_win": False,
+            "money": 0,
+            "money_str": "$0",
+            "is_leader": False,
+        }
+        for u in members
+    }
 
-    # Submitted = every prediction this user has made (incl. upcoming games).
+    # Submitted = every prediction this user has made, including upcoming games.
     for (uid, gid) in preds:
         if uid in rows:
             rows[uid]["submitted"] += 1
 
-    # Score the final games; remember per (game, user) points for daily/wager.
+    # Score final games; remember per (game, user) points for daily/wager.
     pts_by = {}
-    for g in games:
-        if not g.is_final:
+
+    for game in games:
+        if not game.is_final:
             continue
-        for u in members:
-            p = preds.get((u.id, g.id))
-            if p is None:
+
+        for user in members:
+            pred = preds.get((user.id, game.id))
+            if pred is None:
                 continue
-            points, winner_ok, exact = score_prediction(p, g, pool)
-            r = rows[u.id]
-            r["total"] += points
-            r["winners"] += int(winner_ok)
-            r["exact"] += int(exact)
-            sb = r["by_stage"].setdefault(g.stage, {"points": 0, "winners": 0, "exact": 0})
-            sb["points"] += points
-            sb["winners"] += int(winner_ok)
-            sb["exact"] += int(exact)
-            pts_by[(g.id, u.id)] = points
+
+            points, winner_ok, exact = score_prediction(pred, game, pool)
+            row = rows[user.id]
+            row["total"] += points
+            row["winners"] += int(winner_ok)
+            row["exact"] += int(exact)
+
+            stage_row = row["by_stage"].setdefault(
+                game.stage,
+                {"points": 0, "winners": 0, "exact": 0},
+            )
+            stage_row["points"] += points
+            stage_row["winners"] += int(winner_ok)
+            stage_row["exact"] += int(exact)
+            pts_by[(game.id, user.id)] = points
 
     def md_points(uid, stage):
         return rows[uid]["by_stage"].get(stage, {}).get("points", 0)
 
-    # MD1 trophies for the top 3, once MD1 has been played.
+    # Matchday 1 trophies for the top 3 once MD1 has been played.
     if any(g.is_final and g.stage == _MD1 for g in games):
-        ranked = sorted(member_ids,
-                        key=lambda uid: (md_points(uid, _MD1), rows[uid]["exact"]),
-                        reverse=True)
+        ranked = sorted(
+            member_ids,
+            key=lambda uid: (md_points(uid, _MD1), rows[uid]["exact"]),
+            reverse=True,
+        )
         for medal, uid in zip(("🥇", "🥈", "🥉"), ranked[:3]):
             rows[uid]["award"] = medal
 
@@ -164,60 +192,87 @@ def _leaderboard(pool):
     present = {g.stage for g in games}
     ordered = [s for s in STAGE_ORDER if s in present]
     ordered += sorted(present - set(STAGE_ORDER))
+
     active = ordered[-1] if ordered else None
     lb_past = [{"full": s, "short": STAGE_SHORT.get(s, s)} for s in ordered[:-1]]
-    lb_active = ({"full": active, "short": STAGE_SHORT.get(active, active)}
-                 if active else None)
+    lb_active = (
+        {"full": active, "short": STAGE_SHORT.get(active, active)}
+        if active else None
+    )
 
     def active_points(uid):
         return rows[uid]["by_stage"].get(active, {}).get("points", 0) if active else 0
 
-    # Daily wager column: most recent day with results; 💰 once that day is done.
+    # Daily wager column: most recent day with results.
     daily_label = None
-    wager_dates = sorted({_et_date(g) for g in games
-                          if g.is_final and _et_date(g) >= DAILY_WAGER_FROM})
+    wager_dates = sorted({
+        _et_date(g)
+        for g in games
+        if g.is_final and _et_date(g) >= DAILY_WAGER_FROM
+    })
+
     if wager_dates:
         latest = wager_dates[-1]
-        for g in games:
-            if g.is_final and _et_date(g) == latest:
-                for u in members:
-                    if (g.id, u.id) in pts_by:
-                        rows[u.id]["daily"] += pts_by[(g.id, u.id)]
-        day_complete = all(g.is_final for g in games if _et_date(g) == latest)
+
+        for game in games:
+            if game.is_final and _et_date(game) == latest:
+                for user in members:
+                    if (game.id, user.id) in pts_by:
+                        rows[user.id]["daily"] += pts_by[(game.id, user.id)]
+
+        day_complete = all(
+            g.is_final for g in games
+            if _et_date(g) == latest
+        )
+
         winners = set()
         if day_complete:
             top = max(rows[uid]["daily"] for uid in member_ids)
-            winners = {uid for uid in member_ids if rows[uid]["daily"] == top and top > 0}
+            winners = {
+                uid for uid in member_ids
+                if rows[uid]["daily"] == top and top > 0
+            }
+
         for uid in member_ids:
             rows[uid]["daily_win"] = uid in winners
+
         d = dt.date.fromisoformat(latest)
         daily_label = "{} {}".format(d.strftime("%b"), d.day)
 
-    # Season money ledger: $1 ante per wager day, day's top scorer takes the pot
-    # (ties split); an in-progress day shows everyone down their ante.
+    # Season money ledger: $1 ante per wager day, day's top scorer takes the pot.
     n_players = len(members)
     result_dates = [_et_date(g) for g in games if g.is_final]
     wager_active = False
+
     if result_dates:
         last_result_date = max(result_dates)
-        wager_days = sorted({_et_date(g) for g in games
-                             if DAILY_WAGER_FROM <= _et_date(g) <= last_result_date})
+        wager_days = sorted({
+            _et_date(g)
+            for g in games
+            if DAILY_WAGER_FROM <= _et_date(g) <= last_result_date
+        })
+
         money = {uid: 0 for uid in member_ids}
-        for wd in wager_days:
-            day_games = [g for g in games if _et_date(g) == wd]
+
+        for wager_day in wager_days:
+            day_games = [g for g in games if _et_date(g) == wager_day]
             complete = all(g.is_final for g in day_games)
-            dp = {uid: 0 for uid in member_ids}
-            for g in day_games:
-                if not g.is_final:
+
+            day_points = {uid: 0 for uid in member_ids}
+            for game in day_games:
+                if not game.is_final:
                     continue
-                for u in members:
-                    if (g.id, u.id) in pts_by:
-                        dp[u.id] += pts_by[(g.id, u.id)]
+                for user in members:
+                    if (game.id, user.id) in pts_by:
+                        day_points[user.id] += pts_by[(game.id, user.id)]
+
             pot = WAGER_STAKE * n_players
+
             if complete:
-                top = max(dp.values())
-                day_winners = [uid for uid in member_ids if dp[uid] == top and top > 0]
-                if day_winners:                       # void a day nobody scored on
+                top = max(day_points.values())
+                day_winners = [uid for uid in member_ids if day_points[uid] == top and top > 0]
+                if day_winners:
+                    # Void a day nobody scored on.
                     wager_active = True
                     share = pot / len(day_winners)
                     for uid in member_ids:
@@ -228,23 +283,33 @@ def _leaderboard(pool):
                 wager_active = True
                 for uid in member_ids:
                     money[uid] -= WAGER_STAKE
+
         for uid in member_ids:
             rows[uid]["money"] = round(money[uid], 2)
             rows[uid]["money_str"] = _fmt_money(money[uid])
 
-    # Rank by the active matchday's points, total as tiebreak.
-    ranked_rows = sorted(rows.values(),
-                         key=lambda r: (active_points(r["user"].id), r["total"]),
-                         reverse=True)
-    for i, r in enumerate(ranked_rows, start=1):
-        uid = r["user"].id
-        r["rank"] = i
-        r["is_leader"] = (i == 1 and active_points(uid) > 0)
-        r["is_me"] = current_user.is_authenticated and uid == current_user.id
-        r["active_points"] = active_points(uid)
-        r["active_winners"] = rows[uid]["by_stage"].get(active, {}).get("winners", 0) if active else 0
-        r["active_exact"] = rows[uid]["by_stage"].get(active, {}).get("exact", 0) if active else 0
-        r["past_points"] = [md_points(uid, s["full"]) for s in lb_past]
+    # Rank by active matchday points, total as tiebreak.
+    ranked_rows = sorted(
+        rows.values(),
+        key=lambda r: (active_points(r["user"].id), r["total"]),
+        reverse=True,
+    )
+
+    for index, row in enumerate(ranked_rows, start=1):
+        uid = row["user"].id
+        row["rank"] = index
+        row["is_leader"] = index == 1 and active_points(uid) > 0
+        row["is_me"] = current_user.is_authenticated and uid == current_user.id
+        row["active_points"] = active_points(uid)
+        row["active_winners"] = (
+            rows[uid]["by_stage"].get(active, {}).get("winners", 0)
+            if active else 0
+        )
+        row["active_exact"] = (
+            rows[uid]["by_stage"].get(active, {}).get("exact", 0)
+            if active else 0
+        )
+        row["past_points"] = [md_points(uid, s["full"]) for s in lb_past]
 
     return {
         "rows": ranked_rows,
@@ -271,6 +336,21 @@ def _winner_label(winner, game):
     if winner == "draw":
         return "Draw"
     return "—"
+
+
+def _roster_rows(pool, pred_by_user):
+    """Rows for the pre-kickoff submitted/pending roster."""
+    rows = []
+    for member in sorted(pool.members, key=lambda m: m.user.name.lower()):
+        has_pick = member.user_id in pred_by_user
+        rows.append({
+            "name": member.user.name,
+            "has_pick": has_pick,
+            "status_label": "Submitted" if has_pick else "Pending",
+            "mark": "✓" if has_pick else "○",
+            "is_me": current_user.is_authenticated and member.user.id == current_user.id,
+        })
+    return rows
 
 
 def _pick_rows(pool, game, pred_by_user):
@@ -356,8 +436,11 @@ def _game_card(pool, game, pred_by_user, member_count):
         "pick_count": pick_count,
         "missing_count": max(member_count - pick_count, 0),
         "scoreline": f"{game.home_score}–{game.away_score}" if game.is_final else None,
-        "pick_rows": _pick_rows(pool=pool, game=game, pred_by_user=pred_by_user)
-        if reveal_picks else [],
+        "roster_rows": _roster_rows(pool=pool, pred_by_user=pred_by_user),
+        "pick_rows": (
+            _pick_rows(pool=pool, game=game, pred_by_user=pred_by_user)
+            if reveal_picks else []
+        ),
     }
 
 
@@ -380,19 +463,20 @@ def home():
         if _as_app_tz(game.kickoff_at).date() <= open_date
     ]
 
-    # Non-final games that are visible today. Before kickoff, picks are hidden.
-    # After kickoff, picks are revealed.
+    # Non-final games that are visible today. Before kickoff, score picks are
+    # hidden but the submitted/pending roster is visible. After kickoff, picks
+    # are revealed.
     current_games = [
-        _game_card(pool, g, pred_index.get(g.id, {}), member_count)
-        for g in visible_games
-        if not g.is_final
+        _game_card(pool, game, pred_index.get(game.id, {}), member_count)
+        for game in visible_games
+        if not game.is_final
     ]
 
     # Recent final games, newest first, with all score predictions shown.
     recent_results = [
-        _game_card(pool, g, pred_index.get(g.id, {}), member_count)
-        for g in sorted(games, key=lambda g: g.kickoff_at, reverse=True)
-        if g.is_final
+        _game_card(pool, game, pred_index.get(game.id, {}), member_count)
+        for game in sorted(games, key=lambda g: g.kickoff_at, reverse=True)
+        if game.is_final
     ][:8]
 
     total_games = len(games)
