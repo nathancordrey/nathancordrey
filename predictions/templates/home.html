@@ -1,12 +1,109 @@
 {% extends "base.html" %}
+
 {% block title %}{{ competition.name }} · {{ pool.name }}{% endblock %}
+
+{% block extra_css %}
+  <style>
+    .submitted-roster {
+      padding: 0 .85rem .85rem;
+    }
+
+    .submitted-roster-title {
+      color: var(--muted);
+      font-family: var(--disp);
+      font-weight: 800;
+      font-size: .63rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin: .1rem 0 .55rem;
+    }
+
+    .submitted-roster-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .45rem;
+    }
+
+    .submitted-person {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+      border: 1px solid #edf0ec;
+      background: #fff;
+      border-radius: 999px;
+      padding: .42rem .55rem;
+      min-width: 0;
+    }
+
+    .submitted-person.done {
+      background: var(--open-bg);
+      border-color: rgba(21, 128, 61, .22);
+    }
+
+    .submitted-person.pending {
+      background: #fff;
+    }
+
+    .submitted-person.me {
+      box-shadow: inset 0 0 0 2px rgba(31, 158, 90, .18);
+    }
+
+    .submitted-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      width: 1.25rem;
+      height: 1.25rem;
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-weight: 900;
+      font-size: .8rem;
+    }
+
+    .submitted-person.done .submitted-mark {
+      color: #fff;
+      background: var(--open);
+    }
+
+    .submitted-person.pending .submitted-mark {
+      color: var(--muted);
+      background: #f1f5f9;
+    }
+
+    .submitted-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: var(--disp);
+      font-weight: 800;
+      font-size: .83rem;
+    }
+
+    .submitted-status {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: .72rem;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 560px) {
+      .submitted-roster-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+{% endblock %}
 
 {% block hero %}
   <header class="site-header">
     <div class="header-inner">
       <div class="eyebrow">DB-backed prediction league</div>
       <h1 class="site-title">{{ competition.name }}</h1>
-      <p class="subtitle">Picks stay hidden until kickoff. Once a match locks, everyone’s score predictions are revealed.</p>
+
+      <p class="subtitle">Before kickoff, score picks stay hidden but the board shows who has submitted. At kickoff, everyone’s score predictions are revealed.</p>
+
       <div class="header-stats">
         <span><b>{{ member_count }}</b> players</span>
         <span><b>{{ final_games }}</b>/<b>{{ total_games }}</b> matches final</span>
@@ -22,6 +119,7 @@
     <div class="grid">
       <section>
         <div class="section-label">Standings</div>
+
         <div class="card standings-scroll">
           <table class="standings">
             <thead>
@@ -29,65 +127,85 @@
                 <th class="num">Pos</th>
                 <th>Player</th>
                 {% if show_money %}<th class="num">$</th>{% endif %}
-                {% if daily_label %}<th class="num">{{ daily_label }} 💵</th>{% endif %}
+                {% if daily_label %}<th class="num">{{ daily_label }}</th>{% endif %}
+
                 {% if lb_active %}
                   <th class="num">{{ lb_active.short }} Pts</th>
                   <th class="num">{{ lb_active.short }} ✓</th>
-                  <th class="num">{{ lb_active.short }} 🎯</th>
+                  <th class="num">{{ lb_active.short }}</th>
                 {% else %}
                   <th class="num">Pts</th>
                 {% endif %}
+
                 {% for s in lb_past %}<th class="num">{{ s.short }}</th>{% endfor %}
               </tr>
             </thead>
+
             <tbody>
               {% for row in leaderboard %}
-              <tr class="{% if row.is_me %}me{% endif %}">
-                <td class="rank num">{{ row.rank }}</td>
-                <td class="player">{{ row.name }}{% if row.award %} {{ row.award }}{% endif %}{% if row.is_leader %} 👑{% endif %}</td>
-                {% if show_money %}<td class="stat num money {% if row.money > 0 %}pos{% elif row.money < 0 %}neg{% endif %}">{{ row.money_str }}</td>{% endif %}
-                {% if daily_label %}<td class="stat num">{{ row.daily }}{% if row.daily_win %} 💰{% endif %}</td>{% endif %}
-                {% if lb_active %}
-                  <td class="points num">{{ row.active_points }}</td>
-                  <td class="stat num">{{ row.active_winners }}</td>
-                  <td class="stat num">{{ row.active_exact }}</td>
-                {% else %}
-                  <td class="points num">{{ row.total }}</td>
-                {% endif %}
-                {% for p in row.past_points %}<td class="stat num">{{ p }}</td>{% endfor %}
-              </tr>
+                <tr class="{% if row.is_me %}me{% endif %}">
+                  <td class="rank num">{{ row.rank }}</td>
+                  <td class="player">{{ row.name }}{% if row.award %} {{ row.award }}{% endif %}{% if row.is_leader %} {% endif %}</td>
+
+                  {% if show_money %}
+                    <td class="stat num money {% if row.money > 0 %}pos{% elif row.money < 0 %}neg{% endif %}">{{ row.money_str }}</td>
+                  {% endif %}
+
+                  {% if daily_label %}
+                    <td class="stat num">{{ row.daily }}{% if row.daily_win %} {% endif %}</td>
+                  {% endif %}
+
+                  {% if lb_active %}
+                    <td class="points num">{{ row.active_points }}</td>
+                    <td class="stat num">{{ row.active_winners }}</td>
+                    <td class="stat num">{{ row.active_exact }}</td>
+                  {% else %}
+                    <td class="points num">{{ row.total }}</td>
+                  {% endif %}
+
+                  {% for p in row.past_points %}
+                    <td class="stat num">{{ p }}</td>
+                  {% endfor %}
+                </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
+
         <p class="note">
           {% if show_money %}<b>$</b> season net — $1 ante each match day, the day's top scorer takes the pot (ties split). {% endif %}
-          {% if daily_label %}<b>{{ daily_label }} 💵</b> points on the latest match day; 💰 marks that day's winner once it's complete. {% endif %}
-          {% if lb_active %}<b>{{ lb_active.short }} ✓ / 🎯 / Pts</b> — winners called, exact scores, and points in the matchday now in progress (the table ranks by this). 🥇🥈🥉 are the Matchday 1 top three; 👑 leads the current matchday.{% endif %}
+          {% if daily_label %}<b>{{ daily_label }}</b> points on the latest match day; marks that day's winner once it's complete. {% endif %}
+          {% if lb_active %}<b>{{ lb_active.short }} ✓ / / Pts</b> — winners called, exact scores, and points in the matchday now in progress. {% endif %}
         </p>
 
         <div class="section-label">Open / live</div>
+
         <div class="game-list">
           {% if current_games %}
             {% for row in current_games %}
               {% set g = row.game %}
+
               <article class="game">
                 <div class="game-head">
                   <div>
                     <div class="fixture">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
+
                     <div class="meta">
                       {% if g.group_label %}Group {{ g.group_label }} · {% endif %}
                       {{ row.date_label }} · {{ row.time_label }}
                     </div>
                   </div>
+
                   <span class="badge {{ row.status_class }}">{{ row.status_label }}</span>
                 </div>
+
                 <div class="game-body">
                   <span><span class="pick-count">{{ row.pick_count }}/{{ member_count }}</span> picks in</span>
+
                   {% if row.reveal_picks %}
                     <span>Picks are public</span>
                   {% elif row.missing_count %}
-                    <span>{{ row.missing_count }} missing</span>
+                    <span>{{ row.missing_count }} pending</span>
                   {% else %}
                     <span>all set</span>
                   {% endif %}
@@ -104,6 +222,7 @@
                           <th class="num">Pts</th>
                         </tr>
                       </thead>
+
                       <tbody>
                         {% for p in row.pick_rows %}
                           <tr class="{% if p.is_me %}me{% endif %}">
@@ -124,6 +243,20 @@
                       </tbody>
                     </table>
                   </div>
+                {% else %}
+                  <div class="submitted-roster">
+                    <div class="submitted-roster-title">Submitted picks</div>
+
+                    <div class="submitted-roster-grid">
+                      {% for person in row.roster_rows %}
+                        <div class="submitted-person {% if person.has_pick %}done{% else %}pending{% endif %} {% if person.is_me %}me{% endif %}">
+                          <span class="submitted-mark">{{ person.mark }}</span>
+                          <span class="submitted-name">{{ person.name }}</span>
+                          <span class="submitted-status">{{ person.status_label }}</span>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
                 {% endif %}
               </article>
             {% endfor %}
@@ -135,21 +268,26 @@
 
       <aside>
         <div class="section-label">Latest results</div>
+
         <div class="game-list">
           {% if recent_results %}
             {% for row in recent_results %}
               {% set g = row.game %}
+
               <article class="game">
                 <div class="game-head">
                   <div>
                     <div class="fixture">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
+
                     <div class="meta">
                       {% if g.group_label %}Group {{ g.group_label }} · {% endif %}
                       {{ row.date_label }}
                     </div>
                   </div>
+
                   <span class="scoreline">{{ row.scoreline }}</span>
                 </div>
+
                 <div class="game-body">
                   <span><span class="pick-count">{{ row.pick_count }}/{{ member_count }}</span> picks</span>
                   <span class="badge final">Final</span>
@@ -165,11 +303,13 @@
                         <th class="num">Pts</th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {% for p in row.pick_rows %}
                         <tr class="{% if p.is_me %}me{% endif %}">
                           <td class="pick-player">{{ p.name }}</td>
                           <td class="pick-score">{{ p.pick_label }}</td>
+
                           <td class="pick-winner">
                             {% if p.exact %}
                               <span class="chip exact">Exact</span>
@@ -181,6 +321,7 @@
                               —
                             {% endif %}
                           </td>
+
                           <td class="num"><strong>{{ p.points if p.has_pick else "—" }}</strong></td>
                         </tr>
                       {% endfor %}
