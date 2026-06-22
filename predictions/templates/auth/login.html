@@ -1,45 +1,18 @@
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Log in · Predictions</title>
-    <style>
-  :root{--navy:#0B1F3A;--navy2:#13294d;--pitch:#1F9E5A;--gold:#E8B22A;--line:#22324f;--muted:#9fb0c8;--body:system-ui,sans-serif}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--navy);color:#eaf1fb;font-family:var(--body);line-height:1.5}
-  .wrap{max-width:440px;margin:0 auto;padding:2rem 1.1rem}
-  h1{font-size:1.6rem;margin:.2rem 0 1rem}
-  .eyebrow{color:var(--pitch);font-weight:800;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
-  label{display:block;font-size:.82rem;color:var(--muted);margin:.8rem 0 .25rem}
-  input{width:100%;padding:.7rem;border-radius:9px;border:1px solid var(--line);background:var(--navy2);color:#fff}
-  button{width:100%;margin-top:1rem;background:var(--pitch);color:#fff;border:0;border-radius:10px;padding:.8rem;font-weight:800;cursor:pointer}
-  .flash{background:rgba(31,158,90,.15);border:1px solid var(--pitch);color:#bfe9d2;padding:.55rem .8rem;border-radius:8px;font-size:.85rem;margin-bottom:1rem}
-  a{color:var(--pitch);text-decoration:none;font-weight:700}
-  .card{border:1px solid var(--line);border-radius:12px;padding:1rem;background:rgba(255,255,255,.03)}
-  .temp{font-family:ui-monospace,monospace;background:#09182d;border:1px solid var(--line);padding:.75rem;border-radius:8px;overflow:auto}
-</style>
-
-    </head>
-    <body>
-    <div class="wrap">
-      <div class="eyebrow">Prediction League</div>
-      <h1>Log in</h1>
-
-      {% with msgs = get_flashed_messages() %}
-        {% for m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}
-      {% endwith %}
-
-      <form method="post" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label for="name">Name</label>
-        <input id="name" name="name" autocomplete="username" required>
-
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
-
-        <button type="submit">Log in</button>
-      </form>
-    </div>
-    </body>
-    </html>
+{% extends "base.html" %}
+{% block title %}Log in · Predictions{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <div class="card-inner">
+    <div class="eyebrow">Prediction League</div>
+    <h1>Log in</h1>
+    <form method="post" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="name">Name</label>
+      <input id="name" name="name" autocomplete="username" required autofocus>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Log in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
