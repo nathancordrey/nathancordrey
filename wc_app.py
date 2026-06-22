@@ -20,6 +20,7 @@ try:
 except ImportError:
     load_dotenv = None
 
+from predictions.admin import admin
 from predictions.auth import auth, login_manager
 from predictions.models import db
 from predictions.picks import picks
@@ -99,6 +100,7 @@ def create_app():
     app.register_blueprint(public, url_prefix="/predictions")
     app.register_blueprint(auth, url_prefix="/predictions")
     app.register_blueprint(picks, url_prefix="/predictions")
+    app.register_blueprint(admin, url_prefix="/predictions")
 
     @app.errorhandler(CSRFError)
     def handle_csrf_error(error):
