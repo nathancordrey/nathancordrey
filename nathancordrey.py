@@ -120,7 +120,15 @@ def worldcup():
 
     scoring = data.get('scoring', {'correct_winner': 1, 'exact_score_bonus': 2})
     friends = data['friends']
-    games = data['games']
+
+    # Only surface a game once its match day has arrived. Future fixtures live in
+    # the data but stay hidden until ~midnight US Eastern on game day, so the board
+    # isn't a wall of upcoming matches and picks open the morning of. (June is EDT
+    # = UTC-4 for the whole tournament, so a fixed offset avoids a tz dependency.)
+    import datetime as _dt
+    _today_et = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=4)).date().isoformat()
+    games = [g for g in data['games'] if (g.get('date') or '') <= _today_et]
+    data['games'] = games   # keep the header's match count in sync with what's shown
 
     # Initialize per-friend score totals (by_stage holds points earned in each stage)
     scores = {f: {'total': 0, 'correct_winner': 0, 'exact_score': 0, 'by_stage': {}}
