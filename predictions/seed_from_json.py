@@ -17,7 +17,7 @@ import json
 import secrets
 
 from flask import Flask
-from models import (db, User, Competition, Game, Pool, PoolMember, Prediction)
+from predictions.models import (db, User, Competition, Game, Pool, PoolMember, Prediction)
 from datetime import datetime, timezone, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
