@@ -28,27 +28,43 @@
               <tr>
                 <th class="num">Pos</th>
                 <th>Player</th>
-                <th class="num">Correct</th>
-                <th class="num">Exact</th>
-                <th class="num">Picks</th>
-                <th class="num">Pts</th>
+                {% if show_money %}<th class="num">$</th>{% endif %}
+                {% if daily_label %}<th class="num">{{ daily_label }} 💵</th>{% endif %}
+                {% for s in lb_past %}<th class="num">{{ s.short }}</th>{% endfor %}
+                {% if lb_active %}
+                  <th class="num">{{ lb_active.short }} ✓</th>
+                  <th class="num">{{ lb_active.short }} 🎯</th>
+                  <th class="num">{{ lb_active.short }} Pts</th>
+                {% else %}
+                  <th class="num">Pts</th>
+                {% endif %}
               </tr>
             </thead>
             <tbody>
               {% for row in leaderboard %}
               <tr class="{% if row.is_me %}me{% endif %}">
                 <td class="rank num">{{ row.rank }}</td>
-                <td class="player">{{ row.name }}</td>
-                <td class="stat num">{{ row.winners }}</td>
-                <td class="stat num">{{ row.exact }}</td>
-                <td class="stat num">{{ row.submitted }}</td>
-                <td class="points num">{{ row.total }}</td>
+                <td class="player">{{ row.name }}{% if row.award %} {{ row.award }}{% endif %}{% if row.is_leader %} 👑{% endif %}</td>
+                {% if show_money %}<td class="stat num money {% if row.money > 0 %}pos{% elif row.money < 0 %}neg{% endif %}">{{ row.money_str }}</td>{% endif %}
+                {% if daily_label %}<td class="stat num">{{ row.daily }}{% if row.daily_win %} 💰{% endif %}</td>{% endif %}
+                {% for p in row.past_points %}<td class="stat num">{{ p }}</td>{% endfor %}
+                {% if lb_active %}
+                  <td class="stat num">{{ row.active_winners }}</td>
+                  <td class="stat num">{{ row.active_exact }}</td>
+                  <td class="points num">{{ row.active_points }}</td>
+                {% else %}
+                  <td class="points num">{{ row.total }}</td>
+                {% endif %}
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p class="note">Leaderboard is scored from Postgres using the DB prediction rows and final match results.</p>
+        <p class="note">
+          {% if show_money %}<b>$</b> season net — $1 ante each match day, the day's top scorer takes the pot (ties split). {% endif %}
+          {% if daily_label %}<b>{{ daily_label }} 💵</b> points on the latest match day; 💰 marks that day's winner once it's complete. {% endif %}
+          {% if lb_active %}<b>{{ lb_active.short }} ✓ / 🎯 / Pts</b> — winners called, exact scores, and points in the matchday now in progress (the table ranks by this). 🥇🥈🥉 are the Matchday 1 top three; 👑 leads the current matchday.{% endif %}
+        </p>
 
         <div class="section-label">Open / live</div>
         <div class="game-list">
