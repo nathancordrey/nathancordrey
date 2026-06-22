@@ -24,6 +24,10 @@
       --open-bg:#dcfce7;
       --locked:#C2410C;
       --locked-bg:#ffedd5;
+      --win:#0f766e;
+      --win-bg:#ccfbf1;
+      --miss:#64748b;
+      --miss-bg:#f1f5f9;
       --disp:"Archivo", system-ui, sans-serif;
       --body:"Inter", system-ui, sans-serif;
       --mono:"JetBrains Mono", ui-monospace, monospace;
@@ -47,7 +51,7 @@
       padding:2.3rem 1.25rem 1.8rem;
       border-bottom:4px solid var(--pitch);
     }
-    .header-inner { max-width:960px; margin:0 auto; }
+    .header-inner { max-width:1080px; margin:0 auto; }
     .eyebrow {
       font-family:var(--disp);
       font-weight:700;
@@ -77,7 +81,7 @@
     .subtitle {
       margin:.55rem 0 0;
       color:#c7d2e0;
-      max-width:44rem;
+      max-width:48rem;
     }
     .header-stats {
       margin-top:1rem;
@@ -113,7 +117,7 @@
       border-color:var(--pitch);
     }
 
-    .wrap { max-width:960px; margin:0 auto; padding:2rem 1.25rem 4rem; }
+    .wrap { max-width:1080px; margin:0 auto; padding:2rem 1.25rem 4rem; }
     .section-label {
       font-family:var(--disp);
       font-weight:700;
@@ -136,7 +140,7 @@
 
     .grid {
       display:grid;
-      grid-template-columns:1.35fr .9fr;
+      grid-template-columns:.95fr 1.25fr;
       gap:1rem;
       align-items:start;
     }
@@ -200,7 +204,7 @@
       text-align:right;
     }
 
-    .game-list { display:grid; gap:.75rem; }
+    .game-list { display:grid; gap:.9rem; }
     .game {
       background:var(--card);
       border:1px solid var(--line);
@@ -270,6 +274,71 @@
       border-radius:8px;
       letter-spacing:.04em;
     }
+
+    .pick-table-wrap {
+      padding:0 .85rem .85rem;
+    }
+    .pick-table {
+      width:100%;
+      border-collapse:collapse;
+      font-size:.82rem;
+      overflow:hidden;
+      border:1px solid #edf0ec;
+      border-radius:10px;
+      background:#fff;
+    }
+    .pick-table th {
+      text-align:left;
+      padding:.55rem .6rem;
+      font-family:var(--disp);
+      font-size:.62rem;
+      letter-spacing:.1em;
+      text-transform:uppercase;
+      color:var(--muted);
+      background:#fbfcfb;
+      border-bottom:1px solid #edf0ec;
+    }
+    .pick-table th.num,
+    .pick-table td.num {
+      text-align:right;
+    }
+    .pick-table td {
+      padding:.52rem .6rem;
+      border-bottom:1px solid #f3f5f2;
+      vertical-align:middle;
+    }
+    .pick-table tr:last-child td { border-bottom:0; }
+    .pick-table tr.me td {
+      background:rgba(31,158,90,.08);
+    }
+    .pick-player {
+      font-family:var(--disp);
+      font-weight:800;
+    }
+    .pick-score {
+      font-family:var(--mono);
+      font-weight:800;
+      color:var(--ink);
+      white-space:nowrap;
+    }
+    .pick-winner {
+      color:#4b5563;
+      font-size:.78rem;
+    }
+    .chip {
+      display:inline-block;
+      font-family:var(--disp);
+      font-weight:800;
+      font-size:.62rem;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      padding:.16rem .42rem;
+      border-radius:999px;
+      white-space:nowrap;
+    }
+    .chip.exact { color:var(--exact); background:var(--exact-bg); }
+    .chip.win { color:var(--win); background:var(--win-bg); }
+    .chip.miss { color:var(--miss); background:var(--miss-bg); }
     .empty {
       color:var(--muted);
       padding:1rem;
@@ -283,8 +352,23 @@
       margin:.8rem 0 0;
     }
 
-    @media (max-width:760px) {
+    @media (max-width:860px) {
       .grid { grid-template-columns:1fr; }
+    }
+    @media (max-width:560px) {
+      .game-head, .game-body {
+        align-items:flex-start;
+      }
+      .game-head {
+        flex-direction:column;
+      }
+      .pick-table {
+        font-size:.78rem;
+      }
+      .pick-table th:nth-child(3),
+      .pick-table td:nth-child(3) {
+        display:none;
+      }
     }
   </style>
 </head>
@@ -294,10 +378,11 @@
     <div class="header-inner">
       <div class="eyebrow">DB-backed prediction league</div>
       <h1 class="site-title">{{ competition.name }}</h1>
-      <p class="subtitle">{{ pool.name }} dashboard. This is the new database version running beside the old JSON page.</p>
+      <p class="subtitle">Picks stay hidden until kickoff. Once a match locks, everyone’s score predictions are revealed.</p>
       <div class="header-stats">
         <span><b>{{ member_count }}</b> players</span>
         <span><b>{{ final_games }}</b>/<b>{{ total_games }}</b> matches final</span>
+        <span><b>{{ locked_not_final }}</b> live/locked</span>
         <span><b>{{ pool.score_correct_winner }}</b> pt winner &nbsp;·&nbsp; <b>+{{ pool.score_exact_bonus }}</b> exact</span>
       </div>
       <div class="header-actions">
@@ -342,11 +427,9 @@
             </tbody>
           </table>
         </div>
-        <p class="note">First-pass DB scoring: total points, correct winners, exact scores, and submitted picks.</p>
-      </section>
+        <p class="note">Leaderboard is scored from Postgres using the DB prediction rows and final match results.</p>
 
-      <aside>
-        <div class="section-label">Open / current</div>
+        <div class="section-label">Open / live</div>
         <div class="game-list">
           {% if current_games %}
             {% for row in current_games %}
@@ -360,20 +443,61 @@
                       {{ row.date_label }} · {{ row.time_label }}
                     </div>
                   </div>
-                  <span class="badge {% if row.status_label == 'Open' %}open{% else %}locked{% endif %}">{{ row.status_label }}</span>
+                  <span class="badge {{ row.status_class }}">{{ row.status_label }}</span>
                 </div>
                 <div class="game-body">
                   <span><span class="pick-count">{{ row.pick_count }}/{{ member_count }}</span> picks in</span>
-                  {% if row.missing_count %}<span>{{ row.missing_count }} missing</span>{% else %}<span>all set</span>{% endif %}
+                  {% if row.reveal_picks %}
+                    <span>Picks are public</span>
+                  {% elif row.missing_count %}
+                    <span>{{ row.missing_count }} missing</span>
+                  {% else %}
+                    <span>all set</span>
+                  {% endif %}
                 </div>
+
+                {% if row.reveal_picks %}
+                  <div class="pick-table-wrap">
+                    <table class="pick-table">
+                      <thead>
+                        <tr>
+                          <th>Player</th>
+                          <th>Score pick</th>
+                          <th>Winner pick</th>
+                          <th class="num">Pts</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for p in row.pick_rows %}
+                          <tr class="{% if p.is_me %}me{% endif %}">
+                            <td class="pick-player">{{ p.name }}</td>
+                            <td class="pick-score">{{ p.pick_label }}</td>
+                            <td class="pick-winner">{{ p.winner_label }}</td>
+                            <td class="num">
+                              {% if row.is_final and p.has_pick %}
+                                {{ p.points }}
+                              {% elif p.has_pick %}
+                                —
+                              {% else %}
+                                <span class="chip miss">Missing</span>
+                              {% endif %}
+                            </td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                {% endif %}
               </article>
             {% endfor %}
           {% else %}
-            <div class="empty">No open/current games right now.</div>
+            <div class="empty">No open or live games right now.</div>
           {% endif %}
         </div>
+      </section>
 
-        <div class="section-label">Recent finals</div>
+      <aside>
+        <div class="section-label">Latest results</div>
         <div class="game-list">
           {% if recent_results %}
             {% for row in recent_results %}
@@ -387,11 +511,44 @@
                       {{ row.date_label }}
                     </div>
                   </div>
-                  <span class="badge final">Final</span>
+                  <span class="scoreline">{{ row.scoreline }}</span>
                 </div>
                 <div class="game-body">
                   <span><span class="pick-count">{{ row.pick_count }}/{{ member_count }}</span> picks</span>
-                  <span class="scoreline">{{ row.scoreline }}</span>
+                  <span class="badge final">Final</span>
+                </div>
+
+                <div class="pick-table-wrap">
+                  <table class="pick-table">
+                    <thead>
+                      <tr>
+                        <th>Player</th>
+                        <th>Score pick</th>
+                        <th>Winner pick</th>
+                        <th class="num">Pts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for p in row.pick_rows %}
+                        <tr class="{% if p.is_me %}me{% endif %}">
+                          <td class="pick-player">{{ p.name }}</td>
+                          <td class="pick-score">{{ p.pick_label }}</td>
+                          <td class="pick-winner">
+                            {% if p.exact %}
+                              <span class="chip exact">Exact</span>
+                            {% elif p.winner_ok %}
+                              <span class="chip win">Winner</span>
+                            {% elif p.has_pick %}
+                              {{ p.winner_label }}
+                            {% else %}
+                              —
+                            {% endif %}
+                          </td>
+                          <td class="num"><strong>{{ p.points if p.has_pick else "—" }}</strong></td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
                 </div>
               </article>
             {% endfor %}
