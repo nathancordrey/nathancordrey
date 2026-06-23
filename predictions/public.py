@@ -2,11 +2,11 @@
 
 Routes are registered under /predictions by wc_app.py.
 
-This pass:
-  - keeps picks hidden before kickoff
-  - shows a simple submitted/pending name roster before kickoff
-  - reveals everyone's score predictions after kickoff
-  - shows final results with target/check/x result labels
+Behavior:
+  - Before kickoff, score picks stay hidden by default.
+  - A user may choose to show an individual pick before kickoff.
+  - At kickoff, all submitted picks reveal automatically.
+  - Final results show target/check/x result labels and points.
 """
 
 import datetime as dt
@@ -326,18 +326,34 @@ def _winner_label(winner, game):
     return "—"
 
 
-def _roster_rows(pool, pred_by_user):
-    """Rows for the pre-kickoff submitted/pending roster."""
+def _public_pick_label(pred):
+    return f"{pred.home_score}–{pred.away_score}"
+
+
+def _roster_rows(pool, game, pred_by_user):
+    """Rows for the pre-kickoff roster.
+
+    A user's score is shown before kickoff only when they explicitly opted in
+    with show_before_kickoff. Otherwise it shows Submitted/Pending only.
+    """
     rows = []
+
     for member in sorted(pool.members, key=lambda m: m.user.name.lower()):
-        has_pick = member.user_id in pred_by_user
+        pred = pred_by_user.get(member.user_id)
+        has_pick = pred is not None
+        visible_score = has_pick and bool(pred.show_before_kickoff)
+
         rows.append({
             "name": member.user.name,
             "has_pick": has_pick,
-            "status_label": "Submitted" if has_pick else "Pending",
+            "visible_score": visible_score,
+            "status_label": "Public" if visible_score else ("Submitted" if has_pick else "Pending"),
             "mark": "✓" if has_pick else "○",
+            "pick_label": _public_pick_label(pred) if visible_score else "",
+            "winner_label": _winner_label(pred.winner, game) if visible_score else "",
             "is_me": current_user.is_authenticated and member.user.id == current_user.id,
         })
+
     return rows
 
 
@@ -424,7 +440,7 @@ def _game_card(pool, game, pred_by_user, member_count):
         "pick_count": pick_count,
         "missing_count": max(member_count - pick_count, 0),
         "scoreline": f"{game.home_score}–{game.away_score}" if game.is_final else None,
-        "roster_rows": _roster_rows(pool=pool, pred_by_user=pred_by_user),
+        "roster_rows": _roster_rows(pool=pool, game=game, pred_by_user=pred_by_user),
         "pick_rows": (
             _pick_rows(pool=pool, game=game, pred_by_user=pred_by_user)
             if reveal_picks else []
