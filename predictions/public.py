@@ -14,12 +14,12 @@ Behavior:
 
 import datetime as dt
 
-from flask import Blueprint, abort, redirect, render_template, url_for
+from flask import Blueprint, abort, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from predictions import timing
 from predictions.models import Pool, score_prediction
-from predictions.pool_helpers import default_pool, get_pool_or_404, user_can_admin_pool
+from predictions.pool_helpers import default_pool, get_pool_or_404, user_can_admin_pool, user_can_view_pool
 
 
 public = Blueprint("public", __name__, template_folder="templates")
@@ -424,6 +424,20 @@ def _game_status_class(game):
     return "open"
 
 
+def _private_pool_redirect_or_abort(pool):
+    """Return a response if the current user cannot view this private pool."""
+    if user_can_view_pool(pool):
+        return None
+
+    if not current_user.is_authenticated:
+        next_url = request.full_path
+        if next_url.endswith("?"):
+            next_url = next_url[:-1]
+        return redirect(url_for("auth.login", next=next_url))
+
+    abort(403)
+
+
 def _game_card(pool, game, pred_by_user, member_count):
     pick_count = len(pred_by_user)
     reveal_picks = game.locked or game.is_final
@@ -483,6 +497,10 @@ def my_pools():
 @public.route("/pools/<pool_slug>")
 def pool_home(pool_slug):
     pool = get_pool_or_404(pool_slug)
+
+    access_response = _private_pool_redirect_or_abort(pool)
+    if access_response is not None:
+        return access_response
 
     competition = pool.competition
     member_count = len(pool.members)
