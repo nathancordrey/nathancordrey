@@ -71,7 +71,27 @@
     }
 
     .submitted-status {
-      display: none;
+      margin-left: auto;
+      color: var(--muted);
+      font-size: .72rem;
+      white-space: nowrap;
+    }
+
+    .submitted-public-pick {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      color: var(--ink);
+      font-family: var(--mono);
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .submitted-public-pick small {
+      color: var(--muted);
+      font-family: var(--body);
+      font-weight: 600;
     }
 
     .result-pill {
@@ -121,7 +141,7 @@
       <div class="eyebrow">DB-backed prediction league</div>
       <h1 class="site-title">{{ competition.name }}</h1>
 
-      <p class="subtitle">Before kickoff, score picks stay hidden but the board shows who has submitted. At kickoff, everyone’s score predictions are revealed.</p>
+      <p class="subtitle">Before kickoff, score picks stay hidden unless a player chooses to show one early. At kickoff, everyone’s score predictions are revealed.</p>
 
       <div class="header-stats">
         <span><b>{{ member_count }}</b> players</span>
@@ -271,7 +291,15 @@
                         <div class="submitted-person {% if person.has_pick %}done{% else %}pending{% endif %} {% if person.is_me %}me{% endif %}">
                           <span class="submitted-mark">{{ person.mark }}</span>
                           <span class="submitted-name">{{ person.name }}</span>
-                          <span class="submitted-status">{{ person.status_label }}</span>
+
+                          {% if person.visible_score %}
+                            <span class="submitted-public-pick">
+                              {{ person.pick_label }}
+                              <small>{{ person.winner_label }}</small>
+                            </span>
+                          {% else %}
+                            <span class="submitted-status">{{ person.status_label }}</span>
+                          {% endif %}
                         </div>
                       {% endfor %}
                     </div>
