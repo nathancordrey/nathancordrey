@@ -216,10 +216,18 @@
 
     @media (max-width:860px) { .grid { grid-template-columns:1fr; } }
     @media (max-width:560px) {
+      .wrap { padding-left:1rem; padding-right:1rem; }
       .game-head, .game-body { align-items:flex-start; }
       .game-head { flex-direction:column; }
+      .game-body { flex-wrap:wrap; gap:.5rem; }
       .pick-table { font-size:.78rem; }
       .pick-table th, .pick-table td { padding-left:.42rem; padding-right:.42rem; }
+      /* standings: tighter cells so it needs far less sideways scroll */
+      .standings { min-width:460px; }
+      .standings th, .standings td { padding:.55rem .5rem; }
+      .standings th { font-size:.62rem; letter-spacing:.05em; }
+      .points { font-size:1.05rem; }
+      .stat { font-size:.82rem; }
     }
   </style>
   {% block extra_css %}{% endblock %}
