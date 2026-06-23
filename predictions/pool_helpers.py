@@ -41,6 +41,26 @@ def user_can_use_pool(pool, user=None):
     return membership_for(pool, user) is not None
 
 
+def user_can_view_pool(pool, user=None):
+    """Whether a user may view a pool dashboard.
+
+    Public pools are visible to anyone with the link.
+    Private pools are visible only to members and site admins.
+    """
+    user = user or current_user
+
+    if pool.is_public:
+        return True
+
+    if not getattr(user, "is_authenticated", False):
+        return False
+
+    if user.is_site_admin:
+        return True
+
+    return membership_for(pool, user) is not None
+
+
 def user_can_admin_pool(pool, user=None):
     """Whether a user can administer a pool.
 
