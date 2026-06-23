@@ -1,9 +1,5 @@
 """Authentication routes for the DB-backed predictions app.
 
-This module is intended to live at:
-
-    predictions/auth.py
-
 Routes are registered under /predictions by wc_app.py.
 
 Current flow:
@@ -12,9 +8,10 @@ Current flow:
   - Site admins can create users and reset temporary passwords.
   - Pool membership helpers are provided for routes that need authorization.
 
-CSRF:
-  - CSRF protection is initialized app-wide in wc_app.py.
-  - Templates must include csrf_token() in POST forms.
+Pool-aware redirect behavior:
+  - After login/change-password, send the user to their canonical pool picks URL
+    when possible: /predictions/pools/<pool_slug>/picks.
+  - If they have no pool yet, send them to /predictions/my-pools.
 """
 
 import secrets
@@ -38,6 +35,7 @@ from flask_login import (
 )
 
 from predictions.models import db, PoolMember, User
+from predictions.pool_helpers import primary_pool_for_user
 
 
 login_manager = LoginManager()
@@ -58,8 +56,10 @@ auth = Blueprint("auth", __name__)
 
 # ───────────────────────── Authorization helpers ─────────────────────────
 
+
 def site_admin_required(view):
     """Require global site-admin privileges."""
+
     @wraps(view)
     @login_required
     def wrapped(*args, **kwargs):
@@ -100,7 +100,17 @@ def require_member(pool, admin=False):
     return membership
 
 
+def _post_auth_redirect():
+    """Send a logged-in user to the best pool-aware destination."""
+    pool = primary_pool_for_user()
+    if pool is not None:
+        return redirect(url_for("picks.pool_picks", pool_slug=pool.slug))
+
+    return redirect(url_for("public.my_pools"))
+
+
 # ───────────────────────── Forced password change ─────────────────────────
+
 
 @auth.before_app_request
 def enforce_password_change():
@@ -129,10 +139,11 @@ def enforce_password_change():
 
 # ───────────────────────── Auth routes ─────────────────────────
 
+
 @auth.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("picks.my_picks"))
+        return _post_auth_redirect()
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -149,12 +160,15 @@ def login():
 
         login_user(user, remember=True)
 
+        if user.must_change_password:
+            return redirect(url_for("auth.change_password"))
+
         # Open-redirect guard: only allow same-site relative redirects.
         next_url = request.args.get("next", "")
         if next_url.startswith("/") and not next_url.startswith("//"):
             return redirect(next_url)
 
-        return redirect(url_for("picks.my_picks"))
+        return _post_auth_redirect()
 
     return render_template("auth/login.html")
 
@@ -183,12 +197,13 @@ def change_password():
             db.session.commit()
 
             flash("Password updated.")
-            return redirect(url_for("picks.my_picks"))
+            return _post_auth_redirect()
 
     return render_template("auth/change_password.html")
 
 
 # ───────────────────────── Site-admin user management ─────────────────────────
+
 
 @auth.route("/admin/users/new", methods=["GET", "POST"])
 @site_admin_required
