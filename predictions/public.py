@@ -10,6 +10,7 @@ Behavior:
 """
 
 import datetime as dt
+import os
 from zoneinfo import ZoneInfo
 
 from flask import Blueprint, abort, render_template
@@ -21,6 +22,7 @@ from predictions.models import Pool, score_prediction
 public = Blueprint("public", __name__, template_folder="templates")
 
 APP_TZ = ZoneInfo("America/New_York")
+PICK_AHEAD_HOUR = int(os.environ.get("WC_PICK_AHEAD_HOUR", "15"))
 
 DAILY_WAGER_FROM = "2026-06-19"
 WAGER_STAKE = 1
@@ -75,12 +77,19 @@ def _et_date(game):
 
 
 def _pick_open_date():
-    """Same 4 AM Eastern rollover used by the picks page."""
-    now = dt.datetime.now(APP_TZ)
-    if now.hour < 4:
-        now = now - dt.timedelta(days=1)
-    return now.date()
+    """Return the latest local date open/visible for picks.
 
+    Games are visible on their match day, and the next day's games become
+    visible starting at PICK_AHEAD_HOUR Eastern time the day before.
+    Default: 3 PM ET.
+    """
+    now = dt.datetime.now(APP_TZ)
+    open_date = now.date()
+
+    if now.hour >= PICK_AHEAD_HOUR:
+        open_date = open_date + dt.timedelta(days=1)
+
+    return open_date
 
 def _fmt_dt(value):
     local = _as_app_tz(value)
