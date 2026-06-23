@@ -114,6 +114,7 @@ def misc():
     )
     return render_template('misc.html', misc_pages=latest)
 
+'''
 @app.route('/worldcup')
 def worldcup():
     data = _load_worldcup()
@@ -760,6 +761,10 @@ def worldcup_admin_ai_apply():
     _save_worldcup(data)
     flash('Applied {} change(s).'.format(applied))
     return redirect(url_for('worldcup_admin_ai'))
+'''
+@app.route('/worldcup')
+def worldcup():
+    return redirect('/predictions', code=301)
 
 @app.route('/<path:path>/')
 @app.route('/<path:path>')
