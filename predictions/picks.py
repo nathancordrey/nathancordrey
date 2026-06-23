@@ -14,6 +14,7 @@ The pick is still editable until kickoff either way.
 """
 
 import datetime as dt
+import os
 from zoneinfo import ZoneInfo
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
@@ -25,6 +26,7 @@ from predictions.models import db, Pool, Prediction, score_prediction
 picks = Blueprint("picks", __name__)
 
 APP_TZ = ZoneInfo("America/New_York")
+PICK_AHEAD_HOUR = int(os.environ.get("WC_PICK_AHEAD_HOUR", "15"))
 MAX_REASONABLE_SCORE = 50
 
 
@@ -53,16 +55,19 @@ def _as_app_tz(value):
 
 
 def _pick_open_date():
-    """Return the local date whose games are open for picking.
+    """Return the latest local date open for picking.
 
-    Games become visible the morning of match day. This uses a 4 AM Eastern
-    rollover so very-late-night browsing still feels like the previous day.
+    Games are visible/editable on their match day, and the next day's games
+    become available starting at PICK_AHEAD_HOUR Eastern time the day before.
+    Default: 3 PM ET.
     """
     now = dt.datetime.now(APP_TZ)
-    if now.hour < 4:
-        now = now - dt.timedelta(days=1)
-    return now.date()
+    open_date = now.date()
 
+    if now.hour >= PICK_AHEAD_HOUR:
+        open_date = open_date + dt.timedelta(days=1)
+
+    return open_date
 
 def _game_is_visible(game, open_date):
     """Whether this game should appear on the user's picks page."""
