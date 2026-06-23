@@ -1633,7 +1633,10 @@
       "home": "Argentina",
       "away": "Austria",
       "date": "2026-06-22",
-      "result": null,
+      "result": {
+        "home_score": 2,
+        "away_score": 0
+      },
       "predictions": {
         "Grant": {
           "winner": "home",
@@ -1650,12 +1653,22 @@
           "home_score": 3,
           "away_score": 1
         },
+        "Chris": {
+          "winner": "home",
+          "home_score": 3,
+          "away_score": 1
+        },
         "Ricky": {
           "winner": "home",
           "home_score": 3,
           "away_score": 0
         },
         "Woody": {
+          "winner": "home",
+          "home_score": 3,
+          "away_score": 1
+        },
+        "Dino": {
           "winner": "home",
           "home_score": 3,
           "away_score": 1
@@ -1701,6 +1714,11 @@
           "home_score": 4,
           "away_score": 0
         },
+        "Chris": {
+          "winner": "home",
+          "home_score": 4,
+          "away_score": 1
+        },
         "Ricky": {
           "winner": "home",
           "home_score": 5,
@@ -1709,6 +1727,11 @@
         "Woody": {
           "winner": "home",
           "home_score": 4,
+          "away_score": 0
+        },
+        "Dino": {
+          "winner": "home",
+          "home_score": 3,
           "away_score": 0
         },
         "Clever": {
@@ -1752,6 +1775,11 @@
           "home_score": 2,
           "away_score": 0
         },
+        "Chris": {
+          "winner": "away",
+          "home_score": 2,
+          "away_score": 3
+        },
         "Ricky": {
           "winner": "home",
           "home_score": 3,
@@ -1761,6 +1789,11 @@
           "winner": "home",
           "home_score": 2,
           "away_score": 1
+        },
+        "Dino": {
+          "winner": "draw",
+          "home_score": 2,
+          "away_score": 2
         },
         "Clever": {
           "winner": "draw",
@@ -1803,6 +1836,11 @@
           "home_score": 0,
           "away_score": 1
         },
+        "Chris": {
+          "winner": "away",
+          "home_score": 0,
+          "away_score": 2
+        },
         "Ricky": {
           "winner": "draw",
           "home_score": 1,
@@ -1811,6 +1849,11 @@
         "Woody": {
           "winner": "away",
           "home_score": 0,
+          "away_score": 2
+        },
+        "Dino": {
+          "winner": "away",
+          "home_score": 1,
           "away_score": 2
         },
         "Clever": {
