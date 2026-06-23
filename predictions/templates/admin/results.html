@@ -2,19 +2,72 @@
 
 {% block title %}Enter results · Admin{% endblock %}
 
-{% block content %}
-  <main class="wrap">
-    <div class="section-label">Admin · {{ pool.name }}</div>
-    <h1 class="site-title" style="color:var(--ink); margin-bottom:1rem;">Enter results</h1>
-    <p class="note">Enter final scores, mark live games, and correct player picks.</p>
+{% block extra_css %}
+  <style>
+    .admin-shell { max-width:1080px; margin:0 auto; padding:1.5rem 1.25rem 4rem; }
+    .page-kicker { font-family:var(--disp); font-size:.72rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-bottom:.25rem; }
+    .page-title { font-family:var(--disp); font-weight:900; font-size:clamp(2rem, 7vw, 3.2rem); letter-spacing:-.03em; line-height:1; margin:0; color:var(--ink); }
+    .page-subtitle { color:var(--muted); margin:.55rem 0 1rem; max-width:48rem; }
+    .top-actions, .filters { display:flex; flex-wrap:wrap; gap:.55rem; margin:0 0 1rem; }
+    .top-actions a, .filters a { display:inline-block; text-decoration:none; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; padding:.42rem .65rem; font-family:var(--disp); font-weight:800; font-size:.75rem; }
+    .filters a.active, .top-actions a.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+    .flash { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; padding:.75rem .9rem; border-radius:12px; margin:0 0 1rem; }
+    .stats { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:.75rem; margin-bottom:1rem; }
+    .stat-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:.85rem; }
+    .stat-card .label { color:var(--muted); font-family:var(--disp); font-size:.67rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    .stat-card .num { margin-top:.2rem; font-family:var(--mono); font-weight:900; font-size:1.35rem; color:var(--ink); }
+    .game-list { display:grid; gap:.85rem; }
+    .game { background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+    .game-head { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; padding:.9rem 1rem; background:#fbfcfb; border-bottom:1px solid var(--line); }
+    .fixture { font-family:var(--disp); font-weight:900; font-size:1.05rem; }
+    .fixture .vs { color:var(--muted); font-weight:600; margin:0 .35rem; font-size:.85em; }
+    .meta { margin-top:.15rem; color:var(--muted); font-family:var(--mono); font-size:.72rem; }
+    .badge { display:inline-block; font-family:var(--disp); font-weight:800; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; padding:.24rem .55rem; border-radius:999px; white-space:nowrap; }
+    .badge.final { color:var(--exact); background:var(--exact-bg); }
+    .badge.live { color:#C2410C; background:#ffedd5; }
+    .badge.scheduled { color:#64748b; background:#f1f5f9; }
+    .form-row { padding:.85rem 1rem 1rem; display:grid; grid-template-columns:minmax(170px,1fr) 84px 84px auto auto auto auto; gap:.55rem; align-items:end; }
+    label { display:block; color:var(--muted); font-family:var(--disp); font-weight:800; font-size:.63rem; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.25rem; }
+    input[type="number"] { width:100%; border:1px solid var(--line); border-radius:10px; padding:.55rem .6rem; font-family:var(--mono); font-weight:800; font-size:1rem; background:#fff; }
+    .current-score { color:#4b5563; font-size:.85rem; }
+    .current-score strong { font-family:var(--mono); color:var(--ink); }
+    button, .button-link { display:inline-block; border:0; border-radius:10px; padding:.62rem .72rem; font-family:var(--disp); font-size:.74rem; font-weight:900; cursor:pointer; white-space:nowrap; text-decoration:none; text-align:center; }
+    button.final { background:var(--pitch); color:#fff; }
+    button.live { background:#ffedd5; color:#C2410C; }
+    button.clear { background:#fee2e2; color:#b91c1c; }
+    .button-link { background:#eef2ff; color:#3730a3; }
+    .empty { color:var(--muted); padding:1rem; background:#fff; border:1px solid var(--line); border-radius:14px; }
+    @media (max-width:980px) { .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .form-row { grid-template-columns:1fr 1fr; } .form-row .current-score { grid-column:1 / -1; } }
+    @media (max-width:520px) { .stats { grid-template-columns:1fr; } .game-head { flex-direction:column; } }
+  </style>
+{% endblock %}
 
-    <div class="game-body">
-      <a class="button-link" href="{{ url_for('public.pool_home', pool_slug=pool.slug) }}">Dashboard</a>
-      <a class="button-link" href="{{ url_for('picks.pool_picks', pool_slug=pool.slug) }}">My picks</a>
-      <a class="button-link" href="{{ url_for('auth.admin_create_user') }}">+ Add user</a>
+{% block content %}
+  <main class="admin-shell">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="page-kicker">Admin · {{ pool.name }}</div>
+    <h1 class="page-title">Enter results</h1>
+    <p class="page-subtitle">Enter final scores, mark live games, and correct player picks.</p>
+
+    <div class="top-actions">
+      <a class="primary" href="{{ url_for('public.pool_home', pool_slug=pool.slug) }}">Dashboard</a>
+      <a href="{{ url_for('picks.pool_picks', pool_slug=pool.slug) }}">My picks</a>
+      <a href="{{ url_for('auth.admin_create_user') }}">+ Add user</a>
     </div>
 
-    <div class="section-label">Filters</div>
+    <section class="stats">
+      <div class="stat-card"><div class="label">Total</div><div class="num">{{ stats.total }}</div></div>
+      <div class="stat-card"><div class="label">Needs result</div><div class="num">{{ stats.needs }}</div></div>
+      <div class="stat-card"><div class="label">Live</div><div class="num">{{ stats.live }}</div></div>
+      <div class="stat-card"><div class="label">Final</div><div class="num">{{ stats.final }}</div></div>
+      <div class="stat-card"><div class="label">Future</div><div class="num">{{ stats.future }}</div></div>
+    </section>
+
     <nav class="filters">
       <a class="{% if filter_value == 'needs' %}active{% endif %}" href="{{ url_for('admin.pool_results', pool_slug=pool.slug, filter='needs') }}">Needs result</a>
       <a class="{% if filter_value == 'live' %}active{% endif %}" href="{{ url_for('admin.pool_results', pool_slug=pool.slug, filter='live') }}">Live</a>
@@ -22,16 +75,6 @@
       <a class="{% if filter_value == 'final' %}active{% endif %}" href="{{ url_for('admin.pool_results', pool_slug=pool.slug, filter='final') }}">Final</a>
       <a class="{% if filter_value == 'all' %}active{% endif %}" href="{{ url_for('admin.pool_results', pool_slug=pool.slug, filter='all') }}">All</a>
     </nav>
-
-    <div class="game-body">
-      <span>Total: <b>{{ stats.total }}</b></span>
-      <span>Needs result: <b>{{ stats.needs }}</b></span>
-      <span>Live: <b>{{ stats.live }}</b></span>
-      <span>Final: <b>{{ stats.final }}</b></span>
-      <span>Future: <b>{{ stats.future }}</b></span>
-    </div>
-
-    <div class="section-label">Games</div>
 
     <section class="game-list">
       {% if rows %}
@@ -41,41 +84,27 @@
             <div class="game-head">
               <div>
                 <div class="fixture">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
-                <div class="meta">
-                  {% if g.group_label %}Group {{ g.group_label }} · {% endif %}
-                  {{ row.date_label }} · {{ row.time_label }} · {{ row.prediction_count }} picks
-                </div>
+                <div class="meta">{% if g.group_label %}Group {{ g.group_label }} · {% endif %}{{ row.date_label }} · {{ row.time_label }} · {{ row.prediction_count }} picks</div>
               </div>
               <span class="badge {{ row.status_class }}">{{ row.status_label }}</span>
             </div>
 
-            <form class="game-body" method="post" action="{{ url_for('admin.pool_results', pool_slug=pool.slug, filter=filter_value) }}">
+            <form class="form-row" method="post" action="{{ url_for('admin.pool_results', pool_slug=pool.slug, filter=filter_value) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="game_id" value="{{ g.id }}">
               <input type="hidden" name="filter" value="{{ filter_value }}">
 
-              <div>
+              <div class="current-score">
                 <label>Current result</label>
-                {% if g.is_final %}
-                  <strong>{{ g.home }} {{ g.home_score }}–{{ g.away_score }} {{ g.away }}</strong>
-                {% else %}
-                  <strong>No final score yet</strong>
-                {% endif %}
+                {% if g.is_final %}<strong>{{ g.home }} {{ g.home_score }}–{{ g.away_score }} {{ g.away }}</strong>{% else %}<strong>No final score yet</strong>{% endif %}
               </div>
 
-              <div>
-                <label>{{ g.home }}</label>
-                <input type="number" name="home_score" min="0" max="50" inputmode="numeric" value="{{ g.home_score if g.home_score is not none else '' }}">
-              </div>
+              <div><label>{{ g.home }}</label><input type="number" name="home_score" min="0" max="50" inputmode="numeric" value="{{ g.home_score if g.home_score is not none else '' }}"></div>
+              <div><label>{{ g.away }}</label><input type="number" name="away_score" min="0" max="50" inputmode="numeric" value="{{ g.away_score if g.away_score is not none else '' }}"></div>
 
-              <div>
-                <label>{{ g.away }}</label>
-                <input type="number" name="away_score" min="0" max="50" inputmode="numeric" value="{{ g.away_score if g.away_score is not none else '' }}">
-              </div>
-
-              <button type="submit" name="action" value="final">Save final</button>
-              <button type="submit" name="action" value="live">Mark live</button>
-              <button type="submit" name="action" value="clear">Clear</button>
+              <button class="final" type="submit" name="action" value="final">Save final</button>
+              <button class="live" type="submit" name="action" value="live">Mark live</button>
+              <button class="clear" type="submit" name="action" value="clear">Clear</button>
               <a class="button-link" href="{{ url_for('admin.pool_game_picks', pool_slug=pool.slug, game_id=g.id, filter=filter_value) }}">Edit picks</a>
             </form>
           </article>
