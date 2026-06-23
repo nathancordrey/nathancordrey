@@ -10,46 +10,27 @@ Behavior:
 """
 
 import datetime as dt
-import os
-from zoneinfo import ZoneInfo
 
 from flask import Blueprint, abort, render_template
 from flask_login import current_user
 
+from predictions import timing
+from predictions.timing import STAGE_ORDER, STAGE_SHORT
 from predictions.models import Pool, score_prediction
 
 
 public = Blueprint("public", __name__, template_folder="templates")
 
-APP_TZ = ZoneInfo("America/New_York")
-PICK_AHEAD_HOUR = int(os.environ.get("WC_PICK_AHEAD_HOUR", "15"))
+# Timing rules live in predictions/timing.py; these names re-point to it so the
+# existing call sites keep working against a single source of truth.
+_as_app_tz = timing.as_app_tz
+_et_date = timing.et_date
+_pick_open_date = timing.release_date
 
 DAILY_WAGER_FROM = "2026-06-19"
 WAGER_STAKE = 1
 
 _MD1 = "Group Stage: Matchday 1"
-
-STAGE_ORDER = [
-    "Group Stage: Matchday 1",
-    "Group Stage: Matchday 2",
-    "Group Stage: Matchday 3",
-    "Round of 32",
-    "Round of 16",
-    "Round of 8",
-    "Round of 4",
-    "Final",
-]
-
-STAGE_SHORT = {
-    "Group Stage: Matchday 1": "MD1",
-    "Group Stage: Matchday 2": "MD2",
-    "Group Stage: Matchday 3": "MD3",
-    "Round of 32": "R32",
-    "Round of 16": "R16",
-    "Round of 8": "R8",
-    "Round of 4": "R4",
-    "Final": "F",
-}
 
 
 def _fmt_money(value):
@@ -59,37 +40,6 @@ def _fmt_money(value):
     body = "{:d}".format(abs(int(rv))) if rv == int(rv) else "{:.2f}".format(abs(rv))
     return ("+$" if rv > 0 else "−$") + body
 
-
-def _as_utc(value):
-    """Return a timezone-aware UTC datetime."""
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=dt.timezone.utc)
-    return value.astimezone(dt.timezone.utc)
-
-
-def _as_app_tz(value):
-    return _as_utc(value).astimezone(APP_TZ)
-
-
-def _et_date(game):
-    """ET calendar date (ISO string) of a game's kickoff."""
-    return _as_app_tz(game.kickoff_at).date().isoformat()
-
-
-def _pick_open_date():
-    """Return the latest local date open/visible for picks.
-
-    Games are visible on their match day, and the next day's games become
-    visible starting at PICK_AHEAD_HOUR Eastern time the day before.
-    Default: 3 PM ET.
-    """
-    now = dt.datetime.now(APP_TZ)
-    open_date = now.date()
-
-    if now.hour >= PICK_AHEAD_HOUR:
-        open_date = open_date + dt.timedelta(days=1)
-
-    return open_date
 
 def _fmt_dt(value):
     local = _as_app_tz(value)
@@ -187,10 +137,11 @@ def _leaderboard(pool):
         for medal, uid in zip(("🥇", "🥈", "🥉"), ranked[:3]):
             rows[uid]["award"] = medal
 
-    # Active matchday = most advanced stage present; earlier ones are settled.
-    present = {g.stage for g in games}
-    ordered = [s for s in STAGE_ORDER if s in present]
-    ordered += sorted(present - set(STAGE_ORDER))
+    # Active matchday = the most advanced stage that has actually KICKED OFF;
+    # earlier ones are settled. Released-but-not-started stages don't count, so
+    # opening tomorrow's slate for picks won't flip the board to an all-zero
+    # column -- it advances only once that round's first game kicks off.
+    ordered = timing.started_stages_ordered(games)
 
     active = ordered[-1] if ordered else None
     lb_past = [{"full": s, "short": STAGE_SHORT.get(s, s)} for s in ordered[:-1]]
