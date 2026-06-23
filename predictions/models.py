@@ -1,5 +1,4 @@
-"""
-Database models for the predictions app.
+"""Database models for the predictions app.
 
 Design summary:
   - Users can belong to one or more Pools.
@@ -63,8 +62,9 @@ class User(UserMixin, db.Model):
     must_change_password = db.Column(db.Boolean, nullable=False, default=True)
 
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=_now)
-    updated_at = db.Column(db.DateTime(timezone=True), nullable=False,
-                           default=_now, onupdate=_now)
+    updated_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
+    )
 
     memberships = db.relationship(
         "PoolMember",
@@ -96,12 +96,14 @@ class User(UserMixin, db.Model):
 
 class Competition(db.Model):
     """A real-world tournament/season, e.g. 'World Cup 2026'."""
+
     __tablename__ = "competitions"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     sport = db.Column(db.String(40), nullable=False, default="soccer")
     slug = db.Column(db.String(80), unique=True, nullable=False, index=True)
+
     starts_on = db.Column(db.Date)
     ends_on = db.Column(db.Date)
 
@@ -110,8 +112,9 @@ class Competition(db.Model):
     external_ref = db.Column(db.String(120), index=True)
 
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=_now)
-    updated_at = db.Column(db.DateTime(timezone=True), nullable=False,
-                           default=_now, onupdate=_now)
+    updated_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
+    )
 
     games = db.relationship(
         "Game",
@@ -131,6 +134,7 @@ class Competition(db.Model):
 
 class Game(db.Model):
     """One real fixture. Results are shared across all pools."""
+
     __tablename__ = "games"
     __table_args__ = (
         db.CheckConstraint(
@@ -146,13 +150,15 @@ class Game(db.Model):
             name="ck_games_status_valid",
         ),
         db.UniqueConstraint(
-            "competition_id", "external_ref",
+            "competition_id",
+            "external_ref",
             name="uq_games_competition_external_ref",
         ),
         db.Index("ix_games_competition_kickoff", "competition_id", "kickoff_at"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
+
     competition_id = db.Column(
         db.Integer,
         db.ForeignKey("competitions.id"),
@@ -173,12 +179,13 @@ class Game(db.Model):
     status = db.Column(db.String(16), nullable=False, default="scheduled", index=True)
 
     # For migration/debugging: seed_from_json.py stores original ids as
-    # external_ref="json:<old_id>".
+    # external_ref="json:<id>".
     external_ref = db.Column(db.String(120), index=True)
 
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=_now)
-    updated_at = db.Column(db.DateTime(timezone=True), nullable=False,
-                           default=_now, onupdate=_now)
+    updated_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
+    )
 
     competition = db.relationship("Competition", back_populates="games")
     predictions = db.relationship(
@@ -211,7 +218,7 @@ class Game(db.Model):
         return self.locked
 
     def __repr__(self):
-        return f"<Game {self.home!r} v {self.away!r} at {self.kickoff_at!r}>"
+        return f"<Game {self.home} v {self.away}>"
 
 
 # ───────────────────────── Pools (friend prediction leagues) ─────────────────────────
@@ -222,6 +229,7 @@ class Pool(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     slug = db.Column(db.String(80), unique=True, nullable=False, index=True)
+
     competition_id = db.Column(
         db.Integer,
         db.ForeignKey("competitions.id"),
@@ -239,8 +247,9 @@ class Pool(db.Model):
     is_public = db.Column(db.Boolean, nullable=False, default=False)
 
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=_now)
-    updated_at = db.Column(db.DateTime(timezone=True), nullable=False,
-                           default=_now, onupdate=_now)
+    updated_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
+    )
 
     competition = db.relationship("Competition", back_populates="pools")
     owner = db.relationship(
@@ -265,6 +274,7 @@ class Pool(db.Model):
 
 class PoolMember(db.Model):
     """Join table: which users belong to which pools, and their role there."""
+
     __tablename__ = "pool_members"
     __table_args__ = (
         db.UniqueConstraint("pool_id", "user_id", name="uq_pool_member"),
@@ -276,8 +286,18 @@ class PoolMember(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    pool_id = db.Column(db.Integer, db.ForeignKey("pools.id"), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    pool_id = db.Column(
+        db.Integer,
+        db.ForeignKey("pools.id"),
+        nullable=False,
+        index=True,
+    )
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
     role = db.Column(db.String(16), nullable=False, default="member")
     joined_at = db.Column(db.DateTime(timezone=True), nullable=False, default=_now)
 
@@ -285,7 +305,7 @@ class PoolMember(db.Model):
     user = db.relationship("User", back_populates="memberships")
 
     def __repr__(self):
-        return f"<PoolMember pool={self.pool_id} user={self.user_id} role={self.role!r}>"
+        return f"<PoolMember pool={self.pool_id} user={self.user_id}>"
 
 
 # ───────────────────────── Predictions (per pool) ─────────────────────────
@@ -299,24 +319,53 @@ class Prediction(db.Model):
             "winner IN ('home', 'away', 'draw')",
             name="ck_predictions_winner_valid",
         ),
-        db.CheckConstraint("home_score >= 0", name="ck_predictions_home_score_nonnegative"),
-        db.CheckConstraint("away_score >= 0", name="ck_predictions_away_score_nonnegative"),
+        db.CheckConstraint(
+            "home_score >= 0",
+            name="ck_predictions_home_score_nonnegative",
+        ),
+        db.CheckConstraint(
+            "away_score >= 0",
+            name="ck_predictions_away_score_nonnegative",
+        ),
         db.Index("ix_predictions_pool_game", "pool_id", "game_id"),
         db.Index("ix_predictions_user_pool", "user_id", "pool_id"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    pool_id = db.Column(db.Integer, db.ForeignKey("pools.id"), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    game_id = db.Column(db.Integer, db.ForeignKey("games.id"), nullable=False, index=True)
+
+    pool_id = db.Column(
+        db.Integer,
+        db.ForeignKey("pools.id"),
+        nullable=False,
+        index=True,
+    )
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+    game_id = db.Column(
+        db.Integer,
+        db.ForeignKey("games.id"),
+        nullable=False,
+        index=True,
+    )
 
     winner = db.Column(db.String(4), nullable=False)
     home_score = db.Column(db.Integer, nullable=False)
     away_score = db.Column(db.Integer, nullable=False)
 
+    # User-controlled privacy before kickoff:
+    #   false = show "Submitted" only before kickoff
+    #   true  = reveal this user's score pick early
+    # At kickoff, all submitted picks reveal automatically regardless.
+    show_before_kickoff = db.Column(db.Boolean, nullable=False, default=False)
+
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=_now)
-    updated_at = db.Column(db.DateTime(timezone=True), nullable=False,
-                           default=_now, onupdate=_now)
+    updated_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
+    )
 
     pool = db.relationship("Pool", back_populates="predictions")
     user = db.relationship("User", back_populates="predictions")
@@ -331,7 +380,7 @@ class Prediction(db.Model):
         return "draw"
 
     def __repr__(self):
-        return f"<Prediction pool={self.pool_id} user={self.user_id} game={self.game_id}>"
+        return f"<Prediction user={self.user_id} game={self.game_id}>"
 
 
 # ───────────────────────── Scoring ─────────────────────────
@@ -352,9 +401,10 @@ def score_prediction(pred, game, pool):
 
     points = pool.score_correct_winner
     exact = (
-        pred.home_score == game.home_score and
-        pred.away_score == game.away_score
+        pred.home_score == game.home_score
+        and pred.away_score == game.away_score
     )
+
     if exact:
         points += pool.score_exact_bonus
 
@@ -388,6 +438,7 @@ def pool_leaderboard(pool):
 
         game = games_by_id.get(pred.game_id)
         pts, winner_ok, exact = score_prediction(pred, game, pool)
+
         row["total"] += pts
         row["winners"] += int(winner_ok)
         row["exact"] += int(exact)
