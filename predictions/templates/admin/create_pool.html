@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Create pool · Admin{% endblock %}
+
+{% block extra_css %}
+  <style>
+    .admin-shell {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+
+    .page-kicker {
+      font-family: var(--disp);
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .25rem;
+    }
+
+    .page-title {
+      font-family: var(--disp);
+      font-weight: 900;
+      font-size: clamp(2rem, 7vw, 3.2rem);
+      letter-spacing: -.03em;
+      line-height: 1;
+      margin: 0;
+      color: var(--ink);
+    }
+
+    .page-subtitle {
+      color: var(--muted);
+      margin: .55rem 0 1rem;
+      max-width: 42rem;
+    }
+
+    .form-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1rem;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: .9rem;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-family: var(--disp);
+      font-weight: 800;
+      font-size: .68rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: .28rem;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: .7rem .75rem;
+      font: inherit;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .help {
+      margin-top: .25rem;
+      color: var(--muted);
+      font-size: .82rem;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: flex-start;
+      gap: .5rem;
+      padding: .75rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfb;
+    }
+
+    .check-row label {
+      margin: 0;
+      color: var(--ink);
+      font-size: .8rem;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .55rem;
+      margin-top: 1rem;
+    }
+
+    button,
+    .button-link {
+      display: inline-block;
+      border: 0;
+      border-radius: 999px;
+      padding: .72rem 1rem;
+      font-family: var(--disp);
+      font-weight: 900;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    button {
+      background: var(--pitch);
+      color: #fff;
+    }
+
+    .button-link {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    @media (max-width: 620px) {
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <main class="admin-shell">
+    <div class="page-kicker">Admin</div>
+    <h1 class="page-title">Create pool</h1>
+    <p class="page-subtitle">
+      First-pass admin-only pool creation. This lets us test multiple pools safely before opening public signups.
+    </p>
+
+    <form class="form-card" method="post" action="{{ url_for('admin.create_pool') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="form-grid">
+        <div>
+          <label for="name">Pool name</label>
+          <input id="name" name="name" type="text" value="{{ form.name }}" placeholder="Cordrey Family Pool" required>
+        </div>
+
+        <div>
+          <label for="slug">URL slug</label>
+          <input id="slug" name="slug" type="text" value="{{ form.slug }}" placeholder="cordrey-family">
+          <div class="help">Leave blank to generate from the pool name. Final URL: /predictions/pools/&lt;slug&gt;</div>
+        </div>
+
+        <div>
+          <label for="competition_id">Competition</label>
+          <select id="competition_id" name="competition_id">
+            {% for c in competitions %}
+              <option value="{{ c.id }}" {% if c.id == form.competition_id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="two-col">
+          <div>
+            <label for="score_correct_winner">Correct winner points</label>
+            <input id="score_correct_winner" name="score_correct_winner" type="number" min="0" max="20" value="{{ form.score_correct_winner }}">
+          </div>
+
+          <div>
+            <label for="score_exact_bonus">Exact score bonus</label>
+            <input id="score_exact_bonus" name="score_exact_bonus" type="number" min="0" max="20" value="{{ form.score_exact_bonus }}">
+          </div>
+        </div>
+
+        <div class="check-row">
+          <input id="is_public" name="is_public" type="checkbox" value="1" {% if form.is_public %}checked{% endif %}>
+          <div>
+            <label for="is_public">Public pool</label>
+            <div class="help">For now this is mostly informational. Invite links are the next feature.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit">Create pool</button>
+        <a class="button-link" href="{{ url_for('public.my_pools') }}">Cancel</a>
+      </div>
+    </form>
+  </main>
+{% endblock %}
