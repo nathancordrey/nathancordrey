@@ -9,20 +9,21 @@ First-pass admin result entry:
   - clear a result back to scheduled
 """
 
-import datetime as dt
 from functools import wraps
-from zoneinfo import ZoneInfo
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+from predictions import timing
 from predictions.models import db, Game
 
 
 admin = Blueprint("admin", __name__, template_folder="templates")
 
-APP_TZ = ZoneInfo("America/New_York")
 MAX_REASONABLE_SCORE = 50
+
+# Timing helper re-pointed at the single source of truth (predictions/timing.py).
+_as_app_tz = timing.as_app_tz
 
 
 def site_admin_required(func):
@@ -33,16 +34,6 @@ def site_admin_required(func):
             abort(403)
         return func(*args, **kwargs)
     return wrapper
-
-
-def _as_utc(value):
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=dt.timezone.utc)
-    return value.astimezone(dt.timezone.utc)
-
-
-def _as_app_tz(value):
-    return _as_utc(value).astimezone(APP_TZ)
 
 
 def _fmt_date(value):
