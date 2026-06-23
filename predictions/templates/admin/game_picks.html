@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Edit picks · Admin{% endblock %}
+
+{% block extra_css %}
+  <style>
+    .admin-shell { max-width:980px; margin:0 auto; padding:1.5rem 1.25rem 4rem; }
+    .page-kicker { font-family:var(--disp); font-size:.72rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-bottom:.25rem; }
+    .page-title { font-family:var(--disp); font-weight:900; font-size:clamp(2rem, 7vw, 3.2rem); letter-spacing:-.03em; line-height:1; margin:0; color:var(--ink); }
+    .page-subtitle { color:var(--muted); margin:.55rem 0 1rem; }
+    .flash { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; padding:.75rem .9rem; border-radius:12px; margin:0 0 1rem; }
+    .top-actions { display:flex; flex-wrap:wrap; gap:.55rem; margin:0 0 1rem; }
+    .top-actions a { display:inline-block; text-decoration:none; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; padding:.42rem .65rem; font-family:var(--disp); font-weight:800; font-size:.75rem; }
+    .top-actions a.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+    .game-summary { background:#fff; border:1px solid var(--line); border-radius:14px; padding:.9rem 1rem; margin-bottom:1rem; }
+    .fixture { font-family:var(--disp); font-weight:900; font-size:1.1rem; }
+    .fixture .vs { color:var(--muted); font-weight:600; margin:0 .35rem; font-size:.85em; }
+    .meta { margin-top:.15rem; color:var(--muted); font-family:var(--mono); font-size:.72rem; }
+    .badge { display:inline-block; margin-top:.5rem; font-family:var(--disp); font-weight:800; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; padding:.24rem .55rem; border-radius:999px; white-space:nowrap; }
+    .badge.final { color:var(--exact); background:var(--exact-bg); }
+    .badge.live { color:#C2410C; background:#ffedd5; }
+    .badge.scheduled { color:#64748b; background:#f1f5f9; }
+    .pick-table-wrap { background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+    table { width:100%; border-collapse:collapse; }
+    th { text-align:left; padding:.75rem .7rem; font-family:var(--disp); font-size:.64rem; font-weight:900; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); background:#fbfcfb; border-bottom:1px solid var(--line); }
+    td { padding:.65rem .7rem; border-bottom:1px solid #f3f5f2; vertical-align:middle; }
+    tr:last-child td { border-bottom:0; }
+    .player { font-family:var(--disp); font-weight:900; white-space:nowrap; }
+    input[type="number"] { width:72px; border:1px solid var(--line); border-radius:10px; padding:.52rem .55rem; font-family:var(--mono); font-weight:900; text-align:center; background:#fff; }
+    .check-label { display:inline-flex; align-items:center; gap:.35rem; color:#4b5563; font-size:.82rem; white-space:nowrap; }
+    .save-row { display:flex; justify-content:flex-end; gap:.6rem; padding:.9rem; background:#fbfcfb; border-top:1px solid var(--line); }
+    button { border:0; border-radius:999px; padding:.72rem 1rem; font-family:var(--disp); font-weight:900; cursor:pointer; }
+    button.primary { background:var(--pitch); color:#fff; }
+    .note { color:var(--muted); font-size:.84rem; margin:.75rem 0 0; }
+    @media (max-width:720px) { .pick-table-wrap { overflow-x:auto; } table { min-width:680px; } }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <main class="admin-shell">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="page-kicker">Admin · Edit picks</div>
+    <h1 class="page-title">All user picks</h1>
+    <p class="page-subtitle">Use this for corrections and missed manual entries. Admin edits bypass kickoff locking.</p>
+
+    <div class="top-actions">
+      <a class="primary" href="{{ url_for('admin.results', filter=filter_value) }}">← Results admin</a>
+      <a href="{{ url_for('public.home') }}">Dashboard</a>
+    </div>
+
+    <section class="game-summary">
+      <div class="fixture">{{ game.home }}<span class="vs">v</span>{{ game.away }}</div>
+      <div class="meta">{% if game.group_label %}Group {{ game.group_label }} · {% endif %}{{ date_label }} · {{ time_label }}{% if game.is_final %} · Final {{ game.home_score }}–{{ game.away_score }}{% endif %}</div>
+      <span class="badge {{ status_class }}">{{ status_label }}</span>
+    </section>
+
+    <form method="post" action="{{ url_for('admin.game_picks', game_id=game.id, filter=filter_value) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="pick-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>{{ game.home }}</th>
+              <th>{{ game.away }}</th>
+              <th>Show before kickoff</th>
+              <th>Clear pick</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              {% set u = row.user %}
+              <tr>
+                <td class="player">{{ u.name }}</td>
+                <td><input type="number" name="h_{{ u.id }}" min="0" max="50" inputmode="numeric" value="{{ row.home_score }}"></td>
+                <td><input type="number" name="a_{{ u.id }}" min="0" max="50" inputmode="numeric" value="{{ row.away_score }}"></td>
+                <td>
+                  <label class="check-label">
+                    <input type="checkbox" name="show_{{ u.id }}" value="1" {% if row.show_before_kickoff %}checked{% endif %}>
+                    public early
+                  </label>
+                </td>
+                <td>
+                  <label class="check-label">
+                    <input type="checkbox" name="clear_{{ u.id }}" value="1">
+                    clear
+                  </label>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="save-row"><button class="primary" type="submit">Save all picks</button></div>
+      </div>
+    </form>
+
+    <p class="note">Blank rows are skipped. To delete an existing pick, check “clear.” If only one score is filled in, the save is rejected.</p>
+  </main>
+{% endblock %}
