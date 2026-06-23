@@ -2,6 +2,139 @@
 
 {% block title %}{{ competition.name }} · {{ pool.name }}{% endblock %}
 
+{% block extra_css %}
+  <style>
+    .submitted-roster {
+      padding: 0 .85rem .85rem;
+    }
+
+    .submitted-roster-title {
+      color: var(--muted);
+      font-family: var(--disp);
+      font-weight: 800;
+      font-size: .63rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin: .1rem 0 .5rem;
+    }
+
+    .submitted-roster-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .32rem .8rem;
+      padding: .65rem .7rem;
+      border: 1px solid #edf0ec;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .submitted-person {
+      display: flex;
+      align-items: center;
+      gap: .38rem;
+      min-width: 0;
+      color: var(--text);
+    }
+
+    .submitted-person.me .submitted-name {
+      text-decoration: underline;
+      text-decoration-color: rgba(31, 158, 90, .45);
+      text-underline-offset: 3px;
+    }
+
+    .submitted-mark {
+      font-family: var(--mono);
+      font-weight: 900;
+      font-size: .95rem;
+      line-height: 1;
+      width: 1.05rem;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .submitted-person.done .submitted-mark {
+      color: var(--open);
+    }
+
+    .submitted-person.pending {
+      color: var(--muted);
+    }
+
+    .submitted-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: var(--disp);
+      font-weight: 800;
+      font-size: .86rem;
+    }
+
+    .submitted-status {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: .72rem;
+      white-space: nowrap;
+    }
+
+    .submitted-public-pick {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      color: var(--ink);
+      font-family: var(--mono);
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .submitted-public-pick small {
+      color: var(--muted);
+      font-family: var(--body);
+      font-weight: 600;
+    }
+
+    .result-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .28rem;
+      font-family: var(--disp);
+      font-weight: 900;
+      font-size: .68rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .result-pill.exact {
+      color: var(--exact);
+    }
+
+    .result-pill.win {
+      color: var(--open);
+    }
+
+    .result-pill.miss {
+      color: #b91c1c;
+    }
+
+    .result-pill.missing {
+      color: var(--muted);
+    }
+
+    .result-icon {
+      font-family: var(--mono);
+      font-weight: 900;
+    }
+
+    @media (max-width: 560px) {
+      .submitted-roster-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+{% endblock %}
+
 {% block hero %}
   <header class="site-header">
     <div class="header-inner">
@@ -15,18 +148,6 @@
         <span><b>{{ final_games }}</b>/<b>{{ total_games }}</b> matches final</span>
         <span><b>{{ locked_not_final }}</b> live/locked</span>
         <span><b>{{ pool.score_correct_winner }}</b> pt winner &nbsp;·&nbsp; <b>+{{ pool.score_exact_bonus }}</b> exact</span>
-      </div>
-
-      <div class="hero-actions">
-        {% if current_user.is_authenticated %}
-          <a class="primary" href="{{ url_for('picks.pool_picks', pool_slug=pool.slug) }}">My picks →</a>
-          <a href="{{ url_for('public.my_pools') }}">My pools</a>
-          {% if can_admin_pool %}
-            <a href="{{ url_for('admin.pool_results', pool_slug=pool.slug) }}">Admin</a>
-          {% endif %}
-        {% else %}
-          <a class="primary" href="{{ url_for('auth.login') }}">Log in</a>
-        {% endif %}
       </div>
     </div>
   </header>
@@ -46,27 +167,33 @@
                 <th>Player</th>
                 {% if show_money %}<th class="num">$</th>{% endif %}
                 {% if daily_label %}<th class="num">{{ daily_label }}</th>{% endif %}
+
                 {% if lb_active %}
-                  <th class="num">{{ lb_active.full.split(': ')[-1] }}<br>Pts</th>
-                  <th class="num">✓</th>
-                  <th class="num">🎯</th>
+                  <th class="num">{{ lb_active.short }} Pts</th>
+                  <th class="num">{{ lb_active.short }} ✓</th>
+                  <th class="num">{{ lb_active.short }}</th>
                 {% else %}
                   <th class="num">Pts</th>
                 {% endif %}
+
                 {% for s in lb_past %}<th class="num">{{ s.short }}</th>{% endfor %}
               </tr>
             </thead>
+
             <tbody>
               {% for row in leaderboard %}
                 <tr class="{% if row.is_me %}me{% endif %}">
                   <td class="rank num">{{ row.rank }}</td>
                   <td class="player">{{ row.name }}{% if row.award %} {{ row.award }}{% endif %}</td>
+
                   {% if show_money %}
                     <td class="stat num money {% if row.money > 0 %}pos{% elif row.money < 0 %}neg{% endif %}">{{ row.money_str }}</td>
                   {% endif %}
+
                   {% if daily_label %}
                     <td class="stat num">{{ row.daily }}{% if row.daily_win %} ✓{% endif %}</td>
                   {% endif %}
+
                   {% if lb_active %}
                     <td class="points num">{{ row.active_points }}</td>
                     <td class="stat num">{{ row.active_winners }}</td>
@@ -74,6 +201,7 @@
                   {% else %}
                     <td class="points num">{{ row.total }}</td>
                   {% endif %}
+
                   {% for p in row.past_points %}
                     <td class="stat num">{{ p }}</td>
                   {% endfor %}
@@ -84,10 +212,9 @@
         </div>
 
         <p class="note">
-          {% if show_money %}<b>$</b> season net — $1 ante each match day, the day's top scorer takes the pot. {% endif %}
-          {% if daily_label %}<b>{{ daily_label }}</b> is points on the latest match day. {% endif %}
-          {% if lb_active %}Under <b>{{ lb_active.full.split(': ')[-1] }}</b>: points, winners called, and exact scores for the matchday in progress. {% endif %}
-          Ties are broken by closeness within that matchday.
+          {% if show_money %}<b>$</b> season net — $1 ante each match day, the day's top scorer takes the pot (ties split). {% endif %}
+          {% if daily_label %}<b>{{ daily_label }}</b> points on the latest match day; ✓ marks that day's winner once it's complete. {% endif %}
+          {% if lb_active %}<b>{{ lb_active.short }} ✓ / / Pts</b> — winners called, exact scores, and points in the matchday now in progress. {% endif %}
         </p>
 
         <div class="section-label">Open / live</div>
@@ -96,20 +223,24 @@
           {% if current_games %}
             {% for row in current_games %}
               {% set g = row.game %}
+
               <article class="game">
                 <div class="game-head">
                   <div>
                     <div class="fixture">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
+
                     <div class="meta">
                       {% if g.group_label %}Group {{ g.group_label }} · {% endif %}
                       {{ row.date_label }} · {{ row.time_label }}
                     </div>
                   </div>
+
                   <span class="badge {{ row.status_class }}">{{ row.status_label }}</span>
                 </div>
 
                 <div class="game-body">
                   <span><span class="pick-count">{{ row.pick_count }}/{{ member_count }}</span> picks in</span>
+
                   {% if row.reveal_picks %}
                     <span>Picks are public</span>
                   {% elif row.missing_count %}
@@ -130,6 +261,7 @@
                           <th class="num">Pts</th>
                         </tr>
                       </thead>
+
                       <tbody>
                         {% for p in row.pick_rows %}
                           <tr class="{% if p.is_me %}me{% endif %}">
@@ -153,11 +285,13 @@
                 {% else %}
                   <div class="submitted-roster">
                     <div class="submitted-roster-title">Submitted picks</div>
+
                     <div class="submitted-roster-grid">
                       {% for person in row.roster_rows %}
                         <div class="submitted-person {% if person.has_pick %}done{% else %}pending{% endif %} {% if person.is_me %}me{% endif %}">
                           <span class="submitted-mark">{{ person.mark }}</span>
                           <span class="submitted-name">{{ person.name }}</span>
+
                           {% if person.visible_score %}
                             <span class="submitted-public-pick">
                               {{ person.pick_label }}
@@ -181,21 +315,26 @@
 
       <aside>
         <div class="section-label">Latest results</div>
+
         <div class="game-list">
           {% if recent_results %}
             {% for row in recent_results %}
               {% set g = row.game %}
+
               <article class="game">
                 <div class="game-head">
                   <div>
                     <div class="fixture">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
+
                     <div class="meta">
                       {% if g.group_label %}Group {{ g.group_label }} · {% endif %}
                       {{ row.date_label }}
                     </div>
                   </div>
+
                   <span class="scoreline">{{ row.scoreline }}</span>
                 </div>
+
                 <div class="game-body">
                   <span><span class="pick-count">{{ row.pick_count }}/{{ member_count }}</span> picks</span>
                   <span class="badge final">Final</span>
@@ -211,11 +350,13 @@
                         <th class="num">Pts</th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {% for p in row.pick_rows %}
                         <tr class="{% if p.is_me %}me{% endif %}">
                           <td class="pick-player">{{ p.name }}</td>
                           <td class="pick-score">{{ p.pick_label }}</td>
+
                           <td class="pick-winner">
                             {% if p.exact %}
                               <span class="result-pill exact"><span class="result-icon">🎯</span> Exact</span>
@@ -227,6 +368,7 @@
                               <span class="result-pill missing">—</span>
                             {% endif %}
                           </td>
+
                           <td class="num"><strong>{% if p.has_pick %}+{{ p.points }}{% else %}—{% endif %}</strong></td>
                         </tr>
                       {% endfor %}
