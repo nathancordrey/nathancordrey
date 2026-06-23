@@ -154,9 +154,10 @@
       </div>
 
       <p class="note">
-        {% if show_money %}<b>$</b> season net — $1 ante each match day, the day's top scorer takes the pot (ties split; 💰 marks the winner). {% endif %}
+        {% if show_money %}<b>$</b> season net — $1 ante each match day; the day's top scorer takes the pot (a tie goes to whoever was closest that day; 💰 marks the winner). {% endif %}
         {% if daily_label %}<b>{{ daily_label }}</b> is points on the latest match day. {% endif %}
         {% if lb_active %}Under <b>{{ lb_active.full.split(': ')[-1] }}</b>: points (Pts), winners called (✓), and exact scores (🎯) for the matchday in progress — the table ranks by this. 🥇🥈🥉 are the Matchday 1 top three. {% endif %}
+        Ties are broken by closeness within that matchday — the smallest difference between predicted and actual scores.
       </p>
     </section>
 
