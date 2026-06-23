@@ -4,134 +4,70 @@
 
 {% block extra_css %}
   <style>
-    .submitted-roster {
-      padding: 0 .85rem .85rem;
-    }
-
-    .submitted-roster-title {
-      color: var(--muted);
-      font-family: var(--disp);
-      font-weight: 800;
-      font-size: .63rem;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      margin: .1rem 0 .5rem;
-    }
-
-    .submitted-roster-grid {
+    /* layout: standings full-width on top, two game columns below */
+    .lower-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: .32rem .8rem;
-      padding: .65rem .7rem;
-      border: 1px solid #edf0ec;
-      border-radius: 12px;
-      background: #fff;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      align-items: start;
+      margin-top: 1.7rem;
     }
+    .lower-grid .section-label { margin-top: 0; }
+    @media (max-width: 860px) { .lower-grid { grid-template-columns: 1fr; } }
 
-    .submitted-person {
-      display: flex;
-      align-items: center;
-      gap: .38rem;
-      min-width: 0;
-      color: var(--text);
-    }
-
-    .submitted-person.me .submitted-name {
-      text-decoration: underline;
-      text-decoration-color: rgba(31, 158, 90, .45);
-      text-underline-offset: 3px;
-    }
-
-    .submitted-mark {
-      font-family: var(--mono);
-      font-weight: 900;
-      font-size: .95rem;
-      line-height: 1;
-      width: 1.05rem;
+    /* grouped active-matchday header */
+    .standings thead .grp {
       text-align: center;
-      color: var(--muted);
-    }
-
-    .submitted-person.done .submitted-mark {
-      color: var(--open);
-    }
-
-    .submitted-person.pending {
-      color: var(--muted);
-    }
-
-    .submitted-name {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-family: var(--disp);
-      font-weight: 800;
-      font-size: .86rem;
-    }
-
-    .submitted-status {
-      margin-left: auto;
-      color: var(--muted);
-      font-size: .72rem;
-      white-space: nowrap;
-    }
-
-    .submitted-public-pick {
-      margin-left: auto;
-      display: inline-flex;
-      align-items: center;
-      gap: .3rem;
       color: var(--ink);
-      font-family: var(--mono);
-      font-weight: 900;
-      white-space: nowrap;
+      font-size: .66rem;
+      padding-bottom: .3rem;
+      border-bottom: 2px solid var(--line);
     }
+    .standings thead .subhead th { padding-top: .32rem; padding-bottom: .55rem; }
 
-    .submitted-public-pick small {
-      color: var(--muted);
-      font-family: var(--body);
-      font-weight: 600;
+    /* roster (pre-kickoff "who's in") */
+    .submitted-roster { padding: 0 .85rem .85rem; }
+    .submitted-roster-title {
+      color: var(--muted); font-family: var(--disp); font-weight: 800;
+      font-size: .63rem; letter-spacing: .1em; text-transform: uppercase; margin: .1rem 0 .5rem;
     }
+    .submitted-roster-grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .32rem .8rem; padding: .65rem .7rem;
+      border: 1px solid #edf0ec; border-radius: 12px; background: #fff;
+    }
+    .submitted-person { display: flex; align-items: center; gap: .38rem; min-width: 0; color: var(--text); }
+    .submitted-person.me .submitted-name {
+      text-decoration: underline; text-decoration-color: rgba(31, 158, 90, .45); text-underline-offset: 3px;
+    }
+    .submitted-mark {
+      font-family: var(--mono); font-weight: 900; font-size: .95rem; line-height: 1;
+      width: 1.05rem; text-align: center; color: var(--muted);
+    }
+    .submitted-person.done .submitted-mark { color: var(--open); }
+    .submitted-person.pending { color: var(--muted); }
+    .submitted-name {
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-family: var(--disp); font-weight: 800; font-size: .86rem;
+    }
+    .submitted-status { margin-left: auto; color: var(--muted); font-size: .72rem; white-space: nowrap; }
+    .submitted-public-pick {
+      margin-left: auto; display: inline-flex; align-items: center; gap: .3rem;
+      color: var(--ink); font-family: var(--mono); font-weight: 900; white-space: nowrap;
+    }
+    .submitted-public-pick small { color: var(--muted); font-family: var(--body); font-weight: 600; }
 
     .result-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: .28rem;
-      font-family: var(--disp);
-      font-weight: 900;
-      font-size: .68rem;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; gap: .28rem; font-family: var(--disp);
+      font-weight: 900; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
     }
+    .result-pill.exact { color: var(--exact); }
+    .result-pill.win { color: var(--open); }
+    .result-pill.miss { color: #b91c1c; }
+    .result-pill.missing { color: var(--muted); }
+    .result-icon { font-family: var(--mono); font-weight: 900; }
 
-    .result-pill.exact {
-      color: var(--exact);
-    }
-
-    .result-pill.win {
-      color: var(--open);
-    }
-
-    .result-pill.miss {
-      color: #b91c1c;
-    }
-
-    .result-pill.missing {
-      color: var(--muted);
-    }
-
-    .result-icon {
-      font-family: var(--mono);
-      font-weight: 900;
-    }
-
-    @media (max-width: 560px) {
-      .submitted-roster-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+    @media (max-width: 560px) { .submitted-roster-grid { grid-template-columns: 1fr; } }
   </style>
 {% endblock %}
 
@@ -155,68 +91,77 @@
 
 {% block content %}
   <main class="wrap">
-    <div class="grid">
-      <section>
-        <div class="section-label">Standings</div>
 
-        <div class="card standings-scroll">
-          <table class="standings">
-            <thead>
-              <tr>
-                <th class="num">Pos</th>
-                <th>Player</th>
-                {% if show_money %}<th class="num">$</th>{% endif %}
-                {% if daily_label %}<th class="num">{{ daily_label }}</th>{% endif %}
+    <section>
+      <div class="section-label">Standings</div>
 
-                {% if lb_active %}
-                  <th class="num">{{ lb_active.short }} Pts</th>
-                  <th class="num">{{ lb_active.short }} ✓</th>
-                  <th class="num">{{ lb_active.short }}</th>
-                {% else %}
-                  <th class="num">Pts</th>
+      <div class="card standings-scroll">
+        <table class="standings">
+          <thead>
+            <tr>
+              <th class="num" rowspan="2">Pos</th>
+              <th rowspan="2">Player</th>
+              {% if show_money %}<th class="num" rowspan="2">$</th>{% endif %}
+              {% if daily_label %}<th class="num" rowspan="2">{{ daily_label }}</th>{% endif %}
+
+              {% if lb_active %}
+                <th class="grp num" colspan="3">{{ lb_active.full.split(': ')[-1] }}</th>
+              {% else %}
+                <th class="num" rowspan="2">Pts</th>
+              {% endif %}
+
+              {% for s in lb_past %}<th class="num" rowspan="2">{{ s.short }}</th>{% endfor %}
+            </tr>
+
+            {% if lb_active %}
+              <tr class="subhead">
+                <th class="num">Pts</th>
+                <th class="num">✓</th>
+                <th class="num">🎯</th>
+              </tr>
+            {% endif %}
+          </thead>
+
+          <tbody>
+            {% for row in leaderboard %}
+              <tr class="{% if row.is_me %}me{% endif %}">
+                <td class="rank num">{{ row.rank }}</td>
+                <td class="player">{{ row.name }}{% if row.award %} {{ row.award }}{% endif %}</td>
+
+                {% if show_money %}
+                  <td class="stat num money {% if row.money > 0 %}pos{% elif row.money < 0 %}neg{% endif %}">{{ row.money_str }}</td>
                 {% endif %}
 
-                {% for s in lb_past %}<th class="num">{{ s.short }}</th>{% endfor %}
+                {% if daily_label %}
+                  <td class="stat num">{{ row.daily }}{% if row.daily_win %} 💰{% endif %}</td>
+                {% endif %}
+
+                {% if lb_active %}
+                  <td class="points num">{{ row.active_points }}</td>
+                  <td class="stat num">{{ row.active_winners }}</td>
+                  <td class="stat num">{{ row.active_exact }}</td>
+                {% else %}
+                  <td class="points num">{{ row.total }}</td>
+                {% endif %}
+
+                {% for p in row.past_points %}
+                  <td class="stat num">{{ p }}</td>
+                {% endfor %}
               </tr>
-            </thead>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
 
-            <tbody>
-              {% for row in leaderboard %}
-                <tr class="{% if row.is_me %}me{% endif %}">
-                  <td class="rank num">{{ row.rank }}</td>
-                  <td class="player">{{ row.name }}{% if row.award %} {{ row.award }}{% endif %}</td>
+      <p class="note">
+        {% if show_money %}<b>$</b> season net — $1 ante each match day, the day's top scorer takes the pot (ties split; 💰 marks the winner). {% endif %}
+        {% if daily_label %}<b>{{ daily_label }}</b> is points on the latest match day. {% endif %}
+        {% if lb_active %}Under <b>{{ lb_active.full.split(': ')[-1] }}</b>: points (Pts), winners called (✓), and exact scores (🎯) for the matchday in progress — the table ranks by this. 🥇🥈🥉 are the Matchday 1 top three. {% endif %}
+      </p>
+    </section>
 
-                  {% if show_money %}
-                    <td class="stat num money {% if row.money > 0 %}pos{% elif row.money < 0 %}neg{% endif %}">{{ row.money_str }}</td>
-                  {% endif %}
-
-                  {% if daily_label %}
-                    <td class="stat num">{{ row.daily }}{% if row.daily_win %} ✓{% endif %}</td>
-                  {% endif %}
-
-                  {% if lb_active %}
-                    <td class="points num">{{ row.active_points }}</td>
-                    <td class="stat num">{{ row.active_winners }}</td>
-                    <td class="stat num">{{ row.active_exact }}</td>
-                  {% else %}
-                    <td class="points num">{{ row.total }}</td>
-                  {% endif %}
-
-                  {% for p in row.past_points %}
-                    <td class="stat num">{{ p }}</td>
-                  {% endfor %}
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-
-        <p class="note">
-          {% if show_money %}<b>$</b> season net — $1 ante each match day, the day's top scorer takes the pot (ties split). {% endif %}
-          {% if daily_label %}<b>{{ daily_label }}</b> points on the latest match day; ✓ marks that day's winner once it's complete. {% endif %}
-          {% if lb_active %}<b>{{ lb_active.short }} ✓ / / Pts</b> — winners called, exact scores, and points in the matchday now in progress. {% endif %}
-        </p>
-
+    <div class="lower-grid">
+      <section>
         <div class="section-label">Open / live</div>
 
         <div class="game-list">
@@ -383,5 +328,6 @@
         </div>
       </aside>
     </div>
+
   </main>
 {% endblock %}
