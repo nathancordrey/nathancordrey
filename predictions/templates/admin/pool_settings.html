@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}{{ pool.name }} settings{% endblock %}
+
+{% block extra_css %}
+  <style>
+    .settings-shell {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 4rem;
+    }
+
+    .page-kicker {
+      font-family: var(--disp);
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .25rem;
+    }
+
+    .page-title {
+      font-family: var(--disp);
+      font-weight: 900;
+      font-size: clamp(2rem, 6vw, 3rem);
+      letter-spacing: -.03em;
+      line-height: 1;
+      margin: 0 0 .5rem;
+      color: var(--ink);
+    }
+
+    .settings-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 1rem;
+      margin-top: 1rem;
+      box-shadow: 0 8px 24px rgba(17, 24, 39, .04);
+    }
+
+    .form-grid {
+      display: grid;
+      gap: .9rem;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-family: var(--disp);
+      font-weight: 800;
+      font-size: .68rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: .28rem;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: .7rem .75rem;
+      font: inherit;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .help {
+      margin-top: .25rem;
+      color: var(--muted);
+      font-size: .84rem;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: flex-start;
+      gap: .5rem;
+      padding: .75rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfb;
+    }
+
+    .check-row label {
+      margin: 0;
+      color: var(--ink);
+      font-size: .86rem;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .55rem;
+      margin-top: 1rem;
+    }
+
+    button,
+    .button-link {
+      display: inline-block;
+      border-radius: 999px;
+      padding: .72rem 1rem;
+      font-family: var(--disp);
+      font-weight: 900;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    button {
+      border: 0;
+      background: var(--pitch);
+      color: #fff;
+    }
+
+    .button-link {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    .danger-lite {
+      border-color: rgba(185, 28, 28, .25);
+      color: #991b1b;
+    }
+
+    .invite-input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: .7rem .75rem;
+      font: inherit;
+      background: #fbfcfb;
+      color: var(--ink);
+    }
+
+    @media (max-width: 620px) {
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <main class="settings-shell">
+    <div class="page-kicker">Pool admin</div>
+    <h1 class="page-title">{{ pool.name }} settings</h1>
+
+    <form class="settings-card" method="post" action="{{ url_for('admin.pool_settings', pool_slug=pool.slug) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="save">
+
+      <div class="form-grid">
+        <div>
+          <label for="name">Pool name</label>
+          <input id="name" name="name" type="text" value="{{ pool.name }}" required>
+          <div class="help">The URL slug is staying locked for now: /predictions/pools/{{ pool.slug }}</div>
+        </div>
+
+        <div class="check-row">
+          <input id="is_public" name="is_public" type="checkbox" value="1" {% if pool.is_public %}checked{% endif %}>
+          <div>
+            <label for="is_public">Public pool</label>
+            <div class="help">Public pools can be viewed by anyone with the link. Private pools require membership or site admin access.</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div>
+            <label for="score_correct_winner">Correct winner points</label>
+            <input id="score_correct_winner" name="score_correct_winner" type="number" min="0" max="20" value="{{ pool.score_correct_winner }}">
+          </div>
+
+          <div>
+            <label for="score_exact_bonus">Exact score bonus</label>
+            <input id="score_exact_bonus" name="score_exact_bonus" type="number" min="0" max="20" value="{{ pool.score_exact_bonus }}">
+          </div>
+        </div>
+
+        <div class="help">
+          Changing scoring will recalculate standings the next time the dashboard loads.
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit">Save settings</button>
+        <a class="button-link" href="{{ url_for('public.my_pools') }}">Back to My Pools</a>
+        <a class="button-link" href="{{ url_for('public.pool_home', pool_slug=pool.slug) }}">Dashboard</a>
+      </div>
+    </form>
+
+    <section class="settings-card">
+      <label>Invite link</label>
+      {% if invite_url %}
+        <input class="invite-input" type="text" value="{{ invite_url }}" readonly onclick="this.select()">
+        <div class="help">Anyone with this link can join the pool after logging in.</div>
+      {% else %}
+        <div class="help">This pool does not have an invite link yet. Regenerate one below.</div>
+      {% endif %}
+
+      <form method="post" action="{{ url_for('admin.pool_settings', pool_slug=pool.slug) }}" style="margin-top: .8rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="regenerate_invite">
+        <button class="danger-lite" type="submit">Regenerate invite link</button>
+      </form>
+    </section>
+  </main>
+{% endblock %}
