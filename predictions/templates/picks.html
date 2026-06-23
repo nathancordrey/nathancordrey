@@ -26,9 +26,21 @@
       font-size: clamp(2rem, 7vw, 3.2rem);
       letter-spacing: -.03em;
       line-height: 1;
-      margin: 0 0 1rem;
+      margin: 0 0 .45rem;
       color: var(--ink);
     }
+
+    .account-line {
+      margin: 0 0 1.5rem;
+    }
+    .account-line a {
+      font-family: var(--disp);
+      font-weight: 700;
+      font-size: .8rem;
+      color: var(--pitch);
+      text-decoration: none;
+    }
+    .account-line a:hover { text-decoration: underline; }
 
     .flash {
       background: #fff7ed;
@@ -233,6 +245,7 @@
 
     <div class="page-kicker">{{ pool.name }}</div>
     <h1 class="page-title">Your picks, {{ me.name }}</h1>
+    <p class="account-line"><a href="{{ url_for('auth.change_password') }}">Change password</a></p>
 
     <div class="section-label">Open for picks</div>
 
