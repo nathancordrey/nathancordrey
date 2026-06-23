@@ -13,20 +13,15 @@ Users may also choose whether to show an individual pick before kickoff.
 The pick is still editable until kickoff either way.
 """
 
-import datetime as dt
-import os
-from zoneinfo import ZoneInfo
-
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+from predictions import timing
 from predictions.models import db, Pool, Prediction, score_prediction
 
 
 picks = Blueprint("picks", __name__)
 
-APP_TZ = ZoneInfo("America/New_York")
-PICK_AHEAD_HOUR = int(os.environ.get("WC_PICK_AHEAD_HOUR", "15"))
 MAX_REASONABLE_SCORE = 50
 
 
@@ -36,47 +31,6 @@ def _winner_from_score(home_score, away_score):
     if away_score > home_score:
         return "away"
     return "draw"
-
-
-def _as_utc(value):
-    """Return a timezone-aware UTC datetime.
-
-    PostgreSQL preserves timezone info, but SQLite may return naive datetimes
-    during local testing. Treat naive values as UTC because kickoff_at is
-    stored as UTC by convention.
-    """
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=dt.timezone.utc)
-    return value.astimezone(dt.timezone.utc)
-
-
-def _as_app_tz(value):
-    return _as_utc(value).astimezone(APP_TZ)
-
-
-def _pick_open_date():
-    """Return the latest local date open for picking.
-
-    Games are visible/editable on their match day, and the next day's games
-    become available starting at PICK_AHEAD_HOUR Eastern time the day before.
-    Default: 3 PM ET.
-    """
-    now = dt.datetime.now(APP_TZ)
-    open_date = now.date()
-
-    if now.hour >= PICK_AHEAD_HOUR:
-        open_date = open_date + dt.timedelta(days=1)
-
-    return open_date
-
-def _game_is_visible(game, open_date):
-    """Whether this game should appear on the user's picks page."""
-    return _as_app_tz(game.kickoff_at).date() <= open_date
-
-
-def _game_is_open_for_picks(game, open_date):
-    """Whether the user may save/edit a pick for this game."""
-    return _game_is_visible(game, open_date) and not game.locked
 
 
 def _user_pool():
@@ -109,8 +63,6 @@ def my_picks():
         if pred.pool_id == pool.id
     }
 
-    open_date = _pick_open_date()
-
     open_games = []
     locked_games = []
 
@@ -119,7 +71,7 @@ def my_picks():
     for game in games:
         pick = mine.get(game.id)
 
-        if _game_is_open_for_picks(game, open_date):
+        if timing.is_pickable(game):
             open_games.append({"game": game, "pick": pick})
             continue
 
@@ -154,8 +106,6 @@ def save_picks():
     if pool is None:
         abort(403)
 
-    open_date = _pick_open_date()
-
     games = {
         game.id: game
         for game in pool.competition.games
@@ -186,7 +136,7 @@ def save_picks():
             continue
 
         # Hard server-side lock. Do not trust the form/UI.
-        if not _game_is_open_for_picks(game, open_date):
+        if not timing.is_pickable(game):
             skipped_locked += 1
             continue
 
