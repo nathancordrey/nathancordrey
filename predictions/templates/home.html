@@ -127,6 +127,56 @@
       font-weight: 900;
     }
 
+
+.pick-details {
+  border-top: 1px solid #eef1ee;
+}
+
+.pick-details summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem;
+  padding: .55rem .85rem;
+  cursor: pointer;
+  color: var(--muted);
+  font-family: var(--disp);
+  font-weight: 900;
+  font-size: .72rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  user-select: none;
+  background: #fbfcfb;
+}
+
+.pick-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.pick-details summary::after {
+  content: "+";
+  font-family: var(--mono);
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.pick-details[open] summary::after {
+  content: "–";
+}
+
+.pick-details .summary-open {
+  display: none;
+}
+
+.pick-details[open] .summary-open {
+  display: inline;
+}
+
+.pick-details[open] .summary-closed {
+  display: none;
+}
+
     @media (max-width: 560px) {
       .submitted-roster-grid {
         grid-template-columns: 1fr;
@@ -251,8 +301,14 @@
                 </div>
 
                 {% if row.reveal_picks %}
-                  <div class="pick-table-wrap">
-                    <table class="pick-table">
+                  <details class="pick-details" open>
+                    <summary>
+                      <span class="summary-open">Hide picks</span>
+                      <span class="summary-closed">Show picks</span>
+                    </summary>
+
+                    <div class="pick-table-wrap">
+                      <table class="pick-table">
                       <thead>
                         <tr>
                           <th>Player</th>
@@ -280,8 +336,9 @@
                           </tr>
                         {% endfor %}
                       </tbody>
-                    </table>
-                  </div>
+                      </table>
+                    </div>
+                  </details>
                 {% else %}
                   <div class="submitted-roster">
                     <div class="submitted-roster-title">Submitted picks</div>
@@ -340,8 +397,14 @@
                   <span class="badge final">Final</span>
                 </div>
 
-                <div class="pick-table-wrap">
-                  <table class="pick-table">
+                <details class="pick-details">
+                  <summary>
+                    <span class="summary-open">Hide picks</span>
+                    <span class="summary-closed">Show picks</span>
+                  </summary>
+
+                  <div class="pick-table-wrap">
+                    <table class="pick-table">
                     <thead>
                       <tr>
                         <th>Player</th>
@@ -373,8 +436,9 @@
                         </tr>
                       {% endfor %}
                     </tbody>
-                  </table>
-                </div>
+                    </table>
+                  </div>
+                </details>
               </article>
             {% endfor %}
           {% else %}
