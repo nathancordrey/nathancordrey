@@ -251,6 +251,63 @@ def create_pool():
     )
 
 
+@admin.route("/pools/<pool_slug>/admin/settings", methods=["GET", "POST"])
+@login_required
+def pool_settings(pool_slug):
+    """Simple pool settings page for pool admins/site admins."""
+    pool = get_pool_or_404(pool_slug)
+    require_pool_admin(pool)
+
+    if request.method == "POST":
+        action = request.form.get("action") or "save"
+
+        if action == "regenerate_invite":
+            pool.invite_code = _unique_invite_code()
+            db.session.commit()
+            flash("Invite link regenerated.")
+            return redirect(url_for("admin.pool_settings", pool_slug=pool.slug))
+
+        try:
+            name = (request.form.get("name") or "").strip()
+            if not name:
+                raise ValueError("Pool name is required.")
+
+            pool.name = name
+            pool.is_public = request.form.get("is_public") == "1"
+            pool.score_correct_winner = _int_setting(
+                "score_correct_winner",
+                pool.score_correct_winner,
+                minimum=0,
+                maximum=20,
+            )
+            pool.score_exact_bonus = _int_setting(
+                "score_exact_bonus",
+                pool.score_exact_bonus,
+                minimum=0,
+                maximum=20,
+            )
+
+            db.session.commit()
+            flash("Pool settings saved.")
+            return redirect(url_for("admin.pool_settings", pool_slug=pool.slug))
+
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc))
+
+    invite_url = (
+        url_for("public.join_pool", invite_code=pool.invite_code, _external=True)
+        if pool.invite_code else None
+    )
+
+    return render_template(
+        "admin/pool_settings.html",
+        pool=pool,
+        current_pool=pool,
+        invite_url=invite_url,
+    )
+
+
 @admin.route("/admin/results")
 @login_required
 def results():
