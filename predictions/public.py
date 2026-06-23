@@ -1,6 +1,9 @@
-"""Public DB-backed homepage for the predictions app.
+"""Public DB-backed pool dashboard for the predictions app.
 
-Routes are registered under /predictions by wc_app.py.
+Pool-aware routes:
+  /predictions                         -> redirects to default pool dashboard
+  /predictions/my-pools                -> logged-in user's pool list
+  /predictions/pools/<pool_slug>       -> one pool dashboard
 
 Behavior:
   - Before kickoff, score picks stay hidden by default.
@@ -11,25 +14,22 @@ Behavior:
 
 import datetime as dt
 
-from flask import Blueprint, abort, render_template
-from flask_login import current_user
+from flask import Blueprint, abort, redirect, render_template, url_for
+from flask_login import current_user, login_required
 
 from predictions import timing
-from predictions.timing import STAGE_ORDER, STAGE_SHORT
 from predictions.models import Pool, score_prediction
+from predictions.pool_helpers import default_pool, get_pool_or_404, user_can_admin_pool
 
 
 public = Blueprint("public", __name__, template_folder="templates")
 
-# Timing rules live in predictions/timing.py; these names re-point to it so the
-# existing call sites keep working against a single source of truth.
 _as_app_tz = timing.as_app_tz
 _et_date = timing.et_date
 _pick_open_date = timing.release_date
 
 DAILY_WAGER_FROM = "2026-06-19"
 WAGER_STAKE = 1
-
 _MD1 = "Group Stage: Matchday 1"
 
 
@@ -37,6 +37,7 @@ def _fmt_money(value):
     rv = round(value, 2)
     if rv == 0:
         return "$0"
+
     body = "{:d}".format(abs(int(rv))) if rv == int(rv) else "{:.2f}".format(abs(rv))
     return ("+$" if rv > 0 else "−$") + body
 
@@ -54,10 +55,6 @@ def _fmt_date(value):
 def _fmt_time(value):
     local = _as_app_tz(value)
     return local.strftime("%I:%M %p").lstrip("0")
-
-
-def _first_pool():
-    return Pool.query.order_by(Pool.id.asc()).first()
 
 
 def _leaderboard(pool):
@@ -94,7 +91,7 @@ def _leaderboard(pool):
     }
 
     # Submitted = every prediction this user has made, including upcoming games.
-    for (uid, gid) in preds:
+    for (uid, _gid) in preds:
         if uid in rows:
             rows[uid]["submitted"] += 1
 
@@ -114,6 +111,7 @@ def _leaderboard(pool):
                 continue
 
             points, winner_ok, exact = score_prediction(pred, game, pool)
+
             # Closeness to the real scoreline (lower is better).
             gdiff = (
                 abs(pred.home_score - game.home_score)
@@ -152,15 +150,15 @@ def _leaderboard(pool):
             rows[uid]["award"] = medal
 
     # Active matchday = the most advanced stage that has actually KICKED OFF;
-    # earlier ones are settled. Released-but-not-started stages don't count, so
-    # opening tomorrow's slate for picks won't flip the board to an all-zero
-    # column -- it advances only once that round's first game kicks off.
+    # released-but-not-started stages do not count.
     ordered = timing.started_stages_ordered(games)
-
     active = ordered[-1] if ordered else None
-    lb_past = [{"full": s, "short": STAGE_SHORT.get(s, s)} for s in ordered[:-1]]
+    lb_past = [
+        {"full": s, "short": timing.STAGE_SHORT.get(s, s)}
+        for s in ordered[:-1]
+    ]
     lb_active = (
-        {"full": active, "short": STAGE_SHORT.get(active, active)}
+        {"full": active, "short": timing.STAGE_SHORT.get(active, active)}
         if active else None
     )
 
@@ -168,7 +166,7 @@ def _leaderboard(pool):
         return rows[uid]["by_stage"].get(active, {}).get("points", 0) if active else 0
 
     def active_diff(uid):
-        # Closeness within the active matchday only (the metric being ranked).
+        # Closeness within the active matchday only.
         return rows[uid]["by_stage"].get(active, {}).get("score_diff", 0) if active else 0
 
     def day_diff(uid, et):
@@ -197,7 +195,8 @@ def _leaderboard(pool):
                         rows[user.id]["daily"] += pts_by[(game.id, user.id)]
 
         day_complete = all(
-            g.is_final for g in games
+            g.is_final
+            for g in games
             if _et_date(g) == latest
         )
 
@@ -209,7 +208,6 @@ def _leaderboard(pool):
                 if rows[uid]["daily"] == top and top > 0
             ]
             if top_scorers:
-                # Break the day's tie by closeness within that day only.
                 closest = min(day_diff(uid, latest) for uid in top_scorers)
                 winners = {
                     uid for uid in top_scorers
@@ -245,6 +243,7 @@ def _leaderboard(pool):
             for game in day_games:
                 if not game.is_final:
                     continue
+
                 for user in members:
                     if (game.id, user.id) in pts_by:
                         day_points[user.id] += pts_by[(game.id, user.id)]
@@ -253,12 +252,16 @@ def _leaderboard(pool):
 
             if complete:
                 top = max(day_points.values())
-                top_scorers = [uid for uid in member_ids if day_points[uid] == top and top > 0]
+                top_scorers = [
+                    uid for uid in member_ids
+                    if day_points[uid] == top and top > 0
+                ]
                 if top_scorers:
-                    # Tie for the day goes to whoever was closest that day; only
-                    # an exact closeness tie splits the pot.
                     closest = min(day_diff(uid, wager_day) for uid in top_scorers)
-                    day_winners = [uid for uid in top_scorers if day_diff(uid, wager_day) == closest]
+                    day_winners = [
+                        uid for uid in top_scorers
+                        if day_diff(uid, wager_day) == closest
+                    ]
                     wager_active = True
                     share = pot / len(day_winners)
                     for uid in member_ids:
@@ -277,8 +280,7 @@ def _leaderboard(pool):
     ranked_rows = sorted(
         rows.values(),
         # Rank by active-matchday points, then closeness within that same
-        # matchday (smaller goal-difference), then total points. The diff is
-        # scoped to the matchday being ranked, not the whole season.
+        # matchday (smaller goal-difference), then total points.
         key=lambda r: (active_points(r["user"].id), -active_diff(r["user"].id), r["total"]),
         reverse=True,
     )
@@ -451,21 +453,43 @@ def _game_card(pool, game, pred_by_user, member_count):
 @public.route("")
 @public.route("/")
 def home():
-    pool = _first_pool()
+    pool = default_pool()
     if pool is None:
         abort(404)
+    return redirect(url_for("public.pool_home", pool_slug=pool.slug))
+
+
+@public.route("/my-pools")
+@login_required
+def my_pools():
+    memberships = sorted(
+        current_user.memberships,
+        key=lambda m: (m.pool.name.lower(), m.pool.id),
+    )
+
+    pools = [m.pool for m in memberships]
+
+    if current_user.is_site_admin:
+        # Site admin can see all pools, including pools they are not a member of.
+        seen = {p.id for p in pools}
+        for pool in Pool.query.order_by(Pool.name.asc()).all():
+            if pool.id not in seen:
+                pools.append(pool)
+                seen.add(pool.id)
+
+    return render_template("my_pools.html", pools=pools)
+
+
+@public.route("/pools/<pool_slug>")
+def pool_home(pool_slug):
+    pool = get_pool_or_404(pool_slug)
 
     competition = pool.competition
     member_count = len(pool.members)
     pred_index = _prediction_index(pool)
-    open_date = _pick_open_date()
 
     games = sorted(competition.games, key=lambda g: g.kickoff_at)
-
-    visible_games = [
-        game for game in games
-        if _as_app_tz(game.kickoff_at).date() <= open_date
-    ]
+    visible_games = [game for game in games if timing.is_released(game)]
 
     current_games = [
         _game_card(pool, game, pred_index.get(game.id, {}), member_count)
@@ -488,6 +512,8 @@ def home():
     return render_template(
         "home.html",
         pool=pool,
+        current_pool=pool,
+        can_admin_pool=user_can_admin_pool(pool),
         competition=competition,
         leaderboard=board["rows"],
         lb_past=board["lb_past"],
