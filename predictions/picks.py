@@ -8,6 +8,9 @@ Routes are registered under /predictions by wc_app.py.
 
 Each logged-in member sees only their own predictions, can edit games that
 are open and not locked, and is blocked server-side from saving late picks.
+
+Users may also choose whether to show an individual pick before kickoff.
+The pick is still editable until kickoff either way.
 """
 
 import datetime as dt
@@ -219,6 +222,7 @@ def save_picks():
         prediction.winner = _winner_from_score(home_score, away_score)
         prediction.home_score = home_score
         prediction.away_score = away_score
+        prediction.show_before_kickoff = request.form.get(f"show_{game_id}") == "1"
         saved += 1
 
     db.session.commit()
