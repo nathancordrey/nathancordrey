@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}My pools{% endblock %}
+
+{% block content %}
+  <main class="wrap">
+    <div class="section-label">My pools</div>
+
+    {% if pools %}
+      <div class="game-list">
+        {% for p in pools %}
+          <article class="game">
+            <div class="game-head">
+              <div>
+                <div class="fixture">{{ p.name }}</div>
+                <div class="meta">
+                  {{ p.competition.name }} · {{ p.members|length }} players
+                </div>
+              </div>
+            </div>
+
+            <div class="game-body">
+              <a class="button-link" href="{{ url_for('public.pool_home', pool_slug=p.slug) }}">Dashboard</a>
+              <a class="button-link" href="{{ url_for('picks.pool_picks', pool_slug=p.slug) }}">My picks</a>
+              {% if current_user.is_site_admin %}
+                <a class="button-link" href="{{ url_for('admin.pool_results', pool_slug=p.slug) }}">Admin</a>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">You are not in any pools yet.</div>
+    {% endif %}
+  </main>
+{% endblock %}
