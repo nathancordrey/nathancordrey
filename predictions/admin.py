@@ -1,40 +1,28 @@
 """Admin tools for the DB-backed predictions app.
 
-Routes are registered under /predictions by wc_app.py.
+Canonical pool-aware admin routes:
+  /predictions/pools/<pool_slug>/admin/results
+  /predictions/pools/<pool_slug>/admin/games/<game_id>/picks
 
-Admin features:
-  - site admin only
-  - mark a game live
-  - enter a final score
-  - clear a result back to scheduled
-  - edit all users' predictions for one game
+Legacy admin routes redirect to the default pool.
 """
 
-from functools import wraps
-
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
-from flask_login import current_user, login_required
+from flask_login import login_required
 
 from predictions import timing
-from predictions.models import db, Game, Pool, Prediction
+from predictions.models import db, Game, Prediction
+from predictions.pool_helpers import (
+    default_pool,
+    get_pool_or_404,
+    require_pool_admin,
+)
 
 
 admin = Blueprint("admin", __name__, template_folder="templates")
 
 MAX_REASONABLE_SCORE = 50
-
 _as_app_tz = timing.as_app_tz
-
-
-def site_admin_required(func):
-    @wraps(func)
-    @login_required
-    def wrapper(*args, **kwargs):
-        if not current_user.is_site_admin:
-            abort(403)
-        return func(*args, **kwargs)
-
-    return wrapper
 
 
 def _fmt_date(value):
@@ -118,8 +106,8 @@ def _game_row(game):
     }
 
 
-def _filtered_games(filter_value):
-    games = Game.query.order_by(Game.kickoff_at.asc()).all()
+def _filtered_games(pool, filter_value):
+    games = list(pool.competition.games)
 
     if filter_value == "needs":
         return [g for g in games if g.locked and not g.is_final]
@@ -133,16 +121,57 @@ def _filtered_games(filter_value):
     if filter_value == "live":
         return [g for g in games if g.status == "live" and not g.is_final]
 
-    return games
+    return sorted(games, key=lambda g: g.kickoff_at)
 
 
-def _first_pool():
-    return Pool.query.order_by(Pool.id.asc()).first()
-
-
-@admin.route("/admin/results", methods=["GET", "POST"])
-@site_admin_required
+@admin.route("/admin/results")
+@login_required
 def results():
+    """Legacy no-slug admin results route.
+
+    Keeps existing links working, then redirects to the canonical pool-aware route.
+    """
+    pool = default_pool()
+    if pool is None:
+        abort(404)
+
+    require_pool_admin(pool)
+
+    return redirect(
+        url_for(
+            "admin.pool_results",
+            pool_slug=pool.slug,
+            filter=request.args.get("filter", "needs"),
+        )
+    )
+
+
+@admin.route("/admin/games/<int:game_id>/picks")
+@login_required
+def game_picks(game_id):
+    """Legacy no-slug admin pick edit route."""
+    pool = default_pool()
+    if pool is None:
+        abort(404)
+
+    require_pool_admin(pool)
+
+    return redirect(
+        url_for(
+            "admin.pool_game_picks",
+            pool_slug=pool.slug,
+            game_id=game_id,
+            filter=request.args.get("filter", "needs"),
+        )
+    )
+
+
+@admin.route("/pools/<pool_slug>/admin/results", methods=["GET", "POST"])
+@login_required
+def pool_results(pool_slug):
+    pool = get_pool_or_404(pool_slug)
+    require_pool_admin(pool)
+
     filter_value = request.values.get("filter") or "needs"
     if filter_value not in {"needs", "all", "final", "future", "live"}:
         filter_value = "needs"
@@ -154,6 +183,9 @@ def results():
             abort(400)
 
         game = Game.query.get_or_404(game_id)
+        if game.competition_id != pool.competition_id:
+            abort(404)
+
         action = request.form.get("action")
 
         try:
@@ -171,13 +203,7 @@ def results():
                 game.status = "live"
                 flash(f"Marked live: {game.home} v {game.away}")
 
-            elif action == "scheduled":
-                game.home_score = None
-                game.away_score = None
-                game.status = "scheduled"
-                flash(f"Marked scheduled: {game.home} v {game.away}")
-
-            elif action == "clear":
+            elif action in {"scheduled", "clear"}:
                 game.home_score = None
                 game.away_score = None
                 game.status = "scheduled"
@@ -188,12 +214,12 @@ def results():
 
         except ValueError as exc:
             flash(str(exc))
-            return redirect(url_for("admin.results", filter=filter_value))
+            return redirect(url_for("admin.pool_results", pool_slug=pool.slug, filter=filter_value))
 
         db.session.commit()
-        return redirect(url_for("admin.results", filter=filter_value))
+        return redirect(url_for("admin.pool_results", pool_slug=pool.slug, filter=filter_value))
 
-    all_games = Game.query.all()
+    all_games = list(pool.competition.games)
     stats = {
         "total": len(all_games),
         "final": sum(1 for g in all_games if g.is_final),
@@ -202,34 +228,41 @@ def results():
         "live": sum(1 for g in all_games if g.status == "live" and not g.is_final),
     }
 
-    games = _filtered_games(filter_value)
+    games = _filtered_games(pool, filter_value)
 
     if filter_value == "final":
         games = sorted(games, key=lambda g: g.kickoff_at, reverse=True)
+    else:
+        games = sorted(games, key=lambda g: g.kickoff_at)
 
     rows = [_game_row(game) for game in games]
 
     return render_template(
         "admin/results.html",
+        pool=pool,
+        current_pool=pool,
         rows=rows,
         stats=stats,
         filter_value=filter_value,
     )
 
 
-@admin.route("/admin/games/<int:game_id>/picks", methods=["GET", "POST"])
-@site_admin_required
-def game_picks(game_id):
+@admin.route("/pools/<pool_slug>/admin/games/<int:game_id>/picks", methods=["GET", "POST"])
+@login_required
+def pool_game_picks(pool_slug, game_id):
     """Edit all users' predictions for one game.
 
     This bypasses the normal user-side kickoff lock, but remains restricted
-    to site admins. It is intended for corrections and missed manual entries.
+    to pool admins/site admins. It is intended for corrections and missed
+    manual entries.
     """
-    pool = _first_pool()
-    if pool is None:
-        abort(404)
+    pool = get_pool_or_404(pool_slug)
+    require_pool_admin(pool)
 
     game = Game.query.get_or_404(game_id)
+    if game.competition_id != pool.competition_id:
+        abort(404)
+
     filter_value = request.values.get("filter") or "needs"
 
     members = sorted(pool.members, key=lambda membership: membership.user.name.lower())
@@ -278,7 +311,14 @@ def game_picks(game_id):
         except ValueError as exc:
             db.session.rollback()
             flash(str(exc))
-            return redirect(url_for("admin.game_picks", game_id=game.id, filter=filter_value))
+            return redirect(
+                url_for(
+                    "admin.pool_game_picks",
+                    pool_slug=pool.slug,
+                    game_id=game.id,
+                    filter=filter_value,
+                )
+            )
 
         db.session.commit()
 
@@ -291,7 +331,14 @@ def game_picks(game_id):
             bits.append("no changes saved")
 
         flash("Admin picks update: " + ", ".join(bits) + ".")
-        return redirect(url_for("admin.game_picks", game_id=game.id, filter=filter_value))
+        return redirect(
+            url_for(
+                "admin.pool_game_picks",
+                pool_slug=pool.slug,
+                game_id=game.id,
+                filter=filter_value,
+            )
+        )
 
     rows = []
     for membership in members:
@@ -308,6 +355,7 @@ def game_picks(game_id):
     return render_template(
         "admin/game_picks.html",
         pool=pool,
+        current_pool=pool,
         game=game,
         rows=rows,
         filter_value=filter_value,
