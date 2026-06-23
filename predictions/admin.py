@@ -7,11 +7,14 @@ Canonical pool-aware admin routes:
 Legacy admin routes redirect to the default pool.
 """
 
+import re
+import secrets
+
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from predictions import timing
-from predictions.models import db, Game, Prediction
+from predictions.models import db, Competition, Game, Pool, PoolMember, Prediction
 from predictions.pool_helpers import (
     default_pool,
     get_pool_or_404,
@@ -23,6 +26,40 @@ admin = Blueprint("admin", __name__, template_folder="templates")
 
 MAX_REASONABLE_SCORE = 50
 _as_app_tz = timing.as_app_tz
+
+
+def _site_admin_required():
+    if not current_user.is_site_admin:
+        abort(403)
+
+
+def _slugify(value):
+    slug = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower())
+    slug = slug.strip("-")
+    return slug or "pool"
+
+
+def _slug_available(slug):
+    return Pool.query.filter_by(slug=slug).first() is None
+
+
+def _unique_invite_code():
+    while True:
+        code = secrets.token_urlsafe(12)
+        if Pool.query.filter_by(invite_code=code).first() is None:
+            return code
+
+
+def _int_setting(name, default, minimum=0, maximum=50):
+    raw = (request.form.get(name) or "").strip()
+    if raw == "":
+        return default
+
+    value = int(raw)
+    if value < minimum or value > maximum:
+        raise ValueError("Scoring values are out of range.")
+
+    return value
 
 
 def _fmt_date(value):
@@ -122,6 +159,96 @@ def _filtered_games(pool, filter_value):
         return [g for g in games if g.status == "live" and not g.is_final]
 
     return sorted(games, key=lambda g: g.kickoff_at)
+
+
+
+
+@admin.route("/admin/pools/new", methods=["GET", "POST"])
+@login_required
+def create_pool():
+    """Site-admin-only first pass for creating another pool.
+
+    This intentionally starts as a private/admin tool. Public self-serve pool
+    creation can reuse most of this once signup/invites are ready.
+    """
+    _site_admin_required()
+
+    competitions = Competition.query.order_by(Competition.name.asc()).all()
+    if not competitions:
+        flash("Create or seed a competition before creating a pool.")
+        return redirect(url_for("public.my_pools"))
+
+    defaults = {
+        "name": "",
+        "slug": "",
+        "competition_id": competitions[0].id,
+        "score_correct_winner": 1,
+        "score_exact_bonus": 2,
+        "is_public": False,
+    }
+
+    if request.method == "POST":
+        form = {
+            "name": (request.form.get("name") or "").strip(),
+            "slug": _slugify(request.form.get("slug") or request.form.get("name")),
+            "competition_id": request.form.get("competition_id", type=int),
+            "score_correct_winner": request.form.get("score_correct_winner", "").strip() or "1",
+            "score_exact_bonus": request.form.get("score_exact_bonus", "").strip() or "2",
+            "is_public": request.form.get("is_public") == "1",
+        }
+
+        try:
+            if not form["name"]:
+                raise ValueError("Pool name is required.")
+
+            competition = db.session.get(Competition, form["competition_id"])
+            if competition is None:
+                raise ValueError("Choose a valid competition.")
+
+            if not _slug_available(form["slug"]):
+                raise ValueError("That pool URL slug is already taken.")
+
+            score_correct_winner = _int_setting("score_correct_winner", 1, minimum=0, maximum=20)
+            score_exact_bonus = _int_setting("score_exact_bonus", 2, minimum=0, maximum=20)
+
+            pool = Pool(
+                name=form["name"],
+                slug=form["slug"],
+                competition_id=competition.id,
+                owner_id=current_user.id,
+                score_correct_winner=score_correct_winner,
+                score_exact_bonus=score_exact_bonus,
+                invite_code=_unique_invite_code(),
+                is_public=form["is_public"],
+            )
+
+            db.session.add(pool)
+            db.session.flush()
+
+            db.session.add(PoolMember(
+                pool_id=pool.id,
+                user_id=current_user.id,
+                role="owner",
+            ))
+
+            db.session.commit()
+
+            flash(f"Created pool: {pool.name}")
+            return redirect(url_for("public.pool_home", pool_slug=pool.slug))
+
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc))
+            defaults.update(form)
+        except Exception:
+            db.session.rollback()
+            raise
+
+    return render_template(
+        "admin/create_pool.html",
+        competitions=competitions,
+        form=defaults,
+    )
 
 
 @admin.route("/admin/results")
