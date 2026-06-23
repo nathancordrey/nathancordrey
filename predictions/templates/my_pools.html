@@ -12,15 +12,17 @@
       </div>
     {% endif %}
 
-    {% if pools %}
+    {% if rows %}
       <div class="game-list">
-        {% for p in pools %}
+        {% for row in rows %}
+          {% set p = row.pool %}
           <article class="game">
             <div class="game-head">
               <div>
                 <div class="fixture">{{ p.name }}</div>
                 <div class="meta">
                   {{ p.competition.name }} · {{ p.members|length }} players
+                  · {% if p.is_public %}Public{% else %}Private{% endif %}
                 </div>
               </div>
             </div>
@@ -28,10 +30,26 @@
             <div class="game-body">
               <a class="button-link" href="{{ url_for('public.pool_home', pool_slug=p.slug) }}">Dashboard</a>
               <a class="button-link" href="{{ url_for('picks.pool_picks', pool_slug=p.slug) }}">My picks</a>
-              {% if current_user.is_site_admin %}
+              {% if row.can_admin %}
                 <a class="button-link" href="{{ url_for('admin.pool_results', pool_slug=p.slug) }}">Admin</a>
               {% endif %}
             </div>
+
+            {% if row.invite_url %}
+              <div class="game-body" style="display:block;">
+                <div class="meta" style="margin-bottom:.35rem;">Invite link</div>
+                <input
+                  type="text"
+                  value="{{ row.invite_url }}"
+                  readonly
+                  onclick="this.select()"
+                  style="width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:10px; padding:.55rem .65rem; font:inherit;"
+                >
+                <div class="meta" style="margin-top:.35rem;">
+                  Share this with an existing user to add them to this pool.
+                </div>
+              </div>
+            {% endif %}
           </article>
         {% endfor %}
       </div>
