@@ -1,23 +1,24 @@
 """Per-user pick entry for the DB-backed predictions app.
 
-This module is intended to live at:
+Canonical pool-aware route:
+  /predictions/pools/<pool_slug>/picks
 
-    predictions/picks.py
-
-Routes are registered under /predictions by wc_app.py.
-
-Each logged-in member sees only their own predictions, can edit games that
-are open and not locked, and is blocked server-side from saving late picks.
-
-Users may also choose whether to show an individual pick before kickoff.
-The pick is still editable until kickoff either way.
+Legacy route:
+  /predictions/picks
+redirects to the user's primary pool. Keeping this endpoint name as
+picks.my_picks preserves existing auth redirects in auth.py.
 """
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from predictions import timing
-from predictions.models import db, Pool, Prediction, score_prediction
+from predictions.models import db, Prediction, score_prediction
+from predictions.pool_helpers import (
+    get_pool_or_404,
+    primary_pool_for_user,
+    require_pool_user,
+)
 
 
 picks = Blueprint("picks", __name__)
@@ -33,29 +34,25 @@ def _winner_from_score(home_score, away_score):
     return "draw"
 
 
-def _user_pool():
-    """Return the pool this user plays in.
-
-    This is intentionally simple for the current single-pool app. When you
-    add multiple pools, switch to URLs like /pools/<slug>/picks and load the
-    pool by slug instead.
-    """
-    if current_user.memberships:
-        return current_user.memberships[0].pool
-
-    # Let a site admin see the first pool even if not explicitly a member.
-    if current_user.is_site_admin:
-        return Pool.query.order_by(Pool.id.asc()).first()
-
-    return None
-
-
 @picks.route("/picks")
 @login_required
 def my_picks():
-    pool = _user_pool()
+    """Legacy no-slug picks route used by auth.py.
+
+    Redirect to the canonical pool-aware picks page.
+    """
+    pool = primary_pool_for_user()
     if pool is None:
         abort(403)
+
+    return redirect(url_for("picks.pool_picks", pool_slug=pool.slug))
+
+
+@picks.route("/pools/<pool_slug>/picks")
+@login_required
+def pool_picks(pool_slug):
+    pool = get_pool_or_404(pool_slug)
+    require_pool_user(pool)
 
     mine = {
         pred.game_id: pred
@@ -93,23 +90,20 @@ def my_picks():
     return render_template(
         "picks.html",
         pool=pool,
+        current_pool=pool,
         me=current_user,
         open_games=open_games,
         locked_games=locked_games,
     )
 
 
-@picks.post("/picks")
+@picks.post("/pools/<pool_slug>/picks")
 @login_required
-def save_picks():
-    pool = _user_pool()
-    if pool is None:
-        abort(403)
+def save_picks(pool_slug):
+    pool = get_pool_or_404(pool_slug)
+    require_pool_user(pool)
 
-    games = {
-        game.id: game
-        for game in pool.competition.games
-    }
+    games = {game.id: game for game in pool.competition.games}
     mine = {
         pred.game_id: pred
         for pred in current_user.predictions
@@ -191,4 +185,4 @@ def save_picks():
     else:
         flash("No changes to save.")
 
-    return redirect(url_for("picks.my_picks"))
+    return redirect(url_for("picks.pool_picks", pool_slug=pool.slug))
