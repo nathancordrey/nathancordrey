@@ -14,11 +14,11 @@ Behavior:
 
 import datetime as dt
 
-from flask import Blueprint, abort, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from predictions import timing
-from predictions.models import Pool, score_prediction
+from predictions.models import db, Pool, PoolMember, score_prediction
 from predictions.pool_helpers import default_pool, get_pool_or_404, user_can_admin_pool, user_can_view_pool
 
 
@@ -491,7 +491,48 @@ def my_pools():
                 pools.append(pool)
                 seen.add(pool.id)
 
-    return render_template("my_pools.html", pools=pools)
+    rows = []
+    for pool in pools:
+        can_admin = user_can_admin_pool(pool)
+        rows.append({
+            "pool": pool,
+            "can_admin": can_admin,
+            "invite_url": (
+                url_for("public.join_pool", invite_code=pool.invite_code, _external=True)
+                if can_admin and pool.invite_code else None
+            ),
+        })
+
+    return render_template("my_pools.html", rows=rows)
+
+
+@public.route("/join/<invite_code>")
+@login_required
+def join_pool(invite_code):
+    """Join a pool by invite code.
+
+    First pass: users must already have an account. Later public signup can
+    redirect back here after account creation.
+    """
+    pool = Pool.query.filter_by(invite_code=invite_code).first_or_404()
+
+    existing = PoolMember.query.filter_by(
+        pool_id=pool.id,
+        user_id=current_user.id,
+    ).first()
+
+    if existing is None:
+        db.session.add(PoolMember(
+            pool_id=pool.id,
+            user_id=current_user.id,
+            role="member",
+        ))
+        db.session.commit()
+        flash(f"You joined {pool.name}.")
+    else:
+        flash(f"You are already in {pool.name}.")
+
+    return redirect(url_for("public.pool_home", pool_slug=pool.slug))
 
 
 @public.route("/pools/<pool_slug>")
