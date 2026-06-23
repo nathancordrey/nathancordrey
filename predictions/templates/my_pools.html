@@ -6,6 +6,12 @@
   <main class="wrap">
     <div class="section-label">My pools</div>
 
+    {% if current_user.is_site_admin %}
+      <div class="game-body" style="margin-bottom:1rem;">
+        <a class="button-link" href="{{ url_for('admin.create_pool') }}">+ Create pool</a>
+      </div>
+    {% endif %}
+
     {% if pools %}
       <div class="game-list">
         {% for p in pools %}
