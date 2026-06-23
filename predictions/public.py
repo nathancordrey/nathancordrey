@@ -80,6 +80,7 @@ def _leaderboard(pool):
             "total": 0,
             "winners": 0,
             "exact": 0,
+            "score_diff": 0,
             "submitted": 0,
             "by_stage": {},
             "award": "",
@@ -97,8 +98,11 @@ def _leaderboard(pool):
         if uid in rows:
             rows[uid]["submitted"] += 1
 
-    # Score final games; remember per (game, user) points for daily/wager.
+    # Score final games; remember per (game, user) points and goal-difference
+    # so daily/wager/matchday tiebreaks can each scope closeness to their own
+    # games.
     pts_by = {}
+    diff_by = {}
 
     for game in games:
         if not game.is_final:
@@ -110,19 +114,29 @@ def _leaderboard(pool):
                 continue
 
             points, winner_ok, exact = score_prediction(pred, game, pool)
+            # Closeness to the real scoreline (lower is better).
+            gdiff = (
+                abs(pred.home_score - game.home_score)
+                + abs(pred.away_score - game.away_score)
+            )
+
             row = rows[user.id]
             row["total"] += points
             row["winners"] += int(winner_ok)
             row["exact"] += int(exact)
+            row["score_diff"] += gdiff
 
             stage_row = row["by_stage"].setdefault(
                 game.stage,
-                {"points": 0, "winners": 0, "exact": 0},
+                {"points": 0, "winners": 0, "exact": 0, "score_diff": 0},
             )
             stage_row["points"] += points
             stage_row["winners"] += int(winner_ok)
             stage_row["exact"] += int(exact)
+            stage_row["score_diff"] += gdiff
+
             pts_by[(game.id, user.id)] = points
+            diff_by[(game.id, user.id)] = gdiff
 
     def md_points(uid, stage):
         return rows[uid]["by_stage"].get(stage, {}).get("points", 0)
@@ -153,6 +167,18 @@ def _leaderboard(pool):
     def active_points(uid):
         return rows[uid]["by_stage"].get(active, {}).get("points", 0) if active else 0
 
+    def active_diff(uid):
+        # Closeness within the active matchday only (the metric being ranked).
+        return rows[uid]["by_stage"].get(active, {}).get("score_diff", 0) if active else 0
+
+    def day_diff(uid, et):
+        # Closeness within a single match day only.
+        return sum(
+            diff_by[(g.id, uid)]
+            for g in games
+            if g.is_final and _et_date(g) == et and (g.id, uid) in diff_by
+        )
+
     # Daily wager column: most recent day with results.
     daily_label = None
     wager_dates = sorted({
@@ -178,10 +204,17 @@ def _leaderboard(pool):
         winners = set()
         if day_complete:
             top = max(rows[uid]["daily"] for uid in member_ids)
-            winners = {
+            top_scorers = [
                 uid for uid in member_ids
                 if rows[uid]["daily"] == top and top > 0
-            }
+            ]
+            if top_scorers:
+                # Break the day's tie by closeness within that day only.
+                closest = min(day_diff(uid, latest) for uid in top_scorers)
+                winners = {
+                    uid for uid in top_scorers
+                    if day_diff(uid, latest) == closest
+                }
 
         for uid in member_ids:
             rows[uid]["daily_win"] = uid in winners
@@ -220,8 +253,12 @@ def _leaderboard(pool):
 
             if complete:
                 top = max(day_points.values())
-                day_winners = [uid for uid in member_ids if day_points[uid] == top and top > 0]
-                if day_winners:
+                top_scorers = [uid for uid in member_ids if day_points[uid] == top and top > 0]
+                if top_scorers:
+                    # Tie for the day goes to whoever was closest that day; only
+                    # an exact closeness tie splits the pot.
+                    closest = min(day_diff(uid, wager_day) for uid in top_scorers)
+                    day_winners = [uid for uid in top_scorers if day_diff(uid, wager_day) == closest]
                     wager_active = True
                     share = pot / len(day_winners)
                     for uid in member_ids:
@@ -239,7 +276,10 @@ def _leaderboard(pool):
 
     ranked_rows = sorted(
         rows.values(),
-        key=lambda r: (active_points(r["user"].id), r["total"]),
+        # Rank by active-matchday points, then closeness within that same
+        # matchday (smaller goal-difference), then total points. The diff is
+        # scoped to the matchday being ranked, not the whole season.
+        key=lambda r: (active_points(r["user"].id), -active_diff(r["user"].id), r["total"]),
         reverse=True,
     )
 
