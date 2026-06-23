@@ -13,17 +13,11 @@
          class="admin {% if request.endpoint == 'admin.results' %}active{% endif %}">Admin</a>
     {% endif %}
 
-    <a href="{{ url_for('auth.change_password') }}"
-       class="{% if request.endpoint == 'auth.change_password' %}active{% endif %}">Password</a>
-
-    <a href="/worldcup">Old&nbsp;page</a>
-
     <form class="nav-logout" method="post" action="{{ url_for('auth.logout') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit">Sign out</button>
     </form>
   {% else %}
-    <a href="/worldcup">Old&nbsp;page</a>
     <a href="{{ url_for('auth.login') }}"
        class="{% if request.endpoint == 'auth.login' %}active{% endif %}">Log in</a>
   {% endif %}
