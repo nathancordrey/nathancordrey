@@ -2,52 +2,210 @@
 
 {% block title %}My pools{% endblock %}
 
-{% block content %}
-  <main class="wrap">
-    <div class="section-label">My pools</div>
+{% block extra_css %}
+  <style>
+    .pools-shell {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 4rem;
+    }
 
-    {% if current_user.is_site_admin %}
-      <div class="game-body" style="margin-bottom:1rem;">
-        <a class="button-link" href="{{ url_for('admin.create_pool') }}">+ Create pool</a>
+    .pools-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .page-kicker {
+      font-family: var(--disp);
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .25rem;
+    }
+
+    .page-title {
+      font-family: var(--disp);
+      font-weight: 900;
+      font-size: clamp(2rem, 6vw, 3rem);
+      letter-spacing: -.03em;
+      line-height: 1;
+      margin: 0;
+      color: var(--ink);
+    }
+
+    .pool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: .85rem;
+    }
+
+    .pool-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 1rem;
+      box-shadow: 0 8px 24px rgba(17, 24, 39, .04);
+    }
+
+    .pool-card-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: .75rem;
+      margin-bottom: .35rem;
+    }
+
+    .pool-card h2 {
+      font-family: var(--disp);
+      font-size: 1.25rem;
+      line-height: 1.05;
+      margin: 0;
+      color: var(--ink);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: .2rem .5rem;
+      font-family: var(--disp);
+      font-size: .7rem;
+      font-weight: 800;
+      white-space: nowrap;
+      color: var(--muted);
+      background: #fbfcfb;
+    }
+
+    .pool-meta {
+      color: var(--muted);
+      font-size: .9rem;
+      margin-bottom: .75rem;
+    }
+
+    .pool-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .45rem;
+      margin-top: .75rem;
+    }
+
+    .button-link,
+    .button-primary {
+      display: inline-block;
+      border-radius: 999px;
+      padding: .52rem .72rem;
+      font-family: var(--disp);
+      font-size: .82rem;
+      font-weight: 900;
+      text-decoration: none;
+      border: 1px solid var(--line);
+    }
+
+    .button-primary {
+      background: var(--pitch);
+      border-color: var(--pitch);
+      color: #fff;
+    }
+
+    .button-link {
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .invite-box {
+      margin-top: .9rem;
+      padding-top: .85rem;
+      border-top: 1px dashed var(--line);
+    }
+
+    .invite-label {
+      font-family: var(--disp);
+      font-size: .7rem;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .35rem;
+    }
+
+    .invite-input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: .55rem .65rem;
+      font: inherit;
+      color: var(--ink);
+      background: #fbfcfb;
+    }
+
+    .empty {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 620px) {
+      .pools-head {
+        display: block;
+      }
+
+      .pools-head .button-primary {
+        margin-top: .8rem;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <main class="pools-shell">
+    <div class="pools-head">
+      <div>
+        <div class="page-kicker">Predictions</div>
+        <h1 class="page-title">My pools</h1>
       </div>
-    {% endif %}
+
+      {% if current_user.is_site_admin %}
+        <a class="button-primary" href="{{ url_for('admin.create_pool') }}">+ Create pool</a>
+      {% endif %}
+    </div>
 
     {% if rows %}
-      <div class="game-list">
+      <div class="pool-grid">
         {% for row in rows %}
           {% set p = row.pool %}
-          <article class="game">
-            <div class="game-head">
-              <div>
-                <div class="fixture">{{ p.name }}</div>
-                <div class="meta">
-                  {{ p.competition.name }} · {{ p.members|length }} players
-                  · {% if p.is_public %}Public{% else %}Private{% endif %}
-                </div>
-              </div>
+          <article class="pool-card">
+            <div class="pool-card-title">
+              <h2>{{ p.name }}</h2>
+              <span class="status-pill">{{ row.visibility_label }}</span>
             </div>
 
-            <div class="game-body">
-              <a class="button-link" href="{{ url_for('public.pool_home', pool_slug=p.slug) }}">Dashboard</a>
+            <div class="pool-meta">
+              {{ p.competition.name }} · {{ p.members|length }} players
+              {% if row.role_label %} · {{ row.role_label }}{% endif %}
+            </div>
+
+            <div class="pool-actions">
+              <a class="button-primary" href="{{ url_for('public.pool_home', pool_slug=p.slug) }}">Dashboard</a>
               <a class="button-link" href="{{ url_for('picks.pool_picks', pool_slug=p.slug) }}">My picks</a>
               {% if row.can_admin %}
-                <a class="button-link" href="{{ url_for('admin.pool_results', pool_slug=p.slug) }}">Admin</a>
+                <a class="button-link" href="{{ url_for('admin.pool_results', pool_slug=p.slug) }}">Results</a>
+                <a class="button-link" href="{{ url_for('admin.pool_settings', pool_slug=p.slug) }}">Settings</a>
               {% endif %}
             </div>
 
             {% if row.invite_url %}
-              <div class="game-body" style="display:block;">
-                <div class="meta" style="margin-bottom:.35rem;">Invite link</div>
-                <input
-                  type="text"
-                  value="{{ row.invite_url }}"
-                  readonly
-                  onclick="this.select()"
-                  style="width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:10px; padding:.55rem .65rem; font:inherit;"
-                >
-                <div class="meta" style="margin-top:.35rem;">
-                  Share this with an existing user to add them to this pool.
-                </div>
+              <div class="invite-box">
+                <div class="invite-label">Invite link</div>
+                <input class="invite-input" type="text" value="{{ row.invite_url }}" readonly onclick="this.select()">
               </div>
             {% endif %}
           </article>
