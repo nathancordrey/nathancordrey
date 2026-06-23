@@ -2,11 +2,12 @@
 
 Routes are registered under /predictions by wc_app.py.
 
-First-pass admin result entry:
+Admin features:
   - site admin only
   - mark a game live
   - enter a final score
   - clear a result back to scheduled
+  - edit all users' predictions for one game
 """
 
 from functools import wraps
@@ -15,14 +16,13 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from flask_login import current_user, login_required
 
 from predictions import timing
-from predictions.models import db, Game
+from predictions.models import db, Game, Pool, Prediction
 
 
 admin = Blueprint("admin", __name__, template_folder="templates")
 
 MAX_REASONABLE_SCORE = 50
 
-# Timing helper re-pointed at the single source of truth (predictions/timing.py).
 _as_app_tz = timing.as_app_tz
 
 
@@ -33,6 +33,7 @@ def site_admin_required(func):
         if not current_user.is_site_admin:
             abort(403)
         return func(*args, **kwargs)
+
     return wrapper
 
 
@@ -48,10 +49,44 @@ def _score_from_form(name):
     raw = (request.form.get(name) or "").strip()
     if raw == "":
         raise ValueError("Score is required.")
+
     value = int(raw)
     if value < 0 or value > MAX_REASONABLE_SCORE:
         raise ValueError("Score is out of range.")
+
     return value
+
+
+def _optional_score_pair(home_name, away_name):
+    raw_home = (request.form.get(home_name) or "").strip()
+    raw_away = (request.form.get(away_name) or "").strip()
+
+    if raw_home == "" and raw_away == "":
+        return None
+
+    if raw_home == "" or raw_away == "":
+        raise ValueError("Enter both scores or leave both blank.")
+
+    home_score = int(raw_home)
+    away_score = int(raw_away)
+
+    if (
+        home_score < 0
+        or away_score < 0
+        or home_score > MAX_REASONABLE_SCORE
+        or away_score > MAX_REASONABLE_SCORE
+    ):
+        raise ValueError("Score is out of range.")
+
+    return home_score, away_score
+
+
+def _winner_from_score(home_score, away_score):
+    if home_score > away_score:
+        return "home"
+    if away_score > home_score:
+        return "away"
+    return "draw"
 
 
 def _status_label(game):
@@ -101,6 +136,10 @@ def _filtered_games(filter_value):
     return games
 
 
+def _first_pool():
+    return Pool.query.order_by(Pool.id.asc()).first()
+
+
 @admin.route("/admin/results", methods=["GET", "POST"])
 @site_admin_required
 def results():
@@ -127,8 +166,6 @@ def results():
                 flash(f"Saved final: {game.home} {home_score}–{away_score} {game.away}")
 
             elif action == "live":
-                # Scores are intentionally cleared because the current model
-                # treats non-null scores as final.
                 game.home_score = None
                 game.away_score = None
                 game.status = "live"
@@ -167,7 +204,6 @@ def results():
 
     games = _filtered_games(filter_value)
 
-    # For final results, show newest first. For everything else, show next/oldest first.
     if filter_value == "final":
         games = sorted(games, key=lambda g: g.kickoff_at, reverse=True)
 
@@ -178,4 +214,105 @@ def results():
         rows=rows,
         stats=stats,
         filter_value=filter_value,
+    )
+
+
+@admin.route("/admin/games/<int:game_id>/picks", methods=["GET", "POST"])
+@site_admin_required
+def game_picks(game_id):
+    """Edit all users' predictions for one game.
+
+    This bypasses the normal user-side kickoff lock, but remains restricted
+    to site admins. It is intended for corrections and missed manual entries.
+    """
+    pool = _first_pool()
+    if pool is None:
+        abort(404)
+
+    game = Game.query.get_or_404(game_id)
+    filter_value = request.values.get("filter") or "needs"
+
+    members = sorted(pool.members, key=lambda membership: membership.user.name.lower())
+    existing = {
+        pred.user_id: pred
+        for pred in Prediction.query.filter_by(pool_id=pool.id, game_id=game.id).all()
+    }
+
+    if request.method == "POST":
+        saved = 0
+        cleared = 0
+
+        try:
+            for membership in members:
+                user = membership.user
+                user_id = user.id
+                pred = existing.get(user_id)
+
+                if request.form.get(f"clear_{user_id}") == "1":
+                    if pred is not None:
+                        db.session.delete(pred)
+                        cleared += 1
+                    continue
+
+                pair = _optional_score_pair(f"h_{user_id}", f"a_{user_id}")
+                if pair is None:
+                    continue
+
+                home_score, away_score = pair
+
+                if pred is None:
+                    pred = Prediction(
+                        pool_id=pool.id,
+                        user_id=user_id,
+                        game_id=game.id,
+                    )
+                    db.session.add(pred)
+                    existing[user_id] = pred
+
+                pred.home_score = home_score
+                pred.away_score = away_score
+                pred.winner = _winner_from_score(home_score, away_score)
+                pred.show_before_kickoff = request.form.get(f"show_{user_id}") == "1"
+                saved += 1
+
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc))
+            return redirect(url_for("admin.game_picks", game_id=game.id, filter=filter_value))
+
+        db.session.commit()
+
+        bits = []
+        if saved:
+            bits.append(f"saved {saved}")
+        if cleared:
+            bits.append(f"cleared {cleared}")
+        if not bits:
+            bits.append("no changes saved")
+
+        flash("Admin picks update: " + ", ".join(bits) + ".")
+        return redirect(url_for("admin.game_picks", game_id=game.id, filter=filter_value))
+
+    rows = []
+    for membership in members:
+        user = membership.user
+        pred = existing.get(user.id)
+        rows.append({
+            "user": user,
+            "prediction": pred,
+            "home_score": pred.home_score if pred else "",
+            "away_score": pred.away_score if pred else "",
+            "show_before_kickoff": bool(pred.show_before_kickoff) if pred else False,
+        })
+
+    return render_template(
+        "admin/game_picks.html",
+        pool=pool,
+        game=game,
+        rows=rows,
+        filter_value=filter_value,
+        date_label=_fmt_date(game.kickoff_at),
+        time_label=_fmt_time(game.kickoff_at),
+        status_label=_status_label(game),
+        status_class=_status_class(game),
     )
