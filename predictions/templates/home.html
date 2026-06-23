@@ -4,95 +4,108 @@
 
 {% block extra_css %}
   <style>
-    .submitted-roster {
-      padding: 0 .85rem .85rem;
-    }
+.submitted-roster {
+  padding: 0 .85rem .85rem;
+}
 
-    .submitted-roster-title {
-      color: var(--muted);
-      font-family: var(--disp);
-      font-weight: 800;
-      font-size: .63rem;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      margin: .1rem 0 .5rem;
-    }
+.submitted-roster-title {
+  color: var(--muted);
+  font-family: var(--disp);
+  font-weight: 800;
+  font-size: .63rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin: .1rem 0 .55rem;
+}
 
-    .submitted-roster-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: .32rem .8rem;
-      padding: .65rem .7rem;
-      border: 1px solid #edf0ec;
-      border-radius: 12px;
-      background: #fff;
-    }
+.submitted-roster-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .45rem;
+}
 
-    .submitted-person {
-      display: flex;
-      align-items: center;
-      gap: .38rem;
-      min-width: 0;
-      color: var(--text);
-    }
+.submitted-person {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  border: 1px solid #edf0ec;
+  background: #fff;
+  border-radius: 999px;
+  padding: .42rem .55rem;
+  min-width: 0;
+}
 
-    .submitted-person.me .submitted-name {
-      text-decoration: underline;
-      text-decoration-color: rgba(31, 158, 90, .45);
-      text-underline-offset: 3px;
-    }
+.submitted-person.done {
+  background: var(--open-bg);
+  border-color: rgba(21, 128, 61, .22);
+}
 
-    .submitted-mark {
-      font-family: var(--mono);
-      font-weight: 900;
-      font-size: .95rem;
-      line-height: 1;
-      width: 1.05rem;
-      text-align: center;
-      color: var(--muted);
-    }
+.submitted-person.pending {
+  background: #fff;
+}
 
-    .submitted-person.done .submitted-mark {
-      color: var(--open);
-    }
+.submitted-person.me {
+  box-shadow: inset 0 0 0 2px rgba(31, 158, 90, .18);
+}
 
-    .submitted-person.pending {
-      color: var(--muted);
-    }
+.submitted-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-weight: 900;
+  font-size: .8rem;
+}
 
-    .submitted-name {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-family: var(--disp);
-      font-weight: 800;
-      font-size: .86rem;
-    }
+.submitted-person.done .submitted-mark {
+  color: #fff;
+  background: var(--open);
+}
 
-    .submitted-status {
-      margin-left: auto;
-      color: var(--muted);
-      font-size: .72rem;
-      white-space: nowrap;
-    }
+.submitted-person.pending .submitted-mark {
+  color: var(--muted);
+  background: #f1f5f9;
+}
 
-    .submitted-public-pick {
-      margin-left: auto;
-      display: inline-flex;
-      align-items: center;
-      gap: .3rem;
-      color: var(--ink);
-      font-family: var(--mono);
-      font-weight: 900;
-      white-space: nowrap;
-    }
+.submitted-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--disp);
+  font-weight: 800;
+  font-size: .83rem;
+}
 
-    .submitted-public-pick small {
-      color: var(--muted);
-      font-family: var(--body);
-      font-weight: 600;
-    }
+.submitted-status {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: .72rem;
+  white-space: nowrap;
+}
+
+.submitted-public-pick {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-weight: 900;
+  font-size: .82rem;
+  white-space: nowrap;
+}
+
+.submitted-public-pick small {
+  color: var(--muted);
+  font-family: var(--body);
+  font-weight: 700;
+  font-size: .72rem;
+}
 
     .result-pill {
       display: inline-flex;
@@ -177,11 +190,44 @@
   display: none;
 }
 
-    @media (max-width: 560px) {
-      .submitted-roster-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+@media (max-width: 560px) {
+  .submitted-roster-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .submitted-person {
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .42rem .55rem;
+  }
+
+  .submitted-person.public .submitted-name {
+    flex: 0 1 auto;
+    max-width: 42%;
+  }
+
+  .submitted-person.public .submitted-public-pick {
+    margin-left: .15rem;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .submitted-status {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .submitted-person.public .submitted-name {
+    max-width: 36%;
+  }
+
+  .submitted-public-pick small {
+    display: none;
+  }
+}
   </style>
 {% endblock %}
 
@@ -345,7 +391,7 @@
 
                     <div class="submitted-roster-grid">
                       {% for person in row.roster_rows %}
-                        <div class="submitted-person {% if person.has_pick %}done{% else %}pending{% endif %} {% if person.is_me %}me{% endif %}">
+                        <div class="submitted-person {% if person.has_pick %}done{% else %}pending{% endif %} {% if person.visible_score %}public{% endif %} {% if person.is_me %}me{% endif %}">
                           <span class="submitted-mark">{{ person.mark }}</span>
                           <span class="submitted-name">{{ person.name }}</span>
 
