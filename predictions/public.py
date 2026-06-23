@@ -482,6 +482,7 @@ def my_pools():
     )
 
     pools = [m.pool for m in memberships]
+    membership_by_pool_id = {m.pool_id: m for m in memberships}
 
     if current_user.is_site_admin:
         # Site admin can see all pools, including pools they are not a member of.
@@ -493,10 +494,25 @@ def my_pools():
 
     rows = []
     for pool in pools:
+        membership = membership_by_pool_id.get(pool.id)
         can_admin = user_can_admin_pool(pool)
+
+        if membership is not None:
+            role_label = {
+                "owner": "Owner",
+                "admin": "Admin",
+                "member": "Member",
+            }.get(membership.role, membership.role.title())
+        elif current_user.is_site_admin:
+            role_label = "Site admin"
+        else:
+            role_label = ""
+
         rows.append({
             "pool": pool,
             "can_admin": can_admin,
+            "role_label": role_label,
+            "visibility_label": "Public" if pool.is_public else "Private",
             "invite_url": (
                 url_for("public.join_pool", invite_code=pool.invite_code, _external=True)
                 if can_admin and pool.invite_code else None
