@@ -260,21 +260,26 @@
           <table class="standings">
             <thead>
               <tr>
-                <th class="num">Pos</th>
-                <th>Player</th>
-                {% if show_money %}<th class="num">$</th>{% endif %}
-                {% if daily_label %}<th class="num">{{ daily_label }}</th>{% endif %}
+                <th class="num" rowspan="2">Pos</th>
+                <th rowspan="2">Player</th>
+                {% if show_money %}<th class="num" rowspan="2">$</th>{% endif %}
+                {% if daily_label %}<th class="num" rowspan="2">{{ daily_label }}</th>{% endif %}
 
                 {% if lb_active %}
-                  <th class="num">{{ lb_active.short }} Pts</th>
-                  <th class="num">{{ lb_active.short }} ✓</th>
-                  <th class="num">{{ lb_active.short }} 🎯</th>
+                  <th class="num group" colspan="3">{{ lb_active.full.split(': ')[-1] }}</th>
                 {% else %}
-                  <th class="num">Pts</th>
+                  <th class="num" rowspan="2">Pts</th>
                 {% endif %}
 
-                {% for s in lb_past %}<th class="num">{{ s.short }}</th>{% endfor %}
+                {% for s in lb_past %}<th class="num" rowspan="2">{{ s.short }}</th>{% endfor %}
               </tr>
+              {% if lb_active %}
+                <tr>
+                  <th class="num sub">Pts</th>
+                  <th class="num sub">✓</th>
+                  <th class="num sub">🎯</th>
+                </tr>
+              {% endif %}
             </thead>
 
             <tbody>
@@ -312,7 +317,7 @@
           {% if show_money %}<b>$</b> season net — $1 ante each match day; the day's top scorer takes the pot (a tie goes to whoever was closest that day). {% endif %}
           {% if daily_label %}<b>{{ daily_label }}</b> points on the latest match day; ✓ marks that day's winner once it's complete. {% endif %}
           {% if lb_active %}<b>{{ lb_active.short }}</b> — points (Pts), winners called (✓), and exact scores (🎯) for the matchday in progress; the table ranks by this, ties broken by closeness within the matchday. {% endif %}
-          🥇🥈🥉 are each completed matchday's top three (they stack). 👑 leads the current matchday.
+          🥇🥈🥉 are each completed matchday's top three (they stack). 🤡 is last place each matchday from MD2 on. 👑 leads the current matchday.
         </p>
 
         <div class="section-label">Open / live</div>
