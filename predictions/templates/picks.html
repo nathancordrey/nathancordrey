@@ -300,7 +300,7 @@
                   type="checkbox"
                   name="show_{{ g.id }}"
                   value="1"
-                  {% if pick and pick.show_before_kickoff %}checked{% endif %}
+                  {% if not pick or pick.show_before_kickoff %}checked{% endif %}
                 >
                 <span>
                   <span class="show-title">Show this pick before kickoff</span>
