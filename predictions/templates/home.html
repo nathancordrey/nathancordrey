@@ -286,7 +286,7 @@
               {% for row in leaderboard %}
                 <tr class="{% if row.is_me %}me{% endif %}">
                   <td class="rank num">{{ row.rank }}</td>
-                  <td class="player">{{ row.name }}{% if row.award %} {{ row.award }}{% endif %}{% if row.is_leader %} 👑{% endif %}</td>
+                  <td class="player">{{ row.name }}{% if row.flair %} {{ row.flair }}{% endif %}{% if row.award %} {{ row.award }}{% endif %}{% if row.is_leader %} 👑{% endif %}</td>
 
                   {% if show_money %}
                     <td class="stat num money {% if row.money > 0 %}pos{% elif row.money < 0 %}neg{% endif %}">{{ row.money_str }}</td>
