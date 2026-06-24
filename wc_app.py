@@ -97,6 +97,10 @@ def create_app():
     login_manager.init_app(app)
     csrf.init_app(app)
 
+    # Make stored (UTC) kickoff times render in the app's timezone (Eastern).
+    from predictions import timing
+    app.jinja_env.filters["app_tz"] = timing.as_app_tz
+
     app.register_blueprint(public, url_prefix="/predictions")
     app.register_blueprint(auth, url_prefix="/predictions")
     app.register_blueprint(picks, url_prefix="/predictions")
