@@ -32,6 +32,12 @@ DAILY_WAGER_FROM = "2026-06-19"
 WAGER_STAKE = 1
 _MD1 = "Group Stage: Matchday 1"
 
+# Just-for-fun flair shown next to a player's name (keyed lowercase).
+# e.g. who's on grill duty this weekend. Add/remove freely.
+PLAYER_FLAIR = {
+    "ricky": "🍖",
+}
+
 
 def _fmt_money(value):
     rv = round(value, 2)
@@ -74,6 +80,7 @@ def _leaderboard(pool):
         u.id: {
             "user": u,
             "name": u.name,
+            "flair": PLAYER_FLAIR.get(u.name.lower(), ""),
             "total": 0,
             "winners": 0,
             "exact": 0,
