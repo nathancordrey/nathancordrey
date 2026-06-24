@@ -60,11 +60,26 @@ STATUS_MAP = {
     "AWARDED": "final",
 }
 
-# Team-name fixups, applied when matching feed names to existing (seeded) games.
-# Fill this in from the first dry-run if any group-stage match shows up as a
-# CREATE (that means a name didn't line up, not a genuinely new game).
+# Team-name fixups: feed spelling (football-data.org) -> your seeded spelling.
+# Applied to the feed's names when matching against existing games, so a
+# group-stage game shows as ~UPDATE (not +CREATE = a duplicate). Mapping a name
+# to itself is harmless and just guards against whichever spelling the feed
+# happens to send. Add any remaining mismatches a dry-run surfaces.
 NAME_ALIASES = {
-    # "United States": "USA",
+    "United States": "USA",
+    "Cape Verde Islands": "Cape Verde",
+    "Congo DR": "DR Congo",
+    "DR Congo": "DR Congo",
+    "Bosnia-Herzegovina": "Bosnia and Herzegovina",
+    "Bosnia and Herzegovina": "Bosnia and Herzegovina",
+    "Czech Republic": "Czechia",
+    "Curaçao": "Curacao",
+    "Türkiye": "Turkey",
+    "Turkey": "Turkey",
+    "Korea Republic": "South Korea",
+    "South Korea": "South Korea",
+    "Côte d'Ivoire": "Ivory Coast",
+    "Ivory Coast": "Ivory Coast",
 }
 
 
