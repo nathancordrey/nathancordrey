@@ -139,15 +139,45 @@ def _leaderboard(pool):
     def md_points(uid, stage):
         return rows[uid]["by_stage"].get(stage, {}).get("points", 0)
 
-    # Matchday 1 trophies for the top 3 once MD1 has been played.
-    if any(g.is_final and g.stage == _MD1 for g in games):
+    # Matchday awards for each COMPLETED group-stage matchday, ranked by that
+    # matchday's points then its closeness:
+    #   🥇🥈🥉 to the top three, 🤡 to last place.
+    # Awards stack across matchdays (in matchday order) so earlier ones are
+    # never lost — a player can carry e.g. 🥇🤡 across two matchdays.
+    medal_stages = [s for s in timing.STAGE_ORDER if s.startswith("Group Stage")]
+    all_games = list(pool.competition.games)
+
+    def _stage_complete(stage):
+        stage_games = [g for g in all_games if g.stage == stage]
+        return bool(stage_games) and all(g.is_final for g in stage_games)
+
+    for uid in member_ids:
+        rows[uid]["medals"] = []
+
+    for stage in medal_stages:
+        if not _stage_complete(stage):
+            continue
         ranked = sorted(
             member_ids,
-            key=lambda uid: (md_points(uid, _MD1), rows[uid]["exact"]),
+            key=lambda uid: (
+                rows[uid]["by_stage"].get(stage, {}).get("points", 0),
+                -rows[uid]["by_stage"].get(stage, {}).get("score_diff", 0),
+            ),
             reverse=True,
         )
         for medal, uid in zip(("🥇", "🥈", "🥉"), ranked[:3]):
-            rows[uid]["award"] = medal
+            rows[uid]["medals"].append(medal)
+        # The clown goes to last place — lowest points, and among ties the
+        # least accurate (largest goal-difference), i.e. the bottom of the
+        # same ranking. Guarded so the podium and the clown never collide.
+        # Matchday 1 is exempt: people weren't really playing yet, so it would
+        # be unfair to saddle anyone with the clown for that round (medals for
+        # MD1 still stand).
+        if len(ranked) > 3 and stage != _MD1:
+            rows[ranked[-1]]["medals"].append("🤡")
+
+    for uid in member_ids:
+        rows[uid]["award"] = "".join(rows[uid]["medals"])
 
     # Active matchday = the most advanced stage that has actually KICKED OFF;
     # released-but-not-started stages do not count.
