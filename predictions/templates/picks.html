@@ -245,11 +245,11 @@
         {% for row in open_games %}
           {% set g = row.game %}
           {% set pick = row.pick %}
-          {% set day = g.kickoff_at.strftime('%Y-%m-%d') %}
+          {% set day = (g.kickoff_at | app_tz).strftime('%Y-%m-%d') %}
 
           {% if day != ns.day %}
             {% set ns.day = day %}
-            <div class="pick-day">{{ g.kickoff_at.strftime('%a %b %-d') }}</div>
+            <div class="pick-day">{{ (g.kickoff_at | app_tz).strftime('%a %b %-d') }}</div>
           {% endif %}
 
           <article class="pick-card">
@@ -258,7 +258,7 @@
                 <div class="fixture">{{ g.home }}<span class="vs">v</span>{{ g.away }}</div>
                 <div class="meta">
                   {% if g.group_label %}Group {{ g.group_label }} · {% endif %}
-                  {{ g.kickoff_at.strftime('%-I:%M %p') }} · editable until kickoff
+                  {{ (g.kickoff_at | app_tz).strftime('%-I:%M %p') }} · editable until kickoff
                 </div>
               </div>
             </div>
