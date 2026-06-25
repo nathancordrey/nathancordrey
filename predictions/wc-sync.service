@@ -1,0 +1,13 @@
+[Unit]
+Description=Sync World Cup fixtures/results from football-data.org
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=nathan
+Group=nathan
+WorkingDirectory=/home/nathan/code/nathancordrey
+ExecStart=/home/nathan/code/envs/nc/bin/python -m predictions.sync_football_data --commit
+TimeoutStartSec=120
+NoNewPrivileges=true
