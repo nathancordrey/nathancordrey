@@ -1,0 +1,10 @@
+[Unit]
+Description=Run wc-sync every 10 minutes
+
+[Timer]
+OnCalendar=*:0/10
+RandomizedDelaySec=20
+Persistent=true
+
+[Install]
+WantedBy=timers.target
