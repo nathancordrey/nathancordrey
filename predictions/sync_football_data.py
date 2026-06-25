@@ -137,9 +137,10 @@ def build_plan(competition, matches):
     warnings) without touching the session."""
     games = Game.query.filter_by(competition_id=competition.id).all()
     by_ref = {g.external_ref: g for g in games if g.external_ref}
-    by_natural = {(g.stage, g.home, g.away): g for g in games}
+    by_exact = {(g.stage, g.home, g.away): g for g in games}
+    by_pair = {(g.stage, frozenset((g.home, g.away))): g for g in games}
 
-    creates, updates, skips, warnings = [], [], [], []
+    creates, updates, skips, warnings, pending = [], [], [], [], []
 
     for match in matches:
         m = map_match(match)
@@ -148,38 +149,55 @@ def build_plan(competition, matches):
                             f"{m['home']} v {m['away']} — add it to STAGE_MAP.")
             continue
 
-        game = by_ref.get(m["external_ref"]) or by_natural.get(
-            (m["stage"], m["home"], m["away"])
-        )
+        # Knockout slots whose teams aren't decided yet (groups not finished):
+        # skip until the feed fills them in, rather than create blank games.
+        if not m["home"] or not m["away"]:
+            pending.append(m)
+            continue
+
+        game = (by_ref.get(m["external_ref"])
+                or by_exact.get((m["stage"], m["home"], m["away"]))
+                or by_pair.get((m["stage"], frozenset((m["home"], m["away"])))))
 
         if game is None:
             creates.append(m)
             continue
 
-        # Determine field-level changes.
+        # The DB game may store home/away in the opposite order to the feed.
+        # Keep the DB's orientation (existing picks depend on it) and swap the
+        # feed's scores to match, rather than flipping the teams.
+        swapped = game.home != m["home"]
+        target = {
+            "group_label": m["group_label"],
+            "kickoff_at": m["kickoff_at"],
+            "status": m["status"],
+            "external_ref": m["external_ref"],
+            "home_score": m["away_score"] if swapped else m["home_score"],
+            "away_score": m["home_score"] if swapped else m["away_score"],
+        }
+        # home/away strings are intentionally NOT updated — orientation stays put.
+
         changes = {}
-        for field in ("stage", "group_label", "home", "away", "kickoff_at",
-                      "home_score", "away_score", "status", "external_ref"):
-            new = m[field]
+        for field, new in target.items():
             old = getattr(game, field)
             if field == "kickoff_at" and old is not None:
-                # compare as UTC instants
                 old_cmp = old if old.tzinfo else old.replace(tzinfo=dt.timezone.utc)
                 if old_cmp.astimezone(dt.timezone.utc) == new:
                     continue
             if new != old:
                 changes[field] = (old, new)
         if changes:
-            updates.append((game, m, changes))
+            updates.append((game, m, changes, swapped))
         else:
             skips.append(game)
 
-    return creates, updates, skips, warnings
+    return creates, updates, skips, warnings, pending
 
 
-def print_plan(creates, updates, skips, warnings):
+def print_plan(creates, updates, skips, warnings, pending):
     print(f"\nPLAN: {len(creates)} create, {len(updates)} update, "
-          f"{len(skips)} unchanged, {len(warnings)} warning(s)\n")
+          f"{len(skips)} unchanged, {len(pending)} pending-teams, "
+          f"{len(warnings)} warning(s)\n")
     for w in warnings:
         print(f"  ⚠️  {w}")
     for m in creates:
@@ -188,9 +206,13 @@ def print_plan(creates, updates, skips, warnings):
             score = f"  [{m['home_score']}-{m['away_score']}]"
         print(f"  + CREATE  {m['stage']:<22} {m['home']} v {m['away']}"
               f"  @ {m['kickoff_at']:%Y-%m-%d %H:%MZ}  ({m['status']}){score}")
-    for game, m, changes in updates:
+    for game, m, changes, swapped in updates:
+        flag = " [swap]" if swapped else ""
         bits = ", ".join(f"{f}: {o!r}->{n!r}" for f, (o, n) in changes.items())
-        print(f"  ~ UPDATE  {m['stage']:<22} {m['home']} v {m['away']}  | {bits}")
+        print(f"  ~ UPDATE  {m['stage']:<22} {game.home} v {game.away}{flag}  | {bits}")
+    if pending:
+        stages = ", ".join(sorted({m["stage"] for m in pending}))
+        print(f"\n  {len(pending)} knockout slot(s) waiting on teams, skipped: {stages}")
     if not creates and not updates:
         print("  (nothing to change — already in sync)")
 
@@ -210,7 +232,7 @@ def apply_plan(competition, creates, updates):
             status=m["status"],
             external_ref=m["external_ref"],
         ))
-    for game, m, changes in updates:
+    for game, m, changes, *_ in updates:
         for field, (_old, new) in changes.items():
             setattr(game, field, new)
     db.session.commit()
@@ -251,8 +273,8 @@ def run(commit=False, competition_code=DEFAULT_COMPETITION, token=None,
 
     print(f"Competition: {competition.name!r}  |  {len(matches)} feed matches"
           f"  |  mode: {'COMMIT' if commit else 'DRY-RUN'}")
-    creates, updates, skips, warnings = build_plan(competition, matches)
-    print_plan(creates, updates, skips, warnings)
+    creates, updates, skips, warnings, pending = build_plan(competition, matches)
+    print_plan(creates, updates, skips, warnings, pending)
 
     if commit:
         apply_plan(competition, creates, updates)
