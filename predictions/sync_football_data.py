@@ -180,6 +180,10 @@ def build_plan(competition, matches):
         changes = {}
         for field, new in target.items():
             old = getattr(game, field)
+            # Never clobber an existing value with a missing one from the feed
+            # (e.g. group_label absent in the payload shouldn't blank ours).
+            if new in (None, "") and old not in (None, ""):
+                continue
             if field == "kickoff_at" and old is not None:
                 old_cmp = old if old.tzinfo else old.replace(tzinfo=dt.timezone.utc)
                 if old_cmp.astimezone(dt.timezone.utc) == new:
