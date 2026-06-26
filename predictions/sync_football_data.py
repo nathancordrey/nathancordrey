@@ -117,6 +117,14 @@ def map_match(match):
     score = (match.get("score") or {}).get("fullTime") or {}
     status = STATUS_MAP.get((match.get("status") or "").upper(), "scheduled")
 
+    # Only record scores once the match is genuinely over. The feed exposes the
+    # running score in fullTime *during* live play, and is_final keys off scores
+    # being present — so writing them early would mark a game final mid-match.
+    if status == "final":
+        home_score, away_score = score.get("home"), score.get("away")
+    else:
+        home_score, away_score = None, None
+
     return {
         "external_ref": f"fd:{match['id']}",
         "stage": stage,                       # may be None if token unknown
@@ -125,8 +133,8 @@ def map_match(match):
         "home": _norm((match.get("homeTeam") or {}).get("name")),
         "away": _norm((match.get("awayTeam") or {}).get("name")),
         "kickoff_at": _parse_utc(match["utcDate"]),
-        "home_score": score.get("home"),
-        "away_score": score.get("away"),
+        "home_score": home_score,
+        "away_score": away_score,
         "status": status,
     }
 
@@ -181,8 +189,11 @@ def build_plan(competition, matches):
         for field, new in target.items():
             old = getattr(game, field)
             # Never clobber an existing value with a missing one from the feed
-            # (e.g. group_label absent in the payload shouldn't blank ours).
-            if new in (None, "") and old not in (None, ""):
+            # (e.g. group_label absent in the payload shouldn't blank ours) —
+            # but DO allow scores to be cleared, so a game that reads as live
+            # again gets un-finalized instead of staying stuck on a stale score.
+            if (field not in ("home_score", "away_score")
+                    and new in (None, "") and old not in (None, "")):
                 continue
             if field == "kickoff_at" and old is not None:
                 old_cmp = old if old.tzinfo else old.replace(tzinfo=dt.timezone.utc)
