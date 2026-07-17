@@ -1,12 +1,20 @@
+import './style.css';
 import Phaser from 'phaser';
 
 const GAME_CONFIG = {
+  worldWidth: 960,
+  worldHeight: 640,
+
   playerSpeed: 180,
   playerRadius: 14,
+
   shotCooldownMs: 600,
   shotRange: 900,
+
   targetRadius: 13,
   targetRespawnMs: 2000,
+
+  mobileJoystickMaxDistance: 60,
 };
 
 type Wall = {
@@ -39,10 +47,17 @@ class GameScene extends Phaser.Scene {
 
   private aimGraphics!: Phaser.GameObjects.Graphics;
   private shotGraphics!: Phaser.GameObjects.Graphics;
+  private mobileControlGraphics!: Phaser.GameObjects.Graphics;
+
   private lastShotAt = -Infinity;
   private shotVisibleUntil = 0;
   private activeShot: { start: Point; end: Point } | null = null;
   private hitCount = 0;
+
+  private mobileMovePointerId: number | null = null;
+  private mobileMoveOrigin: Point | null = null;
+  private mobileMoveCurrent: Point | null = null;
+  private mobileMoveVector: Point = { x: 0, y: 0 };
 
   constructor() {
     super('GameScene');
@@ -57,7 +72,7 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif',
     });
 
-    this.add.text(24, 58, 'WASD/arrows to move • Mouse to aim • Click to shoot', {
+    this.add.text(24, 58, 'Desktop: WASD/arrows + mouse • Phone: left drag + right tap', {
       color: '#cbd5e1',
       fontSize: '16px',
       fontFamily: 'system-ui, sans-serif',
@@ -69,7 +84,7 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace',
     });
 
-    this.statusText = this.add.text(24, 138, '', {
+    this.statusText = this.add.text(24, 150, '', {
       color: '#fef3c7',
       fontSize: '16px',
       fontFamily: 'system-ui, sans-serif',
@@ -81,6 +96,7 @@ class GameScene extends Phaser.Scene {
 
     this.aimGraphics = this.add.graphics();
     this.shotGraphics = this.add.graphics();
+    this.mobileControlGraphics = this.add.graphics();
 
     this.cursors = this.input.keyboard!.createCursorKeys();
 
@@ -91,8 +107,20 @@ class GameScene extends Phaser.Scene {
       d: Phaser.Input.Keyboard.KeyCodes.D,
     }) as Record<string, Phaser.Input.Keyboard.Key>;
 
-    this.input.on('pointerdown', () => {
-      this.tryShoot(this.time.now);
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.handlePointerDown(pointer);
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      this.handlePointerMove(pointer);
+    });
+
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      this.handlePointerUp(pointer);
+    });
+
+    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => {
+      this.handlePointerUp(pointer);
     });
   }
 
@@ -106,6 +134,9 @@ class GameScene extends Phaser.Scene {
     if (this.cursors.right.isDown || this.keys.d.isDown) dx += 1;
     if (this.cursors.up.isDown || this.keys.w.isDown) dy -= 1;
     if (this.cursors.down.isDown || this.keys.s.isDown) dy += 1;
+
+    dx += this.mobileMoveVector.x;
+    dy += this.mobileMoveVector.y;
 
     if (dx !== 0 || dy !== 0) {
       const length = Math.hypot(dx, dy);
@@ -121,6 +152,7 @@ class GameScene extends Phaser.Scene {
 
     this.drawAimLine();
     this.drawActiveShot(time);
+    this.drawMobileControls();
 
     const cooldownRemaining = Math.max(
       0,
@@ -135,23 +167,21 @@ class GameScene extends Phaser.Scene {
         `shot cooldown=${cooldownRemaining.toFixed(0)}ms`,
         `targets alive=${aliveTargets}/${this.targets.length}`,
         `hits=${this.hitCount}`,
+        `mobile move=${this.mobileMoveVector.x.toFixed(2)}, ${this.mobileMoveVector.y.toFixed(2)}`,
       ].join('\n')
     );
   }
 
   private createArena() {
-    // Outer border
     this.addWall(480, 90, 760, 24);
     this.addWall(480, 550, 760, 24);
     this.addWall(90, 320, 24, 460);
     this.addWall(870, 320, 24, 460);
 
-    // Midfield test walls / sightline blockers
     this.addWall(350, 245, 180, 28);
     this.addWall(610, 395, 180, 28);
     this.addWall(480, 320, 32, 160);
 
-    // Rough flag placeholders
     this.add.circle(160, 320, 28, 0xef4444, 0.35);
     this.add.circle(800, 320, 28, 0x3b82f6, 0.35);
 
@@ -167,7 +197,6 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif',
     });
 
-    // Dummy enemy targets
     this.addTarget(720, 250, 'T1');
     this.addTarget(720, 320, 'T2');
     this.addTarget(720, 390, 'T3');
@@ -198,6 +227,96 @@ class GameScene extends Phaser.Scene {
       radius: GAME_CONFIG.targetRadius,
       alive: true,
     });
+  }
+
+  private handlePointerDown(pointer: Phaser.Input.Pointer) {
+    const isTouch = pointer.pointerType === 'touch';
+    const isLeftHalf = pointer.worldX < GAME_CONFIG.worldWidth / 2;
+
+    if (isTouch && isLeftHalf) {
+      this.mobileMovePointerId = pointer.id;
+      this.mobileMoveOrigin = { x: pointer.worldX, y: pointer.worldY };
+      this.mobileMoveCurrent = { x: pointer.worldX, y: pointer.worldY };
+      this.updateMobileMoveVector(pointer);
+      return;
+    }
+
+    this.tryShoot(this.time.now, {
+      x: pointer.worldX,
+      y: pointer.worldY,
+    });
+  }
+
+  private handlePointerMove(pointer: Phaser.Input.Pointer) {
+    if (this.mobileMovePointerId !== pointer.id) {
+      return;
+    }
+
+    this.mobileMoveCurrent = { x: pointer.worldX, y: pointer.worldY };
+    this.updateMobileMoveVector(pointer);
+  }
+
+  private handlePointerUp(pointer: Phaser.Input.Pointer) {
+    if (this.mobileMovePointerId !== pointer.id) {
+      return;
+    }
+
+    this.mobileMovePointerId = null;
+    this.mobileMoveOrigin = null;
+    this.mobileMoveCurrent = null;
+    this.mobileMoveVector = { x: 0, y: 0 };
+  }
+
+  private updateMobileMoveVector(pointer: Phaser.Input.Pointer) {
+    if (!this.mobileMoveOrigin) {
+      this.mobileMoveVector = { x: 0, y: 0 };
+      return;
+    }
+
+    const rawDx = pointer.worldX - this.mobileMoveOrigin.x;
+    const rawDy = pointer.worldY - this.mobileMoveOrigin.y;
+    const distance = Math.hypot(rawDx, rawDy);
+
+    if (distance < 6) {
+      this.mobileMoveVector = { x: 0, y: 0 };
+      return;
+    }
+
+    const clampedDistance = Math.min(distance, GAME_CONFIG.mobileJoystickMaxDistance);
+    const strength = clampedDistance / GAME_CONFIG.mobileJoystickMaxDistance;
+
+    this.mobileMoveVector = {
+      x: (rawDx / distance) * strength,
+      y: (rawDy / distance) * strength,
+    };
+  }
+
+  private drawMobileControls() {
+    this.mobileControlGraphics.clear();
+
+    if (!this.mobileMoveOrigin || !this.mobileMoveCurrent) {
+      return;
+    }
+
+    this.mobileControlGraphics.lineStyle(2, 0x93c5fd, 0.45);
+    this.mobileControlGraphics.strokeCircle(
+      this.mobileMoveOrigin.x,
+      this.mobileMoveOrigin.y,
+      GAME_CONFIG.mobileJoystickMaxDistance
+    );
+
+    this.mobileControlGraphics.lineStyle(3, 0xbfdbfe, 0.7);
+    this.mobileControlGraphics.beginPath();
+    this.mobileControlGraphics.moveTo(this.mobileMoveOrigin.x, this.mobileMoveOrigin.y);
+    this.mobileControlGraphics.lineTo(this.mobileMoveCurrent.x, this.mobileMoveCurrent.y);
+    this.mobileControlGraphics.strokePath();
+
+    this.mobileControlGraphics.fillStyle(0xbfdbfe, 0.7);
+    this.mobileControlGraphics.fillCircle(
+      this.mobileMoveCurrent.x,
+      this.mobileMoveCurrent.y,
+      10
+    );
   }
 
   private movePlayer(dx: number, dy: number) {
@@ -243,19 +362,18 @@ class GameScene extends Phaser.Scene {
     this.aimGraphics.fillCircle(endX, endY, 3);
   }
 
-  private tryShoot(time: number) {
+  private tryShoot(time: number, aimPoint: Point) {
     if (time - this.lastShotAt < GAME_CONFIG.shotCooldownMs) {
       return;
     }
 
     this.lastShotAt = time;
 
-    const pointer = this.input.activePointer;
     const angle = Phaser.Math.Angle.Between(
       this.player.x,
       this.player.y,
-      pointer.worldX,
-      pointer.worldY
+      aimPoint.x,
+      aimPoint.y
     );
 
     const start = {
@@ -478,10 +596,17 @@ class GameScene extends Phaser.Scene {
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: 960,
-  height: 640,
+  width: GAME_CONFIG.worldWidth,
+  height: GAME_CONFIG.worldHeight,
   parent: 'app',
+  backgroundColor: '#111827',
   scene: GameScene,
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: GAME_CONFIG.worldWidth,
+    height: GAME_CONFIG.worldHeight,
+  },
 };
 
 new Phaser.Game(config);
