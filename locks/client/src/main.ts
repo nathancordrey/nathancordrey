@@ -5,6 +5,8 @@ const GAME_CONFIG = {
   playerRadius: 14,
   shotCooldownMs: 600,
   shotRange: 900,
+  targetRadius: 13,
+  targetRespawnMs: 2000,
 };
 
 type Wall = {
@@ -17,18 +19,30 @@ type Point = {
   y: number;
 };
 
+type Target = {
+  body: Phaser.GameObjects.Arc;
+  label: Phaser.GameObjects.Text;
+  x: number;
+  y: number;
+  radius: number;
+  alive: boolean;
+};
+
 class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Arc;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private walls: Wall[] = [];
+  private targets: Target[] = [];
   private debugText!: Phaser.GameObjects.Text;
+  private statusText!: Phaser.GameObjects.Text;
 
   private aimGraphics!: Phaser.GameObjects.Graphics;
   private shotGraphics!: Phaser.GameObjects.Graphics;
   private lastShotAt = -Infinity;
   private shotVisibleUntil = 0;
   private activeShot: { start: Point; end: Point } | null = null;
+  private hitCount = 0;
 
   constructor() {
     super('GameScene');
@@ -53,6 +67,12 @@ class GameScene extends Phaser.Scene {
       color: '#94a3b8',
       fontSize: '14px',
       fontFamily: 'monospace',
+    });
+
+    this.statusText = this.add.text(24, 138, '', {
+      color: '#fef3c7',
+      fontSize: '16px',
+      fontFamily: 'system-ui, sans-serif',
     });
 
     this.createArena();
@@ -107,10 +127,14 @@ class GameScene extends Phaser.Scene {
       GAME_CONFIG.shotCooldownMs - (time - this.lastShotAt)
     );
 
+    const aliveTargets = this.targets.filter((target) => target.alive).length;
+
     this.debugText.setText(
       [
         `x=${this.player.x.toFixed(0)} y=${this.player.y.toFixed(0)}`,
         `shot cooldown=${cooldownRemaining.toFixed(0)}ms`,
+        `targets alive=${aliveTargets}/${this.targets.length}`,
+        `hits=${this.hitCount}`,
       ].join('\n')
     );
   }
@@ -142,6 +166,11 @@ class GameScene extends Phaser.Scene {
       fontSize: '13px',
       fontFamily: 'system-ui, sans-serif',
     });
+
+    // Dummy enemy targets
+    this.addTarget(720, 250, 'T1');
+    this.addTarget(720, 320, 'T2');
+    this.addTarget(720, 390, 'T3');
   }
 
   private addWall(x: number, y: number, width: number, height: number) {
@@ -149,6 +178,26 @@ class GameScene extends Phaser.Scene {
     const bounds = rect.getBounds();
 
     this.walls.push({ rect, bounds });
+  }
+
+  private addTarget(x: number, y: number, labelText: string) {
+    const body = this.add.circle(x, y, GAME_CONFIG.targetRadius, 0xf97316);
+    body.setStrokeStyle(2, 0xffedd5, 0.9);
+
+    const label = this.add.text(x - 9, y - 32, labelText, {
+      color: '#fed7aa',
+      fontSize: '13px',
+      fontFamily: 'monospace',
+    });
+
+    this.targets.push({
+      body,
+      label,
+      x,
+      y,
+      radius: GAME_CONFIG.targetRadius,
+      alive: true,
+    });
   }
 
   private movePlayer(dx: number, dy: number) {
@@ -190,7 +239,6 @@ class GameScene extends Phaser.Scene {
     this.aimGraphics.lineTo(endX, endY);
     this.aimGraphics.strokePath();
 
-    // Tiny facing dot
     this.aimGraphics.fillStyle(0xffffff, 0.7);
     this.aimGraphics.fillCircle(endX, endY, 3);
   }
@@ -221,10 +269,51 @@ class GameScene extends Phaser.Scene {
     };
 
     const wallHit = this.findNearestWallHit(start, maxEnd);
-    const end = wallHit ?? maxEnd;
+    const blockedEnd = wallHit ?? maxEnd;
+
+    const targetHit = this.findNearestTargetHit(start, blockedEnd);
+    const end = targetHit?.point ?? blockedEnd;
+
+    if (targetHit) {
+      this.killTarget(targetHit.target);
+    } else {
+      this.statusText.setText('MISS');
+      this.time.delayedCall(500, () => this.statusText.setText(''));
+    }
 
     this.activeShot = { start, end };
     this.shotVisibleUntil = time + 120;
+  }
+
+  private killTarget(target: Target) {
+    target.alive = false;
+    target.body.setVisible(false);
+    target.label.setVisible(false);
+    this.hitCount += 1;
+
+    this.statusText.setText('HIT');
+
+    const hitText = this.add.text(target.x - 16, target.y - 8, 'HIT', {
+      color: '#fef3c7',
+      fontSize: '16px',
+      fontFamily: 'monospace',
+    });
+
+    this.tweens.add({
+      targets: hitText,
+      y: hitText.y - 18,
+      alpha: 0,
+      duration: 600,
+      onComplete: () => hitText.destroy(),
+    });
+
+    this.time.delayedCall(500, () => this.statusText.setText(''));
+
+    this.time.delayedCall(GAME_CONFIG.targetRespawnMs, () => {
+      target.alive = true;
+      target.body.setVisible(true);
+      target.label.setVisible(true);
+    });
   }
 
   private drawActiveShot(time: number) {
@@ -265,6 +354,33 @@ class GameScene extends Phaser.Scene {
     }
 
     return nearest?.point ?? null;
+  }
+
+  private findNearestTargetHit(start: Point, end: Point): { target: Target; point: Point; t: number } | null {
+    let nearest: { target: Target; point: Point; t: number } | null = null;
+
+    for (const target of this.targets) {
+      if (!target.alive) continue;
+
+      const hit = this.getSegmentCircleIntersection(
+        start,
+        end,
+        { x: target.body.x, y: target.body.y },
+        target.radius
+      );
+
+      if (!hit) continue;
+
+      if (!nearest || hit.t < nearest.t) {
+        nearest = {
+          target,
+          point: hit.point,
+          t: hit.t,
+        };
+      }
+    }
+
+    return nearest;
   }
 
   private getRectangleEdges(rect: Phaser.Geom.Rectangle) {
@@ -312,6 +428,48 @@ class GameScene extends Phaser.Scene {
       point: {
         x: a.x + t * rX,
         y: a.y + t * rY,
+      },
+      t,
+    };
+  }
+
+  private getSegmentCircleIntersection(
+    start: Point,
+    end: Point,
+    center: Point,
+    radius: number
+  ): { point: Point; t: number } | null {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+
+    const fx = start.x - center.x;
+    const fy = start.y - center.y;
+
+    const a = dx * dx + dy * dy;
+    const b = 2 * (fx * dx + fy * dy);
+    const c = fx * fx + fy * fy - radius * radius;
+
+    const discriminant = b * b - 4 * a * c;
+
+    if (discriminant < 0) {
+      return null;
+    }
+
+    const sqrtDiscriminant = Math.sqrt(discriminant);
+
+    const t1 = (-b - sqrtDiscriminant) / (2 * a);
+    const t2 = (-b + sqrtDiscriminant) / (2 * a);
+
+    const t = [t1, t2].find((value) => value >= 0 && value <= 1);
+
+    if (t === undefined) {
+      return null;
+    }
+
+    return {
+      point: {
+        x: start.x + dx * t,
+        y: start.y + dy * t,
       },
       t,
     };
