@@ -7,6 +7,8 @@ const GAME_CONFIG = {
 
   playerSpeed: 180,
   playerRadius: 14,
+  playerSpawnX: 140,
+  playerSpawnY: 320,
 
   shotCooldownMs: 600,
   shotRange: 900,
@@ -14,17 +16,26 @@ const GAME_CONFIG = {
   targetRadius: 13,
   targetRespawnMs: 2000,
 
+  flagVisionRadius: 325,
+  ownFlagCampRadius: 375,
+  campGraceMs: 10_000,
+  campWarningMs: 3_000,
+  campResetMs: 4_000,
+  respawnTimeMs: 2_500,
+
   mobileJoystickMaxDistance: 60,
+};
+
+type Team = 'red' | 'blue';
+
+type Point = {
+  x: number;
+  y: number;
 };
 
 type Wall = {
   rect: Phaser.GameObjects.Rectangle;
   bounds: Phaser.Geom.Rectangle;
-};
-
-type Point = {
-  x: number;
-  y: number;
 };
 
 type Target = {
@@ -36,18 +47,37 @@ type Target = {
   alive: boolean;
 };
 
+type FlagZone = {
+  team: Team;
+  x: number;
+  y: number;
+  visionRadius: number;
+  campRadius: number;
+};
+
 class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Arc;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
+
   private walls: Wall[] = [];
   private targets: Target[] = [];
+  private flagZones: FlagZone[] = [];
+
   private debugText!: Phaser.GameObjects.Text;
   private statusText!: Phaser.GameObjects.Text;
+  private campText!: Phaser.GameObjects.Text;
 
   private aimGraphics!: Phaser.GameObjects.Graphics;
   private shotGraphics!: Phaser.GameObjects.Graphics;
   private mobileControlGraphics!: Phaser.GameObjects.Graphics;
+
+  private playerTeam: Team = 'red';
+  private playerAlive = true;
+  private respawnAt = 0;
+
+  private ownFlagCampStartedAt: number | null = null;
+  private ownFlagExitedAt: number | null = null;
 
   private lastShotAt = -Infinity;
   private shotVisibleUntil = 0;
@@ -90,9 +120,20 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif',
     });
 
+    this.campText = this.add.text(24, 176, '', {
+      color: '#fecaca',
+      fontSize: '16px',
+      fontFamily: 'system-ui, sans-serif',
+    });
+
     this.createArena();
 
-    this.player = this.add.circle(140, 320, GAME_CONFIG.playerRadius, 0x38bdf8);
+    this.player = this.add.circle(
+      GAME_CONFIG.playerSpawnX,
+      GAME_CONFIG.playerSpawnY,
+      GAME_CONFIG.playerRadius,
+      0x38bdf8
+    );
 
     this.aimGraphics = this.add.graphics();
     this.shotGraphics = this.add.graphics();
@@ -127,6 +168,20 @@ class GameScene extends Phaser.Scene {
   update(time: number, delta: number) {
     const dt = delta / 1000;
 
+    if (!this.playerAlive) {
+      this.mobileMoveVector = { x: 0, y: 0 };
+
+      if (time >= this.respawnAt) {
+        this.respawnPlayer();
+      }
+
+      this.aimGraphics.clear();
+      this.drawActiveShot(time);
+      this.drawMobileControls();
+      this.updateCampTimer(time);
+      return;
+    }
+
     let dx = 0;
     let dy = 0;
 
@@ -153,6 +208,7 @@ class GameScene extends Phaser.Scene {
     this.drawAimLine();
     this.drawActiveShot(time);
     this.drawMobileControls();
+    this.updateCampTimer(time);
 
     const cooldownRemaining = Math.max(
       0,
@@ -182,20 +238,8 @@ class GameScene extends Phaser.Scene {
     this.addWall(610, 395, 180, 28);
     this.addWall(480, 320, 32, 160);
 
-    this.add.circle(160, 320, 28, 0xef4444, 0.35);
-    this.add.circle(800, 320, 28, 0x3b82f6, 0.35);
-
-    this.add.text(136, 354, 'RED', {
-      color: '#fecaca',
-      fontSize: '13px',
-      fontFamily: 'system-ui, sans-serif',
-    });
-
-    this.add.text(774, 354, 'BLUE', {
-      color: '#bfdbfe',
-      fontSize: '13px',
-      fontFamily: 'system-ui, sans-serif',
-    });
+    this.addFlagZone('red', 160, 320, 0xef4444);
+    this.addFlagZone('blue', 800, 320, 0x3b82f6);
 
     this.addTarget(720, 250, 'T1');
     this.addTarget(720, 320, 'T2');
@@ -229,12 +273,41 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  private handlePointerDown(pointer: Phaser.Input.Pointer) {
+  private addFlagZone(team: Team, x: number, y: number, color: number) {
+    this.flagZones.push({
+      team,
+      x,
+      y,
+      visionRadius: GAME_CONFIG.flagVisionRadius,
+      campRadius: GAME_CONFIG.ownFlagCampRadius,
+    });
 
+    this.add.circle(x, y, GAME_CONFIG.flagVisionRadius, color, 0.08);
+
+    const visionRing = this.add.circle(x, y, GAME_CONFIG.flagVisionRadius);
+    visionRing.setStrokeStyle(2, color, 0.22);
+
+    if (team === this.playerTeam) {
+      const campRing = this.add.circle(x, y, GAME_CONFIG.ownFlagCampRadius);
+      campRing.setStrokeStyle(2, 0xfca5a5, 0.32);
+    }
+
+    this.add.circle(x, y, 28, color, 0.35);
+    this.add.circle(x, y, 8, color, 0.9);
+
+    this.add.text(x - 24, y + 34, team.toUpperCase(), {
+      color: team === 'red' ? '#fecaca' : '#bfdbfe',
+      fontSize: '13px',
+      fontFamily: 'system-ui, sans-serif',
+    });
+  }
+
+  private handlePointerDown(pointer: Phaser.Input.Pointer) {
+    const pointerEvent = pointer.event as Event & { pointerType?: string };
     const isTouch =
       (pointer as unknown as { wasTouch?: boolean }).wasTouch === true ||
-      (pointer.event as PointerEvent | undefined)?.pointerType === 'touch';
-    
+      pointerEvent.pointerType === 'touch';
+
     const isLeftHalf = pointer.worldX < GAME_CONFIG.worldWidth / 2;
 
     if (isTouch && isLeftHalf) {
@@ -316,11 +389,7 @@ class GameScene extends Phaser.Scene {
     this.mobileControlGraphics.strokePath();
 
     this.mobileControlGraphics.fillStyle(0xbfdbfe, 0.7);
-    this.mobileControlGraphics.fillCircle(
-      this.mobileMoveCurrent.x,
-      this.mobileMoveCurrent.y,
-      10
-    );
+    this.mobileControlGraphics.fillCircle(this.mobileMoveCurrent.x, this.mobileMoveCurrent.y, 10);
   }
 
   private movePlayer(dx: number, dy: number) {
@@ -367,6 +436,10 @@ class GameScene extends Phaser.Scene {
   }
 
   private tryShoot(time: number, aimPoint: Point) {
+    if (!this.playerAlive) {
+      return;
+    }
+
     if (time - this.lastShotAt < GAME_CONFIG.shotCooldownMs) {
       return;
     }
@@ -438,6 +511,98 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  private killPlayer(reason: string) {
+    this.playerAlive = false;
+    this.player.setVisible(false);
+    this.respawnAt = this.time.now + GAME_CONFIG.respawnTimeMs;
+
+    this.mobileMoveVector = { x: 0, y: 0 };
+    this.mobileMovePointerId = null;
+    this.mobileMoveOrigin = null;
+    this.mobileMoveCurrent = null;
+
+    this.ownFlagCampStartedAt = null;
+    this.ownFlagExitedAt = null;
+
+    this.statusText.setText(`${reason} — respawning...`);
+  }
+
+  private respawnPlayer() {
+    this.playerAlive = true;
+    this.player.setVisible(true);
+    this.player.x = GAME_CONFIG.playerSpawnX;
+    this.player.y = GAME_CONFIG.playerSpawnY;
+
+    this.statusText.setText('RESPAWNED');
+    this.time.delayedCall(700, () => this.statusText.setText(''));
+  }
+
+  private updateCampTimer(time: number) {
+    if (!this.playerAlive) {
+      this.ownFlagCampStartedAt = null;
+      this.ownFlagExitedAt = null;
+      this.campText.setText('');
+      return;
+    }
+
+    const ownFlag = this.flagZones.find((flag) => flag.team === this.playerTeam);
+
+    if (!ownFlag) {
+      return;
+    }
+
+    const distanceToOwnFlag = Math.hypot(this.player.x - ownFlag.x, this.player.y - ownFlag.y);
+    const insideOwnFlagCampZone = distanceToOwnFlag <= ownFlag.campRadius;
+
+    if (insideOwnFlagCampZone) {
+      if (this.ownFlagCampStartedAt === null) {
+        this.ownFlagCampStartedAt = time;
+      }
+
+      this.ownFlagExitedAt = null;
+
+      const elapsed = time - this.ownFlagCampStartedAt;
+      const warningStartsAt = GAME_CONFIG.campGraceMs;
+      const deathAt = GAME_CONFIG.campGraceMs + GAME_CONFIG.campWarningMs;
+
+      if (elapsed >= deathAt) {
+        this.killPlayer('CAMPING');
+        return;
+      }
+
+      if (elapsed >= warningStartsAt) {
+        const remaining = Math.ceil((deathAt - elapsed) / 1000);
+        this.campText.setText(`LEAVE YOUR FLAG — death in ${remaining}s`);
+      } else {
+        const safeRemaining = Math.ceil((warningStartsAt - elapsed) / 1000);
+        this.campText.setText(`Own flag zone: ${safeRemaining}s until warning`);
+      }
+
+      return;
+    }
+
+    if (this.ownFlagCampStartedAt !== null) {
+      if (this.ownFlagExitedAt === null) {
+        this.ownFlagExitedAt = time;
+      }
+
+      const outsideElapsed = time - this.ownFlagExitedAt;
+
+      if (outsideElapsed >= GAME_CONFIG.campResetMs) {
+        this.ownFlagCampStartedAt = null;
+        this.ownFlagExitedAt = null;
+        this.campText.setText('');
+      } else {
+        const resetRemaining = Math.ceil((GAME_CONFIG.campResetMs - outsideElapsed) / 1000);
+        this.campText.setText(`Camp timer resetting in ${resetRemaining}s`);
+      }
+
+      return;
+    }
+
+    this.campText.setText('');
+  }
+
   private drawActiveShot(time: number) {
     this.shotGraphics.clear();
 
@@ -478,7 +643,10 @@ class GameScene extends Phaser.Scene {
     return nearest?.point ?? null;
   }
 
-  private findNearestTargetHit(start: Point, end: Point): { target: Target; point: Point; t: number } | null {
+  private findNearestTargetHit(
+    start: Point,
+    end: Point
+  ): { target: Target; point: Point; t: number } | null {
     let nearest: { target: Target; point: Point; t: number } | null = null;
 
     for (const target of this.targets) {
