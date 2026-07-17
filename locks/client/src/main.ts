@@ -230,7 +230,11 @@ class GameScene extends Phaser.Scene {
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer) {
-    const isTouch = pointer.pointerType === 'touch';
+
+    const isTouch =
+      (pointer as unknown as { wasTouch?: boolean }).wasTouch === true ||
+      (pointer.event as PointerEvent | undefined)?.pointerType === 'touch';
+    
     const isLeftHalf = pointer.worldX < GAME_CONFIG.worldWidth / 2;
 
     if (isTouch && isLeftHalf) {
