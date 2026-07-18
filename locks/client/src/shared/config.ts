@@ -1,30 +1,40 @@
 // Tuning constants + map definition. Shared by client and future server.
+// Scale is anchored to the original: 1 SC tile = 36px here.
+// Original Snipers Bald Locks maps: 64x64 tiles, ghost sight 9, attack 7,
+// viewport ~20x12 tiles.
 
 import type { Rect } from './geometry';
 import { rectFromCenter } from './geometry';
 
+export const TILE = 36;
+
 export const GAME_CONFIG = {
-  worldWidth: 960,
-  worldHeight: 640,
+  // 64x64-tile world, square like the original.
+  worldWidth: 64 * TILE, // 2304
+  worldHeight: 64 * TILE, // 2304
+
+  // Camera viewport: ~20x12 tiles, matching the BW screen.
+  viewportWidth: 20 * TILE, // 720
+  viewportHeight: 12 * TILE, // 432
 
   playerSpeed: 180,
   playerRadius: 14,
-  playerSpawnX: 140,
-  playerSpawnY: 320,
+  playerSpawnX: 12.5 * TILE,
+  playerSpawnY: 32 * TILE,
 
-  // Vision: how far a sniper can see with clear line of sight.
-  playerVisionRadius: 330,
-  // How long a "last seen" ghost marker lingers after losing sight.
+  // Ghost sight range: 9 tiles.
+  playerVisionRadius: 9 * TILE, // 324
   lastSeenLingerMs: 1500,
 
   shotCooldownMs: 600,
-  shotRange: 900,
+  // Ghost attack range: 7 tiles — you can see farther than you can shoot.
+  shotRange: 7 * TILE, // 252
 
   targetRadius: 13,
   targetRespawnMs: 2000,
 
-  flagVisionRadius: 325,
-  ownFlagCampRadius: 375,
+  flagVisionRadius: 9 * TILE,
+  ownFlagCampRadius: 10.5 * TILE,
   campGraceMs: 10_000,
   campWarningMs: 3_000,
   campResetMs: 4_000,
@@ -32,10 +42,8 @@ export const GAME_CONFIG = {
 
   mobileJoystickMaxDistance: 60,
 
-  // CTF: how close you must be to a flag center to grab or capture.
   flagInteractRadius: 38,
 
-  // Match: round length and caps needed for an instant win.
   roundDurationMs: 5 * 60_000,
   scoreToWin: 3,
 };
@@ -69,42 +77,65 @@ function wall(x: number, y: number, w: number, h: number, blocksShots: boolean):
   return { rect: rectFromCenter(x, y, w, h), blocksShots };
 }
 
+const W = GAME_CONFIG.worldWidth;
+const H = GAME_CONFIG.worldHeight;
+
+// Interior layout is defined for one half and mirrored through the map
+// center (180° rotational symmetry) so both teams get identical terrain.
+const halfLayout: Array<{ x: number; y: number; w: number; h: number; hard: boolean }> = [
+  // Hard structures
+  { x: 1152, y: 1152, w: 48, h: 420, hard: true }, // center spine
+  { x: 1152, y: 640, w: 320, h: 40, hard: true }, // north crossbar
+  { x: 620, y: 480, w: 40, h: 280, hard: true }, // NW bunker wall
+  { x: 560, y: 1620, w: 260, h: 40, hard: true }, // SW bunker wall
+
+  // Soft cover (foliage)
+  { x: 420, y: 780, w: 200, h: 30, hard: false },
+  { x: 760, y: 1050, w: 30, h: 220, hard: false },
+  { x: 900, y: 700, w: 170, h: 30, hard: false },
+  { x: 980, y: 1500, w: 220, h: 30, hard: false },
+  { x: 350, y: 1350, w: 30, h: 200, hard: false },
+  { x: 640, y: 1900, w: 180, h: 30, hard: false },
+  { x: 1100, y: 320, w: 200, h: 30, hard: false },
+  { x: 1050, y: 1950, w: 30, h: 190, hard: false },
+];
+
+const interiorWalls: WallDef[] = [];
+for (const item of halfLayout) {
+  interiorWalls.push(wall(item.x, item.y, item.w, item.h, item.hard));
+  // Mirror through the center point.
+  interiorWalls.push(wall(W - item.x, H - item.y, item.w, item.h, item.hard));
+}
+
 export const MAP: MapDef = {
   walls: [
-    // Map border — hard walls, nothing gets through.
-    wall(480, 90, 760, 24, true),
-    wall(480, 550, 760, 24, true),
-    wall(90, 320, 24, 460, true),
-    wall(870, 320, 24, 460, true),
-
-    // Center pillar — one hard structure to anchor rotations.
-    wall(480, 320, 32, 160, true),
-
-    // Soft cover: blocks vision and walking, but bullets pass through.
-    wall(350, 245, 180, 28, false),
-    wall(610, 395, 180, 28, false),
-    wall(300, 450, 110, 26, false),
-    wall(660, 190, 110, 26, false),
+    // Map border — hard walls.
+    wall(W / 2, 12, W, 24, true),
+    wall(W / 2, H - 12, W, 24, true),
+    wall(12, H / 2, 24, H, true),
+    wall(W - 12, H / 2, 24, H, true),
+    ...interiorWalls,
   ],
   flags: [
     {
       team: 'red',
-      x: 160,
-      y: 320,
+      x: 9 * TILE,
+      y: 32 * TILE,
       visionRadius: GAME_CONFIG.flagVisionRadius,
       campRadius: GAME_CONFIG.ownFlagCampRadius,
     },
     {
       team: 'blue',
-      x: 800,
-      y: 320,
+      x: 55 * TILE,
+      y: 32 * TILE,
       visionRadius: GAME_CONFIG.flagVisionRadius,
       campRadius: GAME_CONFIG.ownFlagCampRadius,
     },
   ],
   enemySpawns: [
-    { x: 720, y: 250, label: 'T1' },
-    { x: 560, y: 430, label: 'T2' },
-    { x: 380, y: 190, label: 'T3' },
+    { x: 1700, y: 900, label: 'T1' },
+    { x: 1420, y: 1500, label: 'T2' },
+    { x: 1900, y: 1420, label: 'T3' },
+    { x: 1000, y: 620, label: 'T4' },
   ],
 };
