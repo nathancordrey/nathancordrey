@@ -31,6 +31,9 @@ export const GAME_CONFIG = {
   respawnTimeMs: 2_500,
 
   mobileJoystickMaxDistance: 60,
+
+  // CTF: how close you must be to a flag center to grab or capture.
+  flagInteractRadius: 38,
 };
 
 export type Team = 'red' | 'blue';
