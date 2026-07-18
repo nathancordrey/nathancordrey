@@ -100,50 +100,53 @@ class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#111827');
 
     this.add
-      .text(24, 24, 'Sniper Locks prototype', {
+      .text(12, 10, 'Sniper Locks prototype', {
         color: '#ffffff',
-        fontSize: '24px',
+        fontSize: '15px',
         fontFamily: 'system-ui, sans-serif',
       })
-      .setDepth(100);
+      .setDepth(100)
+      .setScrollFactor(0);
 
     this.add
-      .text(24, 58, 'Desktop: WASD/arrows + mouse • Phone: left drag + right tap', {
+      .text(12, 30, 'WASD/arrows + mouse • Phone: left drag + right tap', {
         color: '#cbd5e1',
-        fontSize: '16px',
+        fontSize: '11px',
         fontFamily: 'system-ui, sans-serif',
       })
-      .setDepth(100);
+      .setDepth(100)
+      .setScrollFactor(0);
 
-    this.debugText = this.add.text(24, 88, '', {
+    this.debugText = this.add.text(12, 50, '', {
       color: '#94a3b8',
-      fontSize: '14px',
+      fontSize: '10px',
       fontFamily: 'monospace',
     });
 
-    this.statusText = this.add.text(24, 150, '', {
+    this.statusText = this.add.text(12, 108, '', {
       color: '#fef3c7',
-      fontSize: '16px',
+      fontSize: '13px',
       fontFamily: 'system-ui, sans-serif',
     });
 
-    this.campText = this.add.text(24, 176, '', {
+    this.campText = this.add.text(12, 126, '', {
       color: '#fecaca',
-      fontSize: '16px',
+      fontSize: '13px',
       fontFamily: 'system-ui, sans-serif',
     });
 
-    this.debugText.setDepth(100);
-    this.statusText.setDepth(100);
-    this.campText.setDepth(100);
+    this.debugText.setDepth(100).setScrollFactor(0);
+    this.statusText.setDepth(100).setScrollFactor(0);
+    this.campText.setDepth(100).setScrollFactor(0);
 
-    this.timerText = this.add.text(GAME_CONFIG.worldWidth / 2, 24, '', {
+    this.timerText = this.add.text(GAME_CONFIG.viewportWidth / 2, 8, '', {
       color: '#ffffff',
-      fontSize: '22px',
+      fontSize: '18px',
       fontFamily: 'monospace',
     });
     this.timerText.setOrigin(0.5, 0);
     this.timerText.setDepth(100);
+    this.timerText.setScrollFactor(0);
 
     this.input.keyboard!.on('keydown-R', () => {
       if (this.match.phase === 'ended') this.scene.restart();
@@ -187,6 +190,7 @@ class GameScene extends Phaser.Scene {
     this.aimGraphics.setDepth(60);
     this.shotGraphics.setDepth(60);
     this.mobileControlGraphics.setDepth(100);
+    this.mobileControlGraphics.setScrollFactor(0);
     this.player.setDepth(60);
 
     // Small enemy-colored dot riding on the carrier — only YOU see it
@@ -194,6 +198,10 @@ class GameScene extends Phaser.Scene {
     this.carryIndicator = this.add.circle(0, 0, 6, 0x3b82f6, 0.95);
     this.carryIndicator.setDepth(61);
     this.carryIndicator.setVisible(false);
+
+    // Big map: the camera shows a BW-sized viewport and follows the player.
+    this.cameras.main.setBounds(0, 0, GAME_CONFIG.worldWidth, GAME_CONFIG.worldHeight);
+    this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
 
     this.cursors = this.input.keyboard!.createCursorKeys();
 
@@ -437,12 +445,14 @@ class GameScene extends Phaser.Scene {
       (pointer as unknown as { wasTouch?: boolean }).wasTouch === true ||
       pointerEvent.pointerType === 'touch';
 
-    const isLeftHalf = pointer.worldX < GAME_CONFIG.worldWidth / 2;
+    // Screen-space check: with a scrolling camera, world coords no longer
+    // map to screen halves.
+    const isLeftHalf = pointer.x < GAME_CONFIG.viewportWidth / 2;
 
     if (isTouch && isLeftHalf) {
       this.mobileMovePointerId = pointer.id;
-      this.mobileMoveOrigin = { x: pointer.worldX, y: pointer.worldY };
-      this.mobileMoveCurrent = { x: pointer.worldX, y: pointer.worldY };
+      this.mobileMoveOrigin = { x: pointer.x, y: pointer.y };
+      this.mobileMoveCurrent = { x: pointer.x, y: pointer.y };
       this.updateMobileMoveVector(pointer);
       return;
     }
@@ -458,7 +468,7 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.mobileMoveCurrent = { x: pointer.worldX, y: pointer.worldY };
+    this.mobileMoveCurrent = { x: pointer.x, y: pointer.y };
     this.updateMobileMoveVector(pointer);
   }
 
@@ -479,8 +489,8 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    const rawDx = pointer.worldX - this.mobileMoveOrigin.x;
-    const rawDy = pointer.worldY - this.mobileMoveOrigin.y;
+    const rawDx = pointer.x - this.mobileMoveOrigin.x;
+    const rawDy = pointer.y - this.mobileMoveOrigin.y;
     const dragDistance = Math.hypot(rawDx, rawDy);
 
     if (dragDistance < 6) {
@@ -532,14 +542,15 @@ class GameScene extends Phaser.Scene {
     this.timerText.setText('0:00');
 
     const overlay = this.add.rectangle(
-      GAME_CONFIG.worldWidth / 2,
-      GAME_CONFIG.worldHeight / 2,
-      GAME_CONFIG.worldWidth,
-      GAME_CONFIG.worldHeight,
+      GAME_CONFIG.viewportWidth / 2,
+      GAME_CONFIG.viewportHeight / 2,
+      GAME_CONFIG.viewportWidth,
+      GAME_CONFIG.viewportHeight,
       0x000000,
       0.72
     );
     overlay.setDepth(200);
+    overlay.setScrollFactor(0);
 
     const result = this.match.result;
     const headline =
@@ -548,41 +559,44 @@ class GameScene extends Phaser.Scene {
       result === 'red' ? '#fca5a5' : result === 'blue' ? '#93c5fd' : '#e2e8f0';
 
     this.add
-      .text(GAME_CONFIG.worldWidth / 2, GAME_CONFIG.worldHeight / 2 - 40, headline, {
+      .text(GAME_CONFIG.viewportWidth / 2, GAME_CONFIG.viewportHeight / 2 - 44, headline, {
         color: headlineColor,
-        fontSize: '48px',
+        fontSize: '34px',
         fontFamily: 'system-ui, sans-serif',
       })
       .setOrigin(0.5)
-      .setDepth(201);
+      .setDepth(201)
+      .setScrollFactor(0);
 
     this.add
       .text(
-        GAME_CONFIG.worldWidth / 2,
-        GAME_CONFIG.worldHeight / 2 + 12,
+        GAME_CONFIG.viewportWidth / 2,
+        GAME_CONFIG.viewportHeight / 2 + 2,
         `RED ${this.ctf.scores.red} — ${this.ctf.scores.blue} BLUE`,
         {
           color: '#e2e8f0',
-          fontSize: '26px',
+          fontSize: '20px',
           fontFamily: 'monospace',
         }
       )
       .setOrigin(0.5)
-      .setDepth(201);
+      .setDepth(201)
+      .setScrollFactor(0);
 
     this.add
       .text(
-        GAME_CONFIG.worldWidth / 2,
-        GAME_CONFIG.worldHeight / 2 + 60,
+        GAME_CONFIG.viewportWidth / 2,
+        GAME_CONFIG.viewportHeight / 2 + 40,
         'Press R or tap to play again',
         {
           color: '#94a3b8',
-          fontSize: '18px',
+          fontSize: '13px',
           fontFamily: 'system-ui, sans-serif',
         }
       )
       .setOrigin(0.5)
-      .setDepth(201);
+      .setDepth(201)
+      .setScrollFactor(0);
   }
 
   private updateCtf() {
@@ -856,16 +870,16 @@ class GameScene extends Phaser.Scene {
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: GAME_CONFIG.worldWidth,
-  height: GAME_CONFIG.worldHeight,
+  width: GAME_CONFIG.viewportWidth,
+  height: GAME_CONFIG.viewportHeight,
   parent: 'app',
   backgroundColor: '#111827',
   scene: GameScene,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: GAME_CONFIG.worldWidth,
-    height: GAME_CONFIG.worldHeight,
+    width: GAME_CONFIG.viewportWidth,
+    height: GAME_CONFIG.viewportHeight,
   },
 };
 
