@@ -25,6 +25,10 @@ export const GAME_CONFIG = {
   // Ghost sight range: 9 tiles.
   playerVisionRadius: 9 * TILE, // 324
   lastSeenLingerMs: 1500,
+  // SC-style vision decay: ground you saw stays dimly revealed briefly
+  // after you move on, then fog re-covers it.
+  visionMemoryMs: 900,
+  visionSampleMs: 120,
 
   shotCooldownMs: 600,
   // Ghost attack range: 7 tiles — you can see farther than you can shoot.
@@ -94,7 +98,7 @@ const halfLayout: Array<{ x: number; y: number; w: number; h: number; hard: bool
   { x: 760, y: 1050, w: 30, h: 220, hard: false },
   { x: 900, y: 700, w: 170, h: 30, hard: false },
   { x: 980, y: 1500, w: 220, h: 30, hard: false },
-  { x: 350, y: 1350, w: 30, h: 200, hard: false },
+  { x: 380, y: 1750, w: 30, h: 200, hard: false },
   { x: 640, y: 1900, w: 180, h: 30, hard: false },
   { x: 1100, y: 320, w: 200, h: 30, hard: false },
   { x: 1050, y: 1950, w: 30, h: 190, hard: false },
@@ -139,3 +143,18 @@ export const MAP: MapDef = {
     { x: 1000, y: 620, label: 'T4' },
   ],
 };
+
+// Dev guardrail: interior structures must stay out of base vision zones so
+// both flag areas are open ground. Borders (first 4 walls) are exempt.
+for (const flag of MAP.flags) {
+  for (const w of MAP.walls.slice(4)) {
+    const cx = Math.max(w.rect.left, Math.min(flag.x, w.rect.right));
+    const cy = Math.max(w.rect.top, Math.min(flag.y, w.rect.bottom));
+    const d = Math.hypot(flag.x - cx, flag.y - cy);
+    if (d < flag.visionRadius) {
+      console.warn(
+        `[map] wall inside ${flag.team} base vision zone (distance ${d.toFixed(0)} < ${flag.visionRadius})`
+      );
+    }
+  }
+}
