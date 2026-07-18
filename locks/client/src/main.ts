@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { GAME_CONFIG, MAP } from './shared/config';
 import type { Team } from './shared/config';
 import type { Vec2 } from './shared/geometry';
-import { isTargetVisible, moveCircle, resolveShot } from './shared/sim';
+import { computeVisionPolygon, isTargetVisible, moveCircle, resolveShot } from './shared/sim';
 import type { CircleTarget } from './shared/sim';
 
 type Enemy = {
@@ -14,6 +14,7 @@ type Enemy = {
   lastSeenAt: number;
   lastSeenPos: Vec2;
   ghost: Phaser.GameObjects.Arc;
+  visibleNow: boolean;
 };
 
 class GameScene extends Phaser.Scene {
@@ -31,6 +32,9 @@ class GameScene extends Phaser.Scene {
   private shotGraphics!: Phaser.GameObjects.Graphics;
   private visionGraphics!: Phaser.GameObjects.Graphics;
   private mobileControlGraphics!: Phaser.GameObjects.Graphics;
+
+  private fogRect!: Phaser.GameObjects.Rectangle;
+  private fogMaskGraphics!: Phaser.GameObjects.Graphics;
 
   private playerTeam: Team = 'red';
   private playerAlive = true;
@@ -56,17 +60,21 @@ class GameScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor('#111827');
 
-    this.add.text(24, 24, 'Sniper Locks prototype', {
-      color: '#ffffff',
-      fontSize: '24px',
-      fontFamily: 'system-ui, sans-serif',
-    });
+    this.add
+      .text(24, 24, 'Sniper Locks prototype', {
+        color: '#ffffff',
+        fontSize: '24px',
+        fontFamily: 'system-ui, sans-serif',
+      })
+      .setDepth(100);
 
-    this.add.text(24, 58, 'Desktop: WASD/arrows + mouse • Phone: left drag + right tap', {
-      color: '#cbd5e1',
-      fontSize: '16px',
-      fontFamily: 'system-ui, sans-serif',
-    });
+    this.add
+      .text(24, 58, 'Desktop: WASD/arrows + mouse • Phone: left drag + right tap', {
+        color: '#cbd5e1',
+        fontSize: '16px',
+        fontFamily: 'system-ui, sans-serif',
+      })
+      .setDepth(100);
 
     this.debugText = this.add.text(24, 88, '', {
       color: '#94a3b8',
@@ -86,6 +94,10 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif',
     });
 
+    this.debugText.setDepth(100);
+    this.statusText.setDepth(100);
+    this.campText.setDepth(100);
+
     this.createArena();
 
     this.player = this.add.circle(
@@ -95,10 +107,36 @@ class GameScene extends Phaser.Scene {
       0x38bdf8
     );
 
+    // Fog of war: a dark overlay covering the whole world. The mask polygon
+    // (your line of sight + your flag's beacon) is inverted, so fog renders
+    // everywhere you can NOT see.
+    this.fogRect = this.add.rectangle(
+      GAME_CONFIG.worldWidth / 2,
+      GAME_CONFIG.worldHeight / 2,
+      GAME_CONFIG.worldWidth,
+      GAME_CONFIG.worldHeight,
+      0x070b16,
+      0.82
+    );
+    this.fogRect.setDepth(50);
+
+    // Mask graphics live off the display list — the fog's Mask filter renders
+    // them to its own texture. invert=true makes fog show where we DON'T draw.
+    this.fogMaskGraphics = this.make.graphics({}, false);
+    this.fogRect.enableFilters();
+    this.fogRect.filters!.internal.addMask(this.fogMaskGraphics, true);
+
     this.visionGraphics = this.add.graphics();
     this.aimGraphics = this.add.graphics();
     this.shotGraphics = this.add.graphics();
     this.mobileControlGraphics = this.add.graphics();
+
+    // Your own aim/tracer/controls and the HUD render above the fog.
+    this.visionGraphics.setDepth(60);
+    this.aimGraphics.setDepth(60);
+    this.shotGraphics.setDepth(60);
+    this.mobileControlGraphics.setDepth(100);
+    this.player.setDepth(60);
 
     this.cursors = this.input.keyboard!.createCursorKeys();
 
@@ -139,6 +177,7 @@ class GameScene extends Phaser.Scene {
       this.aimGraphics.clear();
       this.drawActiveShot(time);
       this.drawMobileControls();
+      this.drawFog();
       this.updateVisibility(time);
       this.updateCampTimer(time);
       return;
@@ -173,6 +212,7 @@ class GameScene extends Phaser.Scene {
     }
 
     this.drawVisionRing();
+    this.drawFog();
     this.drawAimLine();
     this.drawActiveShot(time);
     this.drawMobileControls();
@@ -245,6 +285,7 @@ class GameScene extends Phaser.Scene {
       lastSeenAt: -Infinity,
       lastSeenPos: { x, y },
       ghost,
+      visibleNow: false,
     });
   }
 
@@ -286,6 +327,8 @@ class GameScene extends Phaser.Scene {
           GAME_CONFIG.playerVisionRadius,
           MAP.flags
         );
+
+      enemy.visibleNow = seen;
 
       if (seen) {
         enemy.lastSeenAt = time;
@@ -398,6 +441,30 @@ class GameScene extends Phaser.Scene {
     this.mobileControlGraphics.fillCircle(this.mobileMoveCurrent.x, this.mobileMoveCurrent.y, 10);
   }
 
+  // Redraw the fog mask: lit area = line-of-sight polygon (when alive)
+  // plus your own flag's beacon circle. Everything else stays dark.
+  private drawFog() {
+    this.fogMaskGraphics.clear();
+    this.fogMaskGraphics.fillStyle(0xffffff, 1);
+
+    if (this.playerAlive) {
+      const polygon = computeVisionPolygon(
+        { x: this.player.x, y: this.player.y },
+        MAP.walls,
+        GAME_CONFIG.playerVisionRadius
+      );
+      this.fogMaskGraphics.fillPoints(
+        polygon.map((p) => new Phaser.Math.Vector2(p.x, p.y)),
+        true
+      );
+    }
+
+    const ownFlag = MAP.flags.find((flag) => flag.team === this.playerTeam);
+    if (ownFlag) {
+      this.fogMaskGraphics.fillCircle(ownFlag.x, ownFlag.y, ownFlag.visionRadius);
+    }
+  }
+
   private drawVisionRing() {
     this.visionGraphics.clear();
     this.visionGraphics.lineStyle(1, 0x38bdf8, 0.18);
@@ -448,7 +515,7 @@ class GameScene extends Phaser.Scene {
       aimPoint,
       GAME_CONFIG.shotRange,
       MAP.walls,
-      this.enemies.map((enemy) => enemy.sim)
+      this.enemies.map((enemy) => ({ ...enemy.sim, targetable: enemy.visibleNow }))
     );
 
     if (result.hitIndex !== null) {
