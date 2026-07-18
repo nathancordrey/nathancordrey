@@ -15,6 +15,9 @@ export type CircleTarget = {
   y: number;
   radius: number;
   alive: boolean;
+  // SC rule: you can only hit what your team has vision of.
+  // Defaults to true when omitted.
+  targetable?: boolean;
 };
 
 export type ShotResult = {
@@ -88,6 +91,7 @@ export function resolveShot(
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
     if (!target.alive) continue;
+    if (target.targetable === false) continue;
     const hit = segmentCircleIntersection(
       origin,
       blockedEnd,
@@ -127,4 +131,46 @@ export function isTargetVisible(
   }
 
   return false;
+}
+
+// --- Vision polygon (fog of war) -----------------------------------------
+
+// Raycast to every wall corner (± epsilon) plus uniform sweep rays, capped at
+// the vision radius. Returns points sorted by angle — fill it as a polygon to
+// get the lit area. Pure, so the server can reuse it for interest management.
+export function computeVisionPolygon(viewer: Vec2, walls: WallDef[], radius: number): Vec2[] {
+  const angles: number[] = [];
+
+  for (const w of walls) {
+    const { left, top, right, bottom } = w.rect;
+    const corners: Vec2[] = [
+      { x: left, y: top },
+      { x: right, y: top },
+      { x: right, y: bottom },
+      { x: left, y: bottom },
+    ];
+    for (const corner of corners) {
+      const angle = Math.atan2(corner.y - viewer.y, corner.x - viewer.x);
+      angles.push(angle - 0.0005, angle, angle + 0.0005);
+    }
+  }
+
+  const SWEEP_RAYS = 72;
+  for (let i = 0; i < SWEEP_RAYS; i++) {
+    angles.push((i / SWEEP_RAYS) * Math.PI * 2 - Math.PI);
+  }
+
+  angles.sort((a, b) => a - b);
+
+  const points: Vec2[] = [];
+  for (const angle of angles) {
+    const end: Vec2 = {
+      x: viewer.x + Math.cos(angle) * radius,
+      y: viewer.y + Math.sin(angle) * radius,
+    };
+    const hit = nearestWallHit(viewer, end, walls, () => true);
+    points.push(hit ? hit.point : end);
+  }
+
+  return points;
 }
