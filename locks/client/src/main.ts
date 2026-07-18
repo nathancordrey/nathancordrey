@@ -1,58 +1,19 @@
 import './style.css';
 import Phaser from 'phaser';
 
-const GAME_CONFIG = {
-  worldWidth: 960,
-  worldHeight: 640,
+import { GAME_CONFIG, MAP } from './shared/config';
+import type { Team } from './shared/config';
+import type { Vec2 } from './shared/geometry';
+import { isTargetVisible, moveCircle, resolveShot } from './shared/sim';
+import type { CircleTarget } from './shared/sim';
 
-  playerSpeed: 180,
-  playerRadius: 14,
-  playerSpawnX: 140,
-  playerSpawnY: 320,
-
-  shotCooldownMs: 600,
-  shotRange: 900,
-
-  targetRadius: 13,
-  targetRespawnMs: 2000,
-
-  flagVisionRadius: 325,
-  ownFlagCampRadius: 375,
-  campGraceMs: 10_000,
-  campWarningMs: 3_000,
-  campResetMs: 4_000,
-  respawnTimeMs: 2_500,
-
-  mobileJoystickMaxDistance: 60,
-};
-
-type Team = 'red' | 'blue';
-
-type Point = {
-  x: number;
-  y: number;
-};
-
-type Wall = {
-  rect: Phaser.GameObjects.Rectangle;
-  bounds: Phaser.Geom.Rectangle;
-};
-
-type Target = {
+type Enemy = {
+  sim: CircleTarget;
   body: Phaser.GameObjects.Arc;
   label: Phaser.GameObjects.Text;
-  x: number;
-  y: number;
-  radius: number;
-  alive: boolean;
-};
-
-type FlagZone = {
-  team: Team;
-  x: number;
-  y: number;
-  visionRadius: number;
-  campRadius: number;
+  lastSeenAt: number;
+  lastSeenPos: Vec2;
+  ghost: Phaser.GameObjects.Arc;
 };
 
 class GameScene extends Phaser.Scene {
@@ -60,9 +21,7 @@ class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
 
-  private walls: Wall[] = [];
-  private targets: Target[] = [];
-  private flagZones: FlagZone[] = [];
+  private enemies: Enemy[] = [];
 
   private debugText!: Phaser.GameObjects.Text;
   private statusText!: Phaser.GameObjects.Text;
@@ -70,6 +29,7 @@ class GameScene extends Phaser.Scene {
 
   private aimGraphics!: Phaser.GameObjects.Graphics;
   private shotGraphics!: Phaser.GameObjects.Graphics;
+  private visionGraphics!: Phaser.GameObjects.Graphics;
   private mobileControlGraphics!: Phaser.GameObjects.Graphics;
 
   private playerTeam: Team = 'red';
@@ -81,13 +41,13 @@ class GameScene extends Phaser.Scene {
 
   private lastShotAt = -Infinity;
   private shotVisibleUntil = 0;
-  private activeShot: { start: Point; end: Point } | null = null;
+  private activeShot: { start: Vec2; end: Vec2 } | null = null;
   private hitCount = 0;
 
   private mobileMovePointerId: number | null = null;
-  private mobileMoveOrigin: Point | null = null;
-  private mobileMoveCurrent: Point | null = null;
-  private mobileMoveVector: Point = { x: 0, y: 0 };
+  private mobileMoveOrigin: Vec2 | null = null;
+  private mobileMoveCurrent: Vec2 | null = null;
+  private mobileMoveVector: Vec2 = { x: 0, y: 0 };
 
   constructor() {
     super('GameScene');
@@ -135,6 +95,7 @@ class GameScene extends Phaser.Scene {
       0x38bdf8
     );
 
+    this.visionGraphics = this.add.graphics();
     this.aimGraphics = this.add.graphics();
     this.shotGraphics = this.add.graphics();
     this.mobileControlGraphics = this.add.graphics();
@@ -178,6 +139,7 @@ class GameScene extends Phaser.Scene {
       this.aimGraphics.clear();
       this.drawActiveShot(time);
       this.drawMobileControls();
+      this.updateVisibility(time);
       this.updateCampTimer(time);
       return;
     }
@@ -198,16 +160,23 @@ class GameScene extends Phaser.Scene {
       dx /= length;
       dy /= length;
 
-      const moveX = dx * GAME_CONFIG.playerSpeed * dt;
-      const moveY = dy * GAME_CONFIG.playerSpeed * dt;
+      const next = moveCircle(
+        { x: this.player.x, y: this.player.y },
+        dx * GAME_CONFIG.playerSpeed * dt,
+        dy * GAME_CONFIG.playerSpeed * dt,
+        GAME_CONFIG.playerRadius,
+        MAP.walls
+      );
 
-      this.movePlayer(moveX, 0);
-      this.movePlayer(0, moveY);
+      this.player.x = next.x;
+      this.player.y = next.y;
     }
 
+    this.drawVisionRing();
     this.drawAimLine();
     this.drawActiveShot(time);
     this.drawMobileControls();
+    this.updateVisibility(time);
     this.updateCampTimer(time);
 
     const cooldownRemaining = Math.max(
@@ -215,73 +184,71 @@ class GameScene extends Phaser.Scene {
       GAME_CONFIG.shotCooldownMs - (time - this.lastShotAt)
     );
 
-    const aliveTargets = this.targets.filter((target) => target.alive).length;
+    const aliveEnemies = this.enemies.filter((enemy) => enemy.sim.alive).length;
+    const visibleEnemies = this.enemies.filter((enemy) => enemy.body.visible).length;
 
     this.debugText.setText(
       [
         `x=${this.player.x.toFixed(0)} y=${this.player.y.toFixed(0)}`,
         `shot cooldown=${cooldownRemaining.toFixed(0)}ms`,
-        `targets alive=${aliveTargets}/${this.targets.length}`,
+        `enemies alive=${aliveEnemies}/${this.enemies.length} visible=${visibleEnemies}`,
         `hits=${this.hitCount}`,
-        `mobile move=${this.mobileMoveVector.x.toFixed(2)}, ${this.mobileMoveVector.y.toFixed(2)}`,
       ].join('\n')
     );
   }
 
   private createArena() {
-    this.addWall(480, 90, 760, 24);
-    this.addWall(480, 550, 760, 24);
-    this.addWall(90, 320, 24, 460);
-    this.addWall(870, 320, 24, 460);
+    for (const wallDef of MAP.walls) {
+      const { rect, blocksShots } = wallDef;
+      const width = rect.right - rect.left;
+      const height = rect.bottom - rect.top;
+      const cx = rect.left + width / 2;
+      const cy = rect.top + height / 2;
 
-    this.addWall(350, 245, 180, 28);
-    this.addWall(610, 395, 180, 28);
-    this.addWall(480, 320, 32, 160);
+      if (blocksShots) {
+        // Hard wall: solid slate. Stops bullets, vision, movement.
+        this.add.rectangle(cx, cy, width, height, 0x475569);
+      } else {
+        // Soft cover: foliage. Blocks vision + movement, bullets pass through.
+        const body = this.add.rectangle(cx, cy, width, height, 0x3f6212, 0.55);
+        body.setStrokeStyle(2, 0x84cc16, 0.5);
+      }
+    }
 
-    this.addFlagZone('red', 160, 320, 0xef4444);
-    this.addFlagZone('blue', 800, 320, 0x3b82f6);
+    for (const flag of MAP.flags) {
+      this.addFlagZone(flag.team, flag.x, flag.y, flag.team === 'red' ? 0xef4444 : 0x3b82f6);
+    }
 
-    this.addTarget(720, 250, 'T1');
-    this.addTarget(720, 320, 'T2');
-    this.addTarget(720, 390, 'T3');
+    for (const spawn of MAP.enemySpawns) {
+      this.addEnemy(spawn.x, spawn.y, spawn.label);
+    }
   }
 
-  private addWall(x: number, y: number, width: number, height: number) {
-    const rect = this.add.rectangle(x, y, width, height, 0x475569);
-    const bounds = rect.getBounds();
-
-    this.walls.push({ rect, bounds });
-  }
-
-  private addTarget(x: number, y: number, labelText: string) {
-    const body = this.add.circle(x, y, GAME_CONFIG.targetRadius, 0xf97316);
-    body.setStrokeStyle(2, 0xffedd5, 0.9);
+  private addEnemy(x: number, y: number, labelText: string) {
+    const body = this.add.circle(x, y, GAME_CONFIG.targetRadius, 0x3b82f6);
+    body.setStrokeStyle(2, 0xbfdbfe, 0.9);
 
     const label = this.add.text(x - 9, y - 32, labelText, {
-      color: '#fed7aa',
+      color: '#bfdbfe',
       fontSize: '13px',
       fontFamily: 'monospace',
     });
 
-    this.targets.push({
+    const ghost = this.add.circle(x, y, GAME_CONFIG.targetRadius, 0x3b82f6, 0.18);
+    ghost.setStrokeStyle(1, 0x93c5fd, 0.35);
+    ghost.setVisible(false);
+
+    this.enemies.push({
+      sim: { x, y, radius: GAME_CONFIG.targetRadius, alive: true },
       body,
       label,
-      x,
-      y,
-      radius: GAME_CONFIG.targetRadius,
-      alive: true,
+      lastSeenAt: -Infinity,
+      lastSeenPos: { x, y },
+      ghost,
     });
   }
 
   private addFlagZone(team: Team, x: number, y: number, color: number) {
-    this.flagZones.push({
-      team,
-      x,
-      y,
-      visionRadius: GAME_CONFIG.flagVisionRadius,
-      campRadius: GAME_CONFIG.ownFlagCampRadius,
-    });
-
     this.add.circle(x, y, GAME_CONFIG.flagVisionRadius, color, 0.08);
 
     const visionRing = this.add.circle(x, y, GAME_CONFIG.flagVisionRadius);
@@ -300,6 +267,45 @@ class GameScene extends Phaser.Scene {
       fontSize: '13px',
       fontFamily: 'system-ui, sans-serif',
     });
+  }
+
+  // Each frame: an enemy renders only if the shared sim says we can see it.
+  // Losing sight leaves a fading "last seen" ghost marker for a moment.
+  private updateVisibility(time: number) {
+    const viewer: Vec2 = { x: this.player.x, y: this.player.y };
+
+    for (const enemy of this.enemies) {
+      const seen =
+        this.playerAlive &&
+        enemy.sim.alive &&
+        isTargetVisible(
+          viewer,
+          this.playerTeam,
+          { x: enemy.sim.x, y: enemy.sim.y },
+          MAP.walls,
+          GAME_CONFIG.playerVisionRadius,
+          MAP.flags
+        );
+
+      if (seen) {
+        enemy.lastSeenAt = time;
+        enemy.lastSeenPos = { x: enemy.sim.x, y: enemy.sim.y };
+      }
+
+      enemy.body.setVisible(seen);
+      enemy.label.setVisible(seen);
+
+      const sinceSeen = time - enemy.lastSeenAt;
+      const showGhost =
+        !seen && enemy.sim.alive && sinceSeen <= GAME_CONFIG.lastSeenLingerMs;
+
+      enemy.ghost.setVisible(showGhost);
+      if (showGhost) {
+        enemy.ghost.x = enemy.lastSeenPos.x;
+        enemy.ghost.y = enemy.lastSeenPos.y;
+        enemy.ghost.setAlpha(1 - sinceSeen / GAME_CONFIG.lastSeenLingerMs);
+      }
+    }
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer) {
@@ -352,19 +358,19 @@ class GameScene extends Phaser.Scene {
 
     const rawDx = pointer.worldX - this.mobileMoveOrigin.x;
     const rawDy = pointer.worldY - this.mobileMoveOrigin.y;
-    const distance = Math.hypot(rawDx, rawDy);
+    const dragDistance = Math.hypot(rawDx, rawDy);
 
-    if (distance < 6) {
+    if (dragDistance < 6) {
       this.mobileMoveVector = { x: 0, y: 0 };
       return;
     }
 
-    const clampedDistance = Math.min(distance, GAME_CONFIG.mobileJoystickMaxDistance);
+    const clampedDistance = Math.min(dragDistance, GAME_CONFIG.mobileJoystickMaxDistance);
     const strength = clampedDistance / GAME_CONFIG.mobileJoystickMaxDistance;
 
     this.mobileMoveVector = {
-      x: (rawDx / distance) * strength,
-      y: (rawDy / distance) * strength,
+      x: (rawDx / dragDistance) * strength,
+      y: (rawDy / dragDistance) * strength,
     };
   }
 
@@ -392,22 +398,13 @@ class GameScene extends Phaser.Scene {
     this.mobileControlGraphics.fillCircle(this.mobileMoveCurrent.x, this.mobileMoveCurrent.y, 10);
   }
 
-  private movePlayer(dx: number, dy: number) {
-    const nextX = this.player.x + dx;
-    const nextY = this.player.y + dy;
-
-    if (!this.collidesWithWall(nextX, nextY)) {
-      this.player.x = nextX;
-      this.player.y = nextY;
-    }
-  }
-
-  private collidesWithWall(x: number, y: number) {
-    return this.walls.some((wall) =>
-      Phaser.Geom.Intersects.CircleToRectangle(
-        new Phaser.Geom.Circle(x, y, GAME_CONFIG.playerRadius),
-        wall.bounds
-      )
+  private drawVisionRing() {
+    this.visionGraphics.clear();
+    this.visionGraphics.lineStyle(1, 0x38bdf8, 0.18);
+    this.visionGraphics.strokeCircle(
+      this.player.x,
+      this.player.y,
+      GAME_CONFIG.playerVisionRadius
     );
   }
 
@@ -435,7 +432,7 @@ class GameScene extends Phaser.Scene {
     this.aimGraphics.fillCircle(endX, endY, 3);
   }
 
-  private tryShoot(time: number, aimPoint: Point) {
+  private tryShoot(time: number, aimPoint: Vec2) {
     if (!this.playerAlive) {
       return;
     }
@@ -446,49 +443,35 @@ class GameScene extends Phaser.Scene {
 
     this.lastShotAt = time;
 
-    const angle = Phaser.Math.Angle.Between(
-      this.player.x,
-      this.player.y,
-      aimPoint.x,
-      aimPoint.y
+    const result = resolveShot(
+      { x: this.player.x, y: this.player.y },
+      aimPoint,
+      GAME_CONFIG.shotRange,
+      MAP.walls,
+      this.enemies.map((enemy) => enemy.sim)
     );
 
-    const start = {
-      x: this.player.x,
-      y: this.player.y,
-    };
-
-    const maxEnd = {
-      x: this.player.x + Math.cos(angle) * GAME_CONFIG.shotRange,
-      y: this.player.y + Math.sin(angle) * GAME_CONFIG.shotRange,
-    };
-
-    const wallHit = this.findNearestWallHit(start, maxEnd);
-    const blockedEnd = wallHit ?? maxEnd;
-
-    const targetHit = this.findNearestTargetHit(start, blockedEnd);
-    const end = targetHit?.point ?? blockedEnd;
-
-    if (targetHit) {
-      this.killTarget(targetHit.target);
+    if (result.hitIndex !== null) {
+      this.killEnemy(this.enemies[result.hitIndex]);
     } else {
       this.statusText.setText('MISS');
       this.time.delayedCall(500, () => this.statusText.setText(''));
     }
 
-    this.activeShot = { start, end };
+    this.activeShot = { start: result.start, end: result.end };
     this.shotVisibleUntil = time + 120;
   }
 
-  private killTarget(target: Target) {
-    target.alive = false;
-    target.body.setVisible(false);
-    target.label.setVisible(false);
+  private killEnemy(enemy: Enemy) {
+    enemy.sim.alive = false;
+    enemy.body.setVisible(false);
+    enemy.label.setVisible(false);
+    enemy.ghost.setVisible(false);
     this.hitCount += 1;
 
     this.statusText.setText('HIT');
 
-    const hitText = this.add.text(target.x - 16, target.y - 8, 'HIT', {
+    const hitText = this.add.text(enemy.sim.x - 16, enemy.sim.y - 8, 'HIT', {
       color: '#fef3c7',
       fontSize: '16px',
       fontFamily: 'monospace',
@@ -505,9 +488,8 @@ class GameScene extends Phaser.Scene {
     this.time.delayedCall(500, () => this.statusText.setText(''));
 
     this.time.delayedCall(GAME_CONFIG.targetRespawnMs, () => {
-      target.alive = true;
-      target.body.setVisible(true);
-      target.label.setVisible(true);
+      enemy.sim.alive = true;
+      enemy.lastSeenAt = -Infinity;
     });
   }
 
@@ -523,6 +505,8 @@ class GameScene extends Phaser.Scene {
 
     this.ownFlagCampStartedAt = null;
     this.ownFlagExitedAt = null;
+
+    this.visionGraphics.clear();
 
     this.statusText.setText(`${reason} — respawning...`);
   }
@@ -545,7 +529,7 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    const ownFlag = this.flagZones.find((flag) => flag.team === this.playerTeam);
+    const ownFlag = MAP.flags.find((flag) => flag.team === this.playerTeam);
 
     if (!ownFlag) {
       return;
@@ -618,151 +602,6 @@ class GameScene extends Phaser.Scene {
 
     this.shotGraphics.fillStyle(0xfef3c7, 1);
     this.shotGraphics.fillCircle(this.activeShot.end.x, this.activeShot.end.y, 4);
-  }
-
-  private findNearestWallHit(start: Point, end: Point): Point | null {
-    let nearest: { point: Point; t: number } | null = null;
-
-    for (const wall of this.walls) {
-      const edges = this.getRectangleEdges(wall.bounds);
-
-      for (const edge of edges) {
-        const hit = this.getSegmentIntersection(start, end, edge.start, edge.end);
-
-        if (!hit) continue;
-
-        if (!nearest || hit.t < nearest.t) {
-          nearest = {
-            point: hit.point,
-            t: hit.t,
-          };
-        }
-      }
-    }
-
-    return nearest?.point ?? null;
-  }
-
-  private findNearestTargetHit(
-    start: Point,
-    end: Point
-  ): { target: Target; point: Point; t: number } | null {
-    let nearest: { target: Target; point: Point; t: number } | null = null;
-
-    for (const target of this.targets) {
-      if (!target.alive) continue;
-
-      const hit = this.getSegmentCircleIntersection(
-        start,
-        end,
-        { x: target.body.x, y: target.body.y },
-        target.radius
-      );
-
-      if (!hit) continue;
-
-      if (!nearest || hit.t < nearest.t) {
-        nearest = {
-          target,
-          point: hit.point,
-          t: hit.t,
-        };
-      }
-    }
-
-    return nearest;
-  }
-
-  private getRectangleEdges(rect: Phaser.Geom.Rectangle) {
-    const left = rect.left;
-    const right = rect.right;
-    const top = rect.top;
-    const bottom = rect.bottom;
-
-    return [
-      { start: { x: left, y: top }, end: { x: right, y: top } },
-      { start: { x: right, y: top }, end: { x: right, y: bottom } },
-      { start: { x: right, y: bottom }, end: { x: left, y: bottom } },
-      { start: { x: left, y: bottom }, end: { x: left, y: top } },
-    ];
-  }
-
-  private getSegmentIntersection(
-    a: Point,
-    b: Point,
-    c: Point,
-    d: Point
-  ): { point: Point; t: number } | null {
-    const rX = b.x - a.x;
-    const rY = b.y - a.y;
-    const sX = d.x - c.x;
-    const sY = d.y - c.y;
-
-    const denominator = rX * sY - rY * sX;
-
-    if (Math.abs(denominator) < 0.000001) {
-      return null;
-    }
-
-    const cMinusAX = c.x - a.x;
-    const cMinusAY = c.y - a.y;
-
-    const t = (cMinusAX * sY - cMinusAY * sX) / denominator;
-    const u = (cMinusAX * rY - cMinusAY * rX) / denominator;
-
-    if (t < 0 || t > 1 || u < 0 || u > 1) {
-      return null;
-    }
-
-    return {
-      point: {
-        x: a.x + t * rX,
-        y: a.y + t * rY,
-      },
-      t,
-    };
-  }
-
-  private getSegmentCircleIntersection(
-    start: Point,
-    end: Point,
-    center: Point,
-    radius: number
-  ): { point: Point; t: number } | null {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-
-    const fx = start.x - center.x;
-    const fy = start.y - center.y;
-
-    const a = dx * dx + dy * dy;
-    const b = 2 * (fx * dx + fy * dy);
-    const c = fx * fx + fy * fy - radius * radius;
-
-    const discriminant = b * b - 4 * a * c;
-
-    if (discriminant < 0) {
-      return null;
-    }
-
-    const sqrtDiscriminant = Math.sqrt(discriminant);
-
-    const t1 = (-b - sqrtDiscriminant) / (2 * a);
-    const t2 = (-b + sqrtDiscriminant) / (2 * a);
-
-    const t = [t1, t2].find((value) => value >= 0 && value <= 1);
-
-    if (t === undefined) {
-      return null;
-    }
-
-    return {
-      point: {
-        x: start.x + dx * t,
-        y: start.y + dy * t,
-      },
-      t,
-    };
   }
 }
 
