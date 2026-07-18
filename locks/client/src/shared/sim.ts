@@ -1,0 +1,130 @@
+// Pure simulation rules — no Phaser. This is the code an authoritative
+// server will run verbatim to validate movement, shots, and visibility.
+
+import type { RayHit, Vec2 } from './geometry';
+import {
+  circleIntersectsRect,
+  distance,
+  segmentCircleIntersection,
+  segmentRectIntersection,
+} from './geometry';
+import type { FlagDef, Team, WallDef } from './config';
+
+export type CircleTarget = {
+  x: number;
+  y: number;
+  radius: number;
+  alive: boolean;
+};
+
+export type ShotResult = {
+  start: Vec2;
+  end: Vec2;
+  hitIndex: number | null;
+};
+
+// --- Movement -------------------------------------------------------------
+
+export function collidesWithWalls(x: number, y: number, radius: number, walls: WallDef[]): boolean {
+  return walls.some((w) => circleIntersectsRect(x, y, radius, w.rect));
+}
+
+// Per-axis movement so players slide along walls instead of sticking.
+export function moveCircle(
+  pos: Vec2,
+  dx: number,
+  dy: number,
+  radius: number,
+  walls: WallDef[]
+): Vec2 {
+  let { x, y } = pos;
+  if (!collidesWithWalls(x + dx, y, radius, walls)) x += dx;
+  if (!collidesWithWalls(x, y + dy, radius, walls)) y += dy;
+  return { x, y };
+}
+
+// --- Raycasts -------------------------------------------------------------
+
+function nearestWallHit(
+  start: Vec2,
+  end: Vec2,
+  walls: WallDef[],
+  filter: (w: WallDef) => boolean
+): RayHit | null {
+  let nearest: RayHit | null = null;
+  for (const w of walls) {
+    if (!filter(w)) continue;
+    const hit = segmentRectIntersection(start, end, w.rect);
+    if (hit && (!nearest || hit.t < nearest.t)) nearest = hit;
+  }
+  return nearest;
+}
+
+// Vision: every wall blocks sight (soft cover hides you).
+export function hasLineOfSight(a: Vec2, b: Vec2, walls: WallDef[]): boolean {
+  return nearestWallHit(a, b, walls, () => true) === null;
+}
+
+// --- Shooting -------------------------------------------------------------
+
+// Shots pass through soft cover; only blocksShots walls stop them.
+export function resolveShot(
+  origin: Vec2,
+  aimAt: Vec2,
+  range: number,
+  walls: WallDef[],
+  targets: CircleTarget[]
+): ShotResult {
+  const angle = Math.atan2(aimAt.y - origin.y, aimAt.x - origin.x);
+  const maxEnd: Vec2 = {
+    x: origin.x + Math.cos(angle) * range,
+    y: origin.y + Math.sin(angle) * range,
+  };
+
+  const wallHit = nearestWallHit(origin, maxEnd, walls, (w) => w.blocksShots);
+  const blockedEnd = wallHit?.point ?? maxEnd;
+
+  let nearest: { index: number; hit: RayHit } | null = null;
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i];
+    if (!target.alive) continue;
+    const hit = segmentCircleIntersection(
+      origin,
+      blockedEnd,
+      { x: target.x, y: target.y },
+      target.radius
+    );
+    if (hit && (!nearest || hit.t < nearest.hit.t)) nearest = { index: i, hit };
+  }
+
+  if (nearest) {
+    return { start: origin, end: nearest.hit.point, hitIndex: nearest.index };
+  }
+  return { start: origin, end: blockedEnd, hitIndex: null };
+}
+
+// --- Visibility -----------------------------------------------------------
+
+// A target is visible to a viewer if:
+//   (a) it's within the viewer's vision radius AND has clear line of sight, or
+//   (b) it's inside the viewer team's flag beacon radius (beacon vision
+//       ignores walls — the flag acts as a watchtower, like the original).
+export function isTargetVisible(
+  viewer: Vec2,
+  viewerTeam: Team,
+  target: Vec2,
+  walls: WallDef[],
+  visionRadius: number,
+  flags: FlagDef[]
+): boolean {
+  if (distance(viewer, target) <= visionRadius && hasLineOfSight(viewer, target, walls)) {
+    return true;
+  }
+
+  for (const flag of flags) {
+    if (flag.team !== viewerTeam) continue;
+    if (distance({ x: flag.x, y: flag.y }, target) <= flag.visionRadius) return true;
+  }
+
+  return false;
+}
