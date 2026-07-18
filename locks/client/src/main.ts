@@ -6,6 +6,8 @@ import type { Team } from './shared/config';
 import type { Vec2 } from './shared/geometry';
 import {
   carriedFlagTeam,
+  createMatchState,
+  evaluateMatch,
   computeVisionPolygon,
   createCtfState,
   isTargetVisible,
@@ -15,7 +17,7 @@ import {
   tryCaptureFlag,
   tryGrabFlag,
 } from './shared/sim';
-import type { CtfState } from './shared/sim';
+import type { CtfState, MatchState } from './shared/sim';
 import type { CircleTarget } from './shared/sim';
 
 type Enemy = {
@@ -51,6 +53,9 @@ class GameScene extends Phaser.Scene {
   private playerAlive = true;
 
   private ctf: CtfState = createCtfState();
+  private match: MatchState = createMatchState();
+  private roundStartAt = 0;
+  private timerText!: Phaser.GameObjects.Text;
   private flagMarkers: Partial<Record<Team, Phaser.GameObjects.Arc[]>> = {};
   private carryIndicator!: Phaser.GameObjects.Arc;
   private respawnAt = 0;
@@ -73,6 +78,25 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // scene.restart() reuses this instance, so reset all round state here.
+    this.ctf = createCtfState();
+    this.match = createMatchState();
+    this.enemies = [];
+    this.flagMarkers = {};
+    this.playerAlive = true;
+    this.respawnAt = 0;
+    this.ownFlagCampStartedAt = null;
+    this.ownFlagExitedAt = null;
+    this.lastShotAt = -Infinity;
+    this.shotVisibleUntil = 0;
+    this.activeShot = null;
+    this.hitCount = 0;
+    this.mobileMovePointerId = null;
+    this.mobileMoveOrigin = null;
+    this.mobileMoveCurrent = null;
+    this.mobileMoveVector = { x: 0, y: 0 };
+    this.roundStartAt = this.time.now;
+
     this.cameras.main.setBackgroundColor('#111827');
 
     this.add
@@ -112,6 +136,18 @@ class GameScene extends Phaser.Scene {
     this.debugText.setDepth(100);
     this.statusText.setDepth(100);
     this.campText.setDepth(100);
+
+    this.timerText = this.add.text(GAME_CONFIG.worldWidth / 2, 24, '', {
+      color: '#ffffff',
+      fontSize: '22px',
+      fontFamily: 'monospace',
+    });
+    this.timerText.setOrigin(0.5, 0);
+    this.timerText.setDepth(100);
+
+    this.input.keyboard!.on('keydown-R', () => {
+      if (this.match.phase === 'ended') this.scene.restart();
+    });
 
     this.createArena();
 
@@ -187,6 +223,18 @@ class GameScene extends Phaser.Scene {
 
   update(time: number, delta: number) {
     const dt = delta / 1000;
+
+    if (this.match.phase === 'ended') {
+      return;
+    }
+
+    const remainingMs = GAME_CONFIG.roundDurationMs - (time - this.roundStartAt);
+    this.updateTimerText(remainingMs);
+
+    if (evaluateMatch(this.match, this.ctf, remainingMs, GAME_CONFIG.scoreToWin)) {
+      this.showMatchEnd();
+      return;
+    }
 
     if (!this.playerAlive) {
       this.mobileMoveVector = { x: 0, y: 0 };
@@ -379,6 +427,11 @@ class GameScene extends Phaser.Scene {
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer) {
+    if (this.match.phase === 'ended') {
+      this.scene.restart();
+      return;
+    }
+
     const pointerEvent = pointer.event as Event & { pointerType?: string };
     const isTouch =
       (pointer as unknown as { wasTouch?: boolean }).wasTouch === true ||
@@ -466,6 +519,70 @@ class GameScene extends Phaser.Scene {
 
     this.mobileControlGraphics.fillStyle(0xbfdbfe, 0.7);
     this.mobileControlGraphics.fillCircle(this.mobileMoveCurrent.x, this.mobileMoveCurrent.y, 10);
+  }
+
+  private updateTimerText(remainingMs: number) {
+    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    this.timerText.setText(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+  }
+
+  private showMatchEnd() {
+    this.timerText.setText('0:00');
+
+    const overlay = this.add.rectangle(
+      GAME_CONFIG.worldWidth / 2,
+      GAME_CONFIG.worldHeight / 2,
+      GAME_CONFIG.worldWidth,
+      GAME_CONFIG.worldHeight,
+      0x000000,
+      0.72
+    );
+    overlay.setDepth(200);
+
+    const result = this.match.result;
+    const headline =
+      result === 'draw' ? 'DRAW' : `${(result ?? '').toUpperCase()} TEAM WINS`;
+    const headlineColor =
+      result === 'red' ? '#fca5a5' : result === 'blue' ? '#93c5fd' : '#e2e8f0';
+
+    this.add
+      .text(GAME_CONFIG.worldWidth / 2, GAME_CONFIG.worldHeight / 2 - 40, headline, {
+        color: headlineColor,
+        fontSize: '48px',
+        fontFamily: 'system-ui, sans-serif',
+      })
+      .setOrigin(0.5)
+      .setDepth(201);
+
+    this.add
+      .text(
+        GAME_CONFIG.worldWidth / 2,
+        GAME_CONFIG.worldHeight / 2 + 12,
+        `RED ${this.ctf.scores.red} — ${this.ctf.scores.blue} BLUE`,
+        {
+          color: '#e2e8f0',
+          fontSize: '26px',
+          fontFamily: 'monospace',
+        }
+      )
+      .setOrigin(0.5)
+      .setDepth(201);
+
+    this.add
+      .text(
+        GAME_CONFIG.worldWidth / 2,
+        GAME_CONFIG.worldHeight / 2 + 60,
+        'Press R or tap to play again',
+        {
+          color: '#94a3b8',
+          fontSize: '18px',
+          fontFamily: 'system-ui, sans-serif',
+        }
+      )
+      .setOrigin(0.5)
+      .setDepth(201);
   }
 
   private updateCtf() {
