@@ -4,7 +4,18 @@ import Phaser from 'phaser';
 import { GAME_CONFIG, MAP } from './shared/config';
 import type { Team } from './shared/config';
 import type { Vec2 } from './shared/geometry';
-import { computeVisionPolygon, isTargetVisible, moveCircle, resolveShot } from './shared/sim';
+import {
+  carriedFlagTeam,
+  computeVisionPolygon,
+  createCtfState,
+  isTargetVisible,
+  moveCircle,
+  resolveShot,
+  returnFlagOnDeath,
+  tryCaptureFlag,
+  tryGrabFlag,
+} from './shared/sim';
+import type { CtfState } from './shared/sim';
 import type { CircleTarget } from './shared/sim';
 
 type Enemy = {
@@ -38,6 +49,10 @@ class GameScene extends Phaser.Scene {
 
   private playerTeam: Team = 'red';
   private playerAlive = true;
+
+  private ctf: CtfState = createCtfState();
+  private flagMarkers: Partial<Record<Team, Phaser.GameObjects.Arc[]>> = {};
+  private carryIndicator!: Phaser.GameObjects.Arc;
   private respawnAt = 0;
 
   private ownFlagCampStartedAt: number | null = null;
@@ -138,6 +153,12 @@ class GameScene extends Phaser.Scene {
     this.mobileControlGraphics.setDepth(100);
     this.player.setDepth(60);
 
+    // Small enemy-colored dot riding on the carrier — only YOU see it
+    // (fog still hides you from the enemy team; no carrier reveal).
+    this.carryIndicator = this.add.circle(0, 0, 6, 0x3b82f6, 0.95);
+    this.carryIndicator.setDepth(61);
+    this.carryIndicator.setVisible(false);
+
     this.cursors = this.input.keyboard!.createCursorKeys();
 
     this.keys = this.input.keyboard!.addKeys({
@@ -211,6 +232,8 @@ class GameScene extends Phaser.Scene {
       this.player.y = next.y;
     }
 
+    this.updateCtf();
+
     this.drawVisionRing();
     this.drawFog();
     this.drawAimLine();
@@ -233,6 +256,9 @@ class GameScene extends Phaser.Scene {
         `shot cooldown=${cooldownRemaining.toFixed(0)}ms`,
         `enemies alive=${aliveEnemies}/${this.enemies.length} visible=${visibleEnemies}`,
         `hits=${this.hitCount}`,
+        `score RED ${this.ctf.scores.red} — ${this.ctf.scores.blue} BLUE${
+          carriedFlagTeam(this.ctf, 'player') ? '  [CARRYING FLAG]' : ''
+        }`,
       ].join('\n')
     );
   }
@@ -300,8 +326,9 @@ class GameScene extends Phaser.Scene {
       campRing.setStrokeStyle(2, 0xfca5a5, 0.32);
     }
 
-    this.add.circle(x, y, 28, color, 0.35);
-    this.add.circle(x, y, 8, color, 0.9);
+    const outerMarker = this.add.circle(x, y, 28, color, 0.35);
+    const innerMarker = this.add.circle(x, y, 8, color, 0.9);
+    this.flagMarkers[team] = [outerMarker, innerMarker];
 
     this.add.text(x - 24, y + 34, team.toUpperCase(), {
       color: team === 'red' ? '#fecaca' : '#bfdbfe',
@@ -441,6 +468,40 @@ class GameScene extends Phaser.Scene {
     this.mobileControlGraphics.fillCircle(this.mobileMoveCurrent.x, this.mobileMoveCurrent.y, 10);
   }
 
+  private updateCtf() {
+    const pos = { x: this.player.x, y: this.player.y };
+
+    if (
+      tryGrabFlag(this.ctf, 'player', this.playerTeam, pos, MAP.flags, GAME_CONFIG.flagInteractRadius)
+    ) {
+      this.statusText.setText('ENEMY FLAG TAKEN — bring it home');
+      this.time.delayedCall(1500, () => this.statusText.setText(''));
+    }
+
+    if (
+      tryCaptureFlag(this.ctf, 'player', this.playerTeam, pos, MAP.flags, GAME_CONFIG.flagInteractRadius)
+    ) {
+      this.statusText.setText('CAPTURED! +1');
+      this.time.delayedCall(1500, () => this.statusText.setText(''));
+    }
+
+    // Flag center markers only render while the flag is home.
+    for (const flag of MAP.flags) {
+      const atBase = this.ctf.flags[flag.team].atBase;
+      for (const marker of this.flagMarkers[flag.team] ?? []) {
+        marker.setVisible(atBase);
+      }
+    }
+
+    // Carry indicator rides on the player.
+    const carrying = carriedFlagTeam(this.ctf, 'player') !== null;
+    this.carryIndicator.setVisible(carrying && this.playerAlive);
+    if (carrying) {
+      this.carryIndicator.x = this.player.x;
+      this.carryIndicator.y = this.player.y - GAME_CONFIG.playerRadius - 10;
+    }
+  }
+
   // Redraw the fog mask: lit area = line-of-sight polygon (when alive)
   // plus your own flag's beacon circle. Everything else stays dark.
   private drawFog() {
@@ -575,7 +636,11 @@ class GameScene extends Phaser.Scene {
 
     this.visionGraphics.clear();
 
-    this.statusText.setText(`${reason} — respawning...`);
+    if (returnFlagOnDeath(this.ctf, 'player')) {
+      this.statusText.setText(`${reason} — flag returned, respawning...`);
+    } else {
+      this.statusText.setText(`${reason} — respawning...`);
+    }
   }
 
   private respawnPlayer() {
