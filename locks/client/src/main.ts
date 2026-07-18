@@ -52,6 +52,9 @@ class GameScene extends Phaser.Scene {
   private playerTeam: Team = 'red';
   private playerAlive = true;
 
+  private visionHistory: Array<{ points: Phaser.Math.Vector2[]; at: number }> = [];
+  private lastVisionSampleAt = 0;
+
   private ctf: CtfState = createCtfState();
   private match: MatchState = createMatchState();
   private roundStartAt = 0;
@@ -95,6 +98,8 @@ class GameScene extends Phaser.Scene {
     this.mobileMoveOrigin = null;
     this.mobileMoveCurrent = null;
     this.mobileMoveVector = { x: 0, y: 0 };
+    this.visionHistory = [];
+    this.lastVisionSampleAt = 0;
     this.roundStartAt = this.time.now;
 
     this.cameras.main.setBackgroundColor('#111827');
@@ -254,7 +259,7 @@ class GameScene extends Phaser.Scene {
       this.aimGraphics.clear();
       this.drawActiveShot(time);
       this.drawMobileControls();
-      this.drawFog();
+      this.drawFog(time);
       this.updateVisibility(time);
       this.updateCampTimer(time);
       return;
@@ -291,7 +296,7 @@ class GameScene extends Phaser.Scene {
     this.updateCtf();
 
     this.drawVisionRing();
-    this.drawFog();
+    this.drawFog(time);
     this.drawAimLine();
     this.drawActiveShot(time);
     this.drawMobileControls();
@@ -635,24 +640,46 @@ class GameScene extends Phaser.Scene {
 
   // Redraw the fog mask: lit area = line-of-sight polygon (when alive)
   // plus your own flag's beacon circle. Everything else stays dark.
-  private drawFog() {
+  private drawFog(time: number) {
     this.fogMaskGraphics.clear();
-    this.fogMaskGraphics.fillStyle(0xffffff, 1);
 
     if (this.playerAlive) {
       const polygon = computeVisionPolygon(
         { x: this.player.x, y: this.player.y },
         MAP.walls,
         GAME_CONFIG.playerVisionRadius
+      ).map((p) => new Phaser.Math.Vector2(p.x, p.y));
+
+      // Sample the current polygon into a short history so recently-seen
+      // ground stays dimly lit for a moment after you move on (SC-style
+      // vision decay).
+      if (time - this.lastVisionSampleAt >= GAME_CONFIG.visionSampleMs) {
+        this.visionHistory.push({ points: polygon, at: time });
+        this.lastVisionSampleAt = time;
+      }
+      this.visionHistory = this.visionHistory.filter(
+        (sample) => time - sample.at <= GAME_CONFIG.visionMemoryMs
       );
-      this.fogMaskGraphics.fillPoints(
-        polygon.map((p) => new Phaser.Math.Vector2(p.x, p.y)),
-        true
-      );
+
+      // Older samples first, fading with age; current sight on top at full
+      // strength.
+      for (const sample of this.visionHistory) {
+        const age = time - sample.at;
+        const alpha = Math.max(0.15, 1 - age / GAME_CONFIG.visionMemoryMs) * 0.8;
+        this.fogMaskGraphics.fillStyle(0xffffff, alpha);
+        this.fogMaskGraphics.fillPoints(sample.points, true);
+      }
+
+      this.fogMaskGraphics.fillStyle(0xffffff, 1);
+      this.fogMaskGraphics.fillPoints(polygon, true);
+    } else {
+      this.visionHistory = [];
+      this.fogMaskGraphics.fillStyle(0xffffff, 1);
     }
 
     const ownFlag = MAP.flags.find((flag) => flag.team === this.playerTeam);
     if (ownFlag) {
+      this.fogMaskGraphics.fillStyle(0xffffff, 1);
       this.fogMaskGraphics.fillCircle(ownFlag.x, ownFlag.y, ownFlag.visionRadius);
     }
   }
