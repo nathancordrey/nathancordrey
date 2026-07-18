@@ -34,6 +34,10 @@ export const GAME_CONFIG = {
 
   // CTF: how close you must be to a flag center to grab or capture.
   flagInteractRadius: 38,
+
+  // Match: round length and caps needed for an instant win.
+  roundDurationMs: 5 * 60_000,
+  scoreToWin: 3,
 };
 
 export type Team = 'red' | 'blue';
