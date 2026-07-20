@@ -1,0 +1,16 @@
+# /etc/systemd/system/locks-game.service
+[Unit]
+Description=Locks game server
+After=network.target
+
+[Service]
+WorkingDirectory=/home/nathan/code/nathancordrey/locks/server
+ExecStart=/usr/bin/env npm start
+Environment=PORT=2567
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=3
+User=nathan
+
+[Install]
+WantedBy=multi-user.target
