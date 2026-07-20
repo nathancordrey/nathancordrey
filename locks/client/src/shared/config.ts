@@ -74,6 +74,23 @@ export const GAME_CONFIG = {
   // Match roster: symmetric 2v2 slots. Slots default to bot control;
   // humans claim slots at runtime (offline: r1 is the local player; online:
   // the server assigns joiners red-then-blue). Unfilled slots run bots.
+  // Bot behaviour. One tier now; the shape supports easy/med/hard later by
+  // swapping which BotConfig a brain is built with.
+  botDifficulties: {
+    normal: {
+      reactionMinMs: 220,
+      reactionMaxMs: 420,
+      patrolJitterTiles: 2.5,   // waypoint wander so bots aren't loop-walkers
+      sweepJitterTiles: 3,      // spread when searching a lost target's area
+      repathOnGoalMoveTiles: 3, // repath when the goal drifts this far
+    },
+  } as Record<string, BotConfig>,
+  defaultBotDifficulty: 'normal',
+
+  // Fixed default seed so offline practice is reproducible; the server can
+  // pass a fresh seed per match.
+  defaultSeed: 1,
+
   roster: [
     { id: 'r1', team: 'red' as Team, control: 'bot' as const, label: 'R1', spawn: { x: 12.5 * TILE, y: 28 * TILE } },
     { id: 'r2', team: 'red' as Team, control: 'bot' as const, label: 'R2', spawn: { x: 12.5 * TILE, y: 36 * TILE } },
@@ -83,6 +100,14 @@ export const GAME_CONFIG = {
 };
 
 export type Team = 'red' | 'blue';
+
+export type BotConfig = {
+  reactionMinMs: number;
+  reactionMaxMs: number;
+  patrolJitterTiles: number;
+  sweepJitterTiles: number;
+  repathOnGoalMoveTiles: number;
+};
 
 export type WallDef = {
   rect: Rect;
