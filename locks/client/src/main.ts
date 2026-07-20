@@ -14,9 +14,17 @@ import type { Frame, GameSession } from './session';
 const TEAM_COLORS: Record<Team, number> = { red: 0xef4444, blue: 0x3b82f6 };
 const TEAM_LIGHT: Record<Team, number> = { red: 0xfecaca, blue: 0xbfdbfe };
 
-const DEFAULT_SERVER =
-  (import.meta as { env?: Record<string, string> }).env?.VITE_LOCKS_SERVER ??
-  `ws://${window.location.hostname}:2567`;
+const DEFAULT_SERVER = (() => {
+  const override = new URLSearchParams(window.location.search).get('server');
+  if (override !== null && override !== '') return override;
+  const fromEnv = (import.meta as { env?: Record<string, string> }).env?.VITE_LOCKS_SERVER;
+  if (fromEnv !== undefined && fromEnv !== '') return fromEnv;
+  // https pages must use wss (mixed content); local dev falls back to :2567.
+  const secure = window.location.protocol === 'https:';
+  return secure
+    ? `wss://${window.location.hostname}`
+    : `ws://${window.location.hostname}:2567`;
+})();
 
 // ---------------------------------------------------------------------------
 
