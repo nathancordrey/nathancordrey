@@ -9,7 +9,11 @@ import { WebSocketTransport } from '@colyseus/ws-transport';
 
 import { MatchRoom } from './MatchRoom.js';
 
-const port = Number(process.env.PORT ?? 2567);
+const requestedPort = Number(process.env.PORT ?? 2567);
+if (!Number.isInteger(requestedPort) || requestedPort < 1 || requestedPort > 65_535) {
+  throw new Error(`Invalid PORT value: ${process.env.PORT ?? ''}`);
+}
+const port = requestedPort;
 
 const app = express();
 app.get('/health', (_req, res) => {
@@ -24,6 +28,12 @@ export const gameServer = new Server({
 
 gameServer.define('match', MatchRoom);
 
-gameServer.listen(port).then(() => {
+async function start() {
+  await gameServer.listen(port);
   console.log(`[locks-game] listening on :${port}`);
+}
+
+start().catch((error: unknown) => {
+  console.error('[locks-game] failed to start', error);
+  process.exitCode = 1;
 });
