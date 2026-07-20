@@ -38,8 +38,13 @@ export class LocalSession implements GameSession {
   readonly mode = 'practice' as const;
   readonly playerId = 'r1';
 
+  private difficulty: string;
   private state: GameState = createGameState();
   private brains: Map<string, BotBrain> = new Map();
+
+  constructor(difficulty: string = GAME_CONFIG.defaultBotDifficulty) {
+    this.difficulty = difficulty;
+  }
   private accumulator = 0;
   private prev: Map<string, Vec2> = new Map();
   private pendingEvents: GameEvent[] = [];
@@ -61,7 +66,11 @@ export class LocalSession implements GameSession {
           if (brain === undefined) {
             const teammates = GAME_CONFIG.roster.filter((r) => r.team === unit.team);
             const indexInTeam = teammates.findIndex((r) => r.id === unit.id);
-            brain = makeBotBrain(unit.id, assignRole(indexInTeam));
+            brain = makeBotBrain(
+              unit.id,
+              assignRole(indexInTeam),
+              GAME_CONFIG.botDifficulties[this.difficulty]
+            );
             this.brains.set(unit.id, brain);
           }
           intents[unit.id] = brain(perceive(this.state, unit.id));
