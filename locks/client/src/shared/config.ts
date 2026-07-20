@@ -17,10 +17,11 @@ export const GAME_CONFIG = {
   viewportWidth: 20 * TILE, // 720
   viewportHeight: 12 * TILE, // 432
 
+  // Fixed simulation timestep. Rendering interpolates between ticks.
+  tickRate: 30,
+
   playerSpeed: 180,
   playerRadius: 14,
-  playerSpawnX: 12.5 * TILE,
-  playerSpawnY: 32 * TILE,
 
   // Ghost sight range: 9 tiles.
   playerVisionRadius: 9 * TILE, // 324
@@ -34,8 +35,6 @@ export const GAME_CONFIG = {
   // Ghost attack range: 7 tiles — you can see farther than you can shoot.
   shotRange: 7 * TILE, // 252
 
-  targetRadius: 13,
-  targetRespawnMs: 2000,
 
   flagVisionRadius: 9 * TILE,
   ownFlagCampRadius: 10.5 * TILE,
@@ -50,6 +49,37 @@ export const GAME_CONFIG = {
 
   roundDurationMs: 5 * 60_000,
   scoreToWin: 3,
+
+  // Targeting mode. 'locks' (the intended game): clicking an enemy issues a
+  // sticky attack/chase order; firing auto-resolves from sim conditions.
+  // 'raycast': free-fire hitscan toward the click point (debug/test mode).
+  targetingMode: 'locks' as 'locks' | 'raycast',
+  lockClickTolerance: 8,
+
+  locks: {
+    // Stale locks keep chasing the target's REAL hidden position (Option B
+    // from the design note). Set false to chase last-known position instead.
+    hiddenTracking: true,
+    requireFacingCone: true,
+    attackConeDegrees: 25,
+    turnRateDegreesPerSecond: 360,
+    lockAcquireMs: 100,
+    // Stop closing distance once this fraction of weapon range is reached
+    // and the target is visible.
+    chaseStandoffFraction: 0.9,
+    // Same-tick duels: closest-to-dead-on aim wins; within epsilon = trade.
+    tradeEpsilonDegrees: 1.5,
+  },
+
+  // Match roster. A unit is a unit — 'player' intents come from input,
+  // 'bot' intents come from a brain function, and later 'remote' from a
+  // socket. Blue spawns sit outside their own camp zone.
+  roster: [
+    { id: 'p1', team: 'red' as Team, control: 'player' as const, label: 'YOU', spawn: { x: 12.5 * TILE, y: 32 * TILE } },
+    { id: 'b1', team: 'blue' as Team, control: 'bot' as const, label: 'B1', spawn: { x: 44 * TILE, y: 20 * TILE } },
+    { id: 'b2', team: 'blue' as Team, control: 'bot' as const, label: 'B2', spawn: { x: 42 * TILE, y: 32 * TILE } },
+    { id: 'b3', team: 'blue' as Team, control: 'bot' as const, label: 'B3', spawn: { x: 44 * TILE, y: 44 * TILE } },
+  ],
 };
 
 export type Team = 'red' | 'blue';
@@ -69,12 +99,9 @@ export type FlagDef = {
   campRadius: number;
 };
 
-export type EnemySpawn = { x: number; y: number; label: string };
-
 export type MapDef = {
   walls: WallDef[];
   flags: FlagDef[];
-  enemySpawns: EnemySpawn[];
 };
 
 function wall(x: number, y: number, w: number, h: number, blocksShots: boolean): WallDef {
@@ -135,12 +162,6 @@ export const MAP: MapDef = {
       visionRadius: GAME_CONFIG.flagVisionRadius,
       campRadius: GAME_CONFIG.ownFlagCampRadius,
     },
-  ],
-  enemySpawns: [
-    { x: 1700, y: 900, label: 'T1' },
-    { x: 1420, y: 1500, label: 'T2' },
-    { x: 1900, y: 1420, label: 'T3' },
-    { x: 1000, y: 620, label: 'T4' },
   ],
 };
 
