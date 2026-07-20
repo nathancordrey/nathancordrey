@@ -77,15 +77,22 @@ export const GAME_CONFIG = {
   // Bot behaviour. One tier now; the shape supports easy/med/hard later by
   // swapping which BotConfig a brain is built with.
   botDifficulties: {
+    easy: {
+      reactionMinMs: 650,
+      reactionMaxMs: 1100,
+      patrolJitterTiles: 3,
+      sweepJitterTiles: 4,
+      repathOnGoalMoveTiles: 3,
+    },
     normal: {
       reactionMinMs: 220,
       reactionMaxMs: 420,
-      patrolJitterTiles: 2.5,   // waypoint wander so bots aren't loop-walkers
-      sweepJitterTiles: 3,      // spread when searching a lost target's area
-      repathOnGoalMoveTiles: 3, // repath when the goal drifts this far
+      patrolJitterTiles: 2.5,
+      sweepJitterTiles: 3,
+      repathOnGoalMoveTiles: 3,
     },
   } as Record<string, BotConfig>,
-  defaultBotDifficulty: 'normal',
+  defaultBotDifficulty: 'easy',
 
   // Fixed default seed so offline practice is reproducible; the server can
   // pass a fresh seed per match.
