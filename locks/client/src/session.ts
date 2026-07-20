@@ -4,7 +4,8 @@
 import { Client as ColyseusClient, Room } from 'colyseus.js';
 
 import type { Vec2 } from './shared/geometry';
-import { makeAggroBrain } from './shared/bots';
+import { makeBotBrain, assignRole } from './shared/bots';
+import { GAME_CONFIG } from './shared/config';
 import type { BotBrain } from './shared/bots';
 import type { Snapshot, WelcomeMessage } from './shared/protocol';
 import {
@@ -58,7 +59,9 @@ export class LocalSession implements GameSession {
         } else {
           let brain = this.brains.get(unit.id);
           if (brain === undefined) {
-            brain = makeAggroBrain(unit.id);
+            const teammates = GAME_CONFIG.roster.filter((r) => r.team === unit.team);
+            const indexInTeam = teammates.findIndex((r) => r.id === unit.id);
+            brain = makeBotBrain(unit.id, assignRole(indexInTeam));
             this.brains.set(unit.id, brain);
           }
           intents[unit.id] = brain(perceive(this.state, unit.id));
