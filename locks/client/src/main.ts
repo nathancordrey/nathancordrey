@@ -18,7 +18,7 @@ import type { GameEvent, GameState, Intent, Unit } from './shared/state';
 import { makeAggroBrain } from './shared/bots';
 import type { BotBrain } from './shared/bots';
 
-const PLAYER_ID = 'p1';
+const PLAYER_ID = 'r1';
 const PLAYER_TEAM: Team = 'red';
 
 type UnitView = {
