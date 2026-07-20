@@ -17,17 +17,22 @@ export const idleBrain: BotBrain = () => IDLE_INTENT;
 
 // Patrol loops per bot, in open ground on the blue half / midfield.
 const PATROLS: Record<string, Vec2[]> = {
+  r1: [
+    { x: 20 * TILE, y: 20 * TILE },
+    { x: 29 * TILE, y: 21 * TILE },
+    { x: 24 * TILE, y: 28 * TILE },
+  ],
+  r2: [
+    { x: 20 * TILE, y: 44 * TILE },
+    { x: 28 * TILE, y: 44 * TILE },
+    { x: 21 * TILE, y: 36 * TILE },
+  ],
   b1: [
     { x: 44 * TILE, y: 20 * TILE },
     { x: 35 * TILE, y: 21 * TILE },
     { x: 40 * TILE, y: 28 * TILE },
   ],
   b2: [
-    { x: 42 * TILE, y: 32 * TILE },
-    { x: 36 * TILE, y: 32 * TILE },
-    { x: 42 * TILE, y: 39 * TILE },
-  ],
-  b3: [
     { x: 44 * TILE, y: 44 * TILE },
     { x: 36 * TILE, y: 44 * TILE },
     { x: 43 * TILE, y: 36 * TILE },
