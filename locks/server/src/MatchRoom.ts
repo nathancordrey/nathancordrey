@@ -6,7 +6,7 @@ import { Room, Client } from 'colyseus';
 
 import { GAME_CONFIG } from '../../client/src/shared/config.js';
 import type { Team } from '../../client/src/shared/config.js';
-import { makeAggroBrain } from '../../client/src/shared/bots.js';
+import { makeBotBrain, assignRole } from '../../client/src/shared/bots.js';
 import type { BotBrain } from '../../client/src/shared/bots.js';
 import {
   createGameState,
@@ -61,7 +61,9 @@ export class MatchRoom extends Room {
     }));
 
     for (const entry of GAME_CONFIG.roster) {
-      this.botBrains.set(entry.id, makeAggroBrain(entry.id));
+      const teammates = GAME_CONFIG.roster.filter((r) => r.team === entry.team);
+      const indexInTeam = teammates.findIndex((r) => r.id === entry.id);
+      this.botBrains.set(entry.id, makeBotBrain(entry.id, assignRole(indexInTeam)));
     }
 
     // Clients say 'ready' after registering their message handlers. Until
