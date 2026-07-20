@@ -1,0 +1,34 @@
+// Network protocol: message shapes shared by server and client. The Snapshot
+// is exactly what perceive() allows a team to know, plus match timing —
+// nothing more ever crosses the wire.
+
+import type { Team } from './config';
+import type { MatchState } from './sim';
+import type { PerceivedEnemy, Unit } from './state';
+
+export type Snapshot = {
+  tick: number;
+  remainingMs: number;
+  match: MatchState;
+  scores: Record<Team, number>;
+  flagsAtBase: Record<Team, boolean>;
+  carrierIds: Record<Team, string | null>;
+  self: Unit;
+  allies: Unit[];
+  visibleEnemies: PerceivedEnemy[];
+};
+
+export type WelcomeMessage = {
+  unitId: string;
+  team: Team;
+  tickMs: number;
+};
+
+export type RosterInfoEntry = {
+  unitId: string;
+  name: string;
+  human: boolean;
+};
+
+// Client → server message types: 'ready' (no payload) once handlers are
+// registered; 'intent' with an Intent payload (sanitized server-side).
