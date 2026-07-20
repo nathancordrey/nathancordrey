@@ -113,6 +113,10 @@ export class MatchRoom extends Room {
     seat.ready = false;
     seat.latestIntent = IDLE_INTENT;
 
+    // The name becomes the unit's in-world label; reverts to the roster label
+    // when the seat drops back to a bot.
+    this.state_.units[seat.unitId].label = seat.name;
+
     // Existing ready clients should see the reservation immediately. The new
     // client gets its roster only after its own handlers are ready.
     this.sendRosterToReadyClients();
@@ -124,6 +128,10 @@ export class MatchRoom extends Room {
     seat.client = null;
     seat.ready = false;
     seat.latestIntent = IDLE_INTENT; // seat reverts to bot control
+    // Label reverts to the roster default (e.g. "R1") now that a bot drives it.
+    const rosterEntry = GAME_CONFIG.roster.find((r) => r.id === seat.unitId);
+    if (rosterEntry !== undefined) this.state_.units[seat.unitId].label = rosterEntry.label;
+    seat.name = rosterEntry?.label ?? seat.name;
     this.sendRosterToReadyClients();
   }
 
