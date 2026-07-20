@@ -71,14 +71,14 @@ export const GAME_CONFIG = {
     tradeEpsilonDegrees: 1.5,
   },
 
-  // Match roster. A unit is a unit — 'player' intents come from input,
-  // 'bot' intents come from a brain function, and later 'remote' from a
-  // socket. Blue spawns sit outside their own camp zone.
+  // Match roster: symmetric 2v2 slots. Slots default to bot control;
+  // humans claim slots at runtime (offline: r1 is the local player; online:
+  // the server assigns joiners red-then-blue). Unfilled slots run bots.
   roster: [
-    { id: 'p1', team: 'red' as Team, control: 'player' as const, label: 'YOU', spawn: { x: 12.5 * TILE, y: 32 * TILE } },
-    { id: 'b1', team: 'blue' as Team, control: 'bot' as const, label: 'B1', spawn: { x: 44 * TILE, y: 20 * TILE } },
-    { id: 'b2', team: 'blue' as Team, control: 'bot' as const, label: 'B2', spawn: { x: 42 * TILE, y: 32 * TILE } },
-    { id: 'b3', team: 'blue' as Team, control: 'bot' as const, label: 'B3', spawn: { x: 44 * TILE, y: 44 * TILE } },
+    { id: 'r1', team: 'red' as Team, control: 'bot' as const, label: 'R1', spawn: { x: 12.5 * TILE, y: 28 * TILE } },
+    { id: 'r2', team: 'red' as Team, control: 'bot' as const, label: 'R2', spawn: { x: 12.5 * TILE, y: 36 * TILE } },
+    { id: 'b1', team: 'blue' as Team, control: 'bot' as const, label: 'B1', spawn: { x: 51.5 * TILE, y: 28 * TILE } },
+    { id: 'b2', team: 'blue' as Team, control: 'bot' as const, label: 'B2', spawn: { x: 51.5 * TILE, y: 36 * TILE } },
   ],
 };
 
