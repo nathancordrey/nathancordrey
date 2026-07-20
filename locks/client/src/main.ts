@@ -11,7 +11,7 @@ import {
   perceive,
   remainingRoundMs,
   step,
-  IDLE_INTENT,
+
   TICK_MS,
 } from './shared/state';
 import type { GameEvent, GameState, Intent, Unit } from './shared/state';
@@ -308,9 +308,12 @@ class GameScene extends Phaser.Scene {
     }
 
     const pointerEvent = pointer.event as Event & { pointerType?: string };
+    const deviceHasTouch =
+      typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
     const isTouch =
       (pointer as unknown as { wasTouch?: boolean }).wasTouch === true ||
-      pointerEvent.pointerType === 'touch';
+      pointerEvent.pointerType === 'touch' ||
+      (deviceHasTouch && pointerEvent.pointerType !== 'mouse');
 
     if (isTouch && pointer.x < GAME_CONFIG.viewportWidth / 2) {
       this.mobileMovePointerId = pointer.id;
@@ -402,8 +405,10 @@ class GameScene extends Phaser.Scene {
 
       const intents: Record<string, Intent> = {};
       for (const unit of Object.values(this.state.units)) {
-        if (unit.control === 'player') {
-          intents[unit.id] = unit.id === PLAYER_ID ? this.buildPlayerIntent() : IDLE_INTENT;
+        // Offline mode: the local player always drives PLAYER_ID; every
+        // other slot runs a bot brain regardless of roster defaults.
+        if (unit.id === PLAYER_ID) {
+          intents[unit.id] = this.buildPlayerIntent();
         } else {
           let brain = this.botBrains.get(unit.id);
           if (brain === undefined) {
