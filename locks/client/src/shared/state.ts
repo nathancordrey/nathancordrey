@@ -6,6 +6,8 @@ import type { Vec2 } from './geometry';
 import { distance } from './geometry';
 import type { Team } from './config';
 import { GAME_CONFIG, MAP } from './config';
+import { createRng } from './rng';
+import type { RngState } from './rng';
 import type { CtfState, MatchResult, MatchState } from './sim';
 import {
   canFireAtTarget,
@@ -80,6 +82,7 @@ export type GameState = {
   units: Record<string, Unit>;
   ctf: CtfState;
   match: MatchState;
+  rng: RngState;
 };
 
 export type GameEvent =
@@ -93,7 +96,7 @@ export type GameEvent =
 
 // --- State creation -------------------------------------------------------
 
-export function createGameState(): GameState {
+export function createGameState(seed: number = GAME_CONFIG.defaultSeed): GameState {
   const units: Record<string, Unit> = {};
 
   for (const entry of GAME_CONFIG.roster) {
@@ -127,6 +130,7 @@ export function createGameState(): GameState {
     units,
     ctf: createCtfState(),
     match: createMatchState(),
+    rng: createRng(seed),
   };
 }
 
