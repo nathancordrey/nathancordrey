@@ -15,7 +15,8 @@ import {
   TICK_MS,
 } from './shared/state';
 import type { GameEvent, GameState, Intent, Unit } from './shared/state';
-import { idleBrain } from './shared/bots';
+import { makeAggroBrain } from './shared/bots';
+import type { BotBrain } from './shared/bots';
 
 const PLAYER_ID = 'p1';
 const PLAYER_TEAM: Team = 'red';
@@ -67,6 +68,7 @@ class GameScene extends Phaser.Scene {
   private mobileMoveVector: Vec2 = { x: 0, y: 0 };
 
   private statusClearEvent: Phaser.Time.TimerEvent | null = null;
+  private botBrains: Map<string, BotBrain> = new Map();
 
   constructor() {
     super('GameScene');
@@ -88,6 +90,7 @@ class GameScene extends Phaser.Scene {
     this.mobileMoveCurrent = null;
     this.mobileMoveVector = { x: 0, y: 0 };
     this.statusClearEvent = null;
+    this.botBrains = new Map();
 
     this.cameras.main.setBackgroundColor('#111827');
 
@@ -402,7 +405,12 @@ class GameScene extends Phaser.Scene {
         if (unit.control === 'player') {
           intents[unit.id] = unit.id === PLAYER_ID ? this.buildPlayerIntent() : IDLE_INTENT;
         } else {
-          intents[unit.id] = idleBrain(perceive(this.state, unit.id));
+          let brain = this.botBrains.get(unit.id);
+          if (brain === undefined) {
+            brain = makeAggroBrain(unit.id);
+            this.botBrains.set(unit.id, brain);
+          }
+          intents[unit.id] = brain(perceive(this.state, unit.id));
         }
       }
 
