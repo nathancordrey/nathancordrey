@@ -58,11 +58,15 @@ class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.makeButton(cx, 190, 'PRACTICE', () => {
-      this.scene.start('GameScene', { session: new LocalSession() });
+    this.makeButton(cx, 175, 'PRACTICE — EASY', () => {
+      this.scene.start('GameScene', { session: new LocalSession('easy') });
     });
 
-    this.makeButton(cx, 260, 'ONLINE', async () => {
+    this.makeButton(cx, 235, 'PRACTICE — NORMAL', () => {
+      this.scene.start('GameScene', { session: new LocalSession('normal') });
+    });
+
+    this.makeButton(cx, 295, 'ONLINE', async () => {
       if (this.busy) return;
       this.busy = true;
       this.errorText.setText('Connecting...');
@@ -80,7 +84,7 @@ class MenuScene extends Phaser.Scene {
     });
 
     this.errorText = this.add
-      .text(cx, 330, '', {
+      .text(cx, 350, '', {
         color: '#fca5a5',
         fontSize: '12px',
         fontFamily: 'system-ui, sans-serif',
