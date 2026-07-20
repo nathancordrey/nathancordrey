@@ -51,7 +51,7 @@ class MenuScene extends Phaser.Scene {
     const cx = GAME_CONFIG.viewportWidth / 2;
 
     this.add
-      .text(cx, 70, 'LOCKS', {
+      .text(cx, 54, 'LOCKS', {
         color: '#ffffff',
         fontSize: '42px',
         fontFamily: 'system-ui, sans-serif',
@@ -60,45 +60,122 @@ class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(cx, 110, 'capture the flag in the fog', {
+      .text(cx, 94, 'capture the flag in the fog', {
         color: '#94a3b8',
         fontSize: '14px',
         fontFamily: 'system-ui, sans-serif',
       })
       .setOrigin(0.5);
 
-    this.makeButton(cx, 175, 'PRACTICE — EASY', () => {
-      this.scene.start('GameScene', { session: new LocalSession('easy') });
-    });
+    this.createNameInput(cx, 140);
 
-    this.makeButton(cx, 235, 'PRACTICE — NORMAL', () => {
-      this.scene.start('GameScene', { session: new LocalSession('normal') });
-    });
-
-    this.makeButton(cx, 295, 'ONLINE', async () => {
+    // Primary: PLAY drops you online under your chosen name.
+    this.makeButton(cx, 200, 'PLAY', async () => {
       if (this.busy) return;
       this.busy = true;
       this.errorText.setText('Connecting...');
       try {
-        const name = `Guest${Math.floor(Math.random() * 900 + 100)}`;
-        const session = await OnlineSession.create(DEFAULT_SERVER, name);
+        const session = await OnlineSession.create(DEFAULT_SERVER, this.playerName());
+        this.removeNameInput();
         this.scene.start('GameScene', { session });
       } catch (error) {
         this.busy = false;
-        this.errorText.setText(
-          `Could not reach server (${DEFAULT_SERVER}). Is it running?`
-        );
+        this.errorText.setText(`Could not reach server. Is it running?`);
         console.error(error);
       }
     });
 
+    // Secondary: offline practice against bots.
+    this.makeButton(cx, 258, 'PRACTICE — EASY', () => {
+      this.removeNameInput();
+      this.scene.start('GameScene', { session: new LocalSession('easy') });
+    });
+    this.makeButton(cx, 310, 'PRACTICE — NORMAL', () => {
+      this.removeNameInput();
+      this.scene.start('GameScene', { session: new LocalSession('normal') });
+    });
+
     this.errorText = this.add
-      .text(cx, 350, '', {
+      .text(cx, 356, '', {
         color: '#fca5a5',
         fontSize: '12px',
         fontFamily: 'system-ui, sans-serif',
       })
       .setOrigin(0.5);
+
+    // Clean up the DOM input if the scene shuts down.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.removeNameInput());
+  }
+
+  private nameInput: HTMLInputElement | null = null;
+
+  private createNameInput(centerX: number, y: number) {
+    const canvas = this.game.canvas;
+    const saved = (() => {
+      try {
+        return localStorage.getItem('locks.name') ?? '';
+      } catch {
+        return '';
+      }
+    })();
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 16;
+    input.placeholder = 'your name';
+    input.value = saved || `Guest${Math.floor(Math.random() * 900 + 100)}`;
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('spellcheck', 'false');
+    Object.assign(input.style, {
+      position: 'absolute',
+      width: '180px',
+      padding: '8px 10px',
+      fontSize: '16px',
+      fontFamily: 'system-ui, sans-serif',
+      textAlign: 'center',
+      color: '#e2e8f0',
+      background: '#0b1220',
+      border: '2px solid #38bdf8',
+      borderRadius: '6px',
+      outline: 'none',
+      zIndex: '10',
+    });
+    document.body.appendChild(input);
+    this.nameInput = input;
+
+    const reposition = () => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width / GAME_CONFIG.viewportWidth;
+      const scaleY = rect.height / GAME_CONFIG.viewportHeight;
+      input.style.left = `${rect.left + centerX * scaleX - 90}px`;
+      input.style.top = `${rect.top + y * scaleY - 18}px`;
+    };
+    reposition();
+    this.scale.on('resize', reposition);
+    window.addEventListener('scroll', reposition, { passive: true });
+    (input as unknown as { _reposition: () => void })._reposition = reposition;
+  }
+
+  private playerName(): string {
+    const raw = (this.nameInput?.value ?? '').trim();
+    const name = raw.length > 0 ? raw.slice(0, 16) : `Guest${Math.floor(Math.random() * 900 + 100)}`;
+    try {
+      localStorage.setItem('locks.name', name);
+    } catch {
+      /* ignore */
+    }
+    return name;
+  }
+
+  private removeNameInput() {
+    if (this.nameInput === null) return;
+    const reposition = (this.nameInput as unknown as { _reposition?: () => void })._reposition;
+    if (reposition) {
+      this.scale.off('resize', reposition);
+      window.removeEventListener('scroll', reposition);
+    }
+    this.nameInput.remove();
+    this.nameInput = null;
   }
 
   private makeButton(x: number, y: number, label: string, onClick: () => void) {
