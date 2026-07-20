@@ -9,6 +9,15 @@ import { TICK_MS } from './shared/state';
 import type { GameEvent, Intent, Unit } from './shared/state';
 import type { Snapshot } from './shared/protocol';
 import { LocalSession, OnlineSession } from './session';
+import {
+  ensureAudio,
+  playCapture,
+  playFlagGrab,
+  playKill,
+  playRespawn,
+  playShot,
+  playUiClick,
+} from './sound';
 import type { Frame, GameSession } from './session';
 
 const TEAM_COLORS: Record<Team, number> = { red: 0xef4444, blue: 0x3b82f6 };
@@ -104,7 +113,11 @@ class MenuScene extends Phaser.Scene {
         fontFamily: 'system-ui, sans-serif',
       })
       .setOrigin(0.5);
-    button.on('pointerdown', onClick);
+    button.on('pointerdown', () => {
+      // First user gesture unlocks the AudioContext (autoplay policy).
+      void ensureAudio().then(() => playUiClick());
+      onClick();
+    });
   }
 }
 
@@ -516,9 +529,13 @@ class GameScene extends Phaser.Scene {
   private processEvents(events: GameEvent[], time: number, view: Snapshot) {
     for (const event of events) {
       switch (event.type) {
-        case 'shot':
+        case 'shot': {
           this.tracers.push({ from: event.from, to: event.to, until: time + 120 });
+          const selfPos = view.self.pos;
+          const d = Math.hypot(event.from.x - selfPos.x, event.from.y - selfPos.y);
+          playShot(d);
           break;
+        }
         case 'kill': {
           const hitText = this.add.text(event.at.x - 16, event.at.y - 8, 'HIT', {
             color: '#fef3c7',
@@ -532,7 +549,10 @@ class GameScene extends Phaser.Scene {
             duration: 600,
             onComplete: () => hitText.destroy(),
           });
-          if (event.unitId === this.session.playerId) {
+          const isSelf = event.unitId === this.session.playerId;
+          const dKill = Math.hypot(event.at.x - view.self.pos.x, event.at.y - view.self.pos.y);
+          playKill(isSelf, dKill);
+          if (isSelf) {
             this.setStatus(
               event.reason === 'camping' ? 'CAMPING — respawning...' : 'YOU DIED — respawning...',
               GAME_CONFIG.respawnTimeMs
@@ -541,6 +561,7 @@ class GameScene extends Phaser.Scene {
           break;
         }
         case 'flag-grab':
+          playFlagGrab(event.byId === this.session.playerId);
           this.setStatus(
             event.byId === this.session.playerId
               ? 'ENEMY FLAG TAKEN — bring it home'
@@ -549,13 +570,17 @@ class GameScene extends Phaser.Scene {
           );
           break;
         case 'flag-capture':
+          playCapture(event.scoringTeam === view.self.team);
           this.setStatus(`${event.scoringTeam.toUpperCase()} CAPTURES! +1`, 1500);
           break;
         case 'flag-return':
           this.setStatus(`${event.flagTeam.toUpperCase()} flag returned`, 1200);
           break;
         case 'respawn':
-          if (event.unitId === this.session.playerId) this.setStatus('RESPAWNED', 700);
+          if (event.unitId === this.session.playerId) {
+            playRespawn();
+            this.setStatus('RESPAWNED', 700);
+          }
           break;
         case 'match-end':
           break;
