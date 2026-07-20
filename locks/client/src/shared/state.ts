@@ -173,6 +173,7 @@ export function isUnitVisibleToTeam(
 export type PerceivedEnemy = {
   id: string;
   team: Team;
+  label: string;
   pos: Vec2;
   facingRadians: number;
   carryingFlag: Team | null;
@@ -207,6 +208,7 @@ export function perceive(state: GameState, selfId: string): PerceivedState {
       visibleEnemies.push({
         id: unit.id,
         team: unit.team,
+        label: unit.label,
         pos: { ...unit.pos },
         facingRadians: unit.facingRadians,
         carryingFlag: carriedFlagTeam(state.ctf, unit.id),
