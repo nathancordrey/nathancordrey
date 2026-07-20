@@ -4,42 +4,121 @@ import Phaser from 'phaser';
 import { GAME_CONFIG, MAP } from './shared/config';
 import type { Team } from './shared/config';
 import type { Vec2 } from './shared/geometry';
-import { carriedFlagTeam, computeVisionPolygon } from './shared/sim';
-import {
-  createGameState,
-  isUnitVisibleToTeam,
-  perceive,
-  remainingRoundMs,
-  step,
+import { computeVisionPolygon } from './shared/sim';
+import { TICK_MS } from './shared/state';
+import type { GameEvent, Intent, Unit } from './shared/state';
+import type { Snapshot } from './shared/protocol';
+import { LocalSession, OnlineSession } from './session';
+import type { Frame, GameSession } from './session';
 
-  TICK_MS,
-} from './shared/state';
-import type { GameEvent, GameState, Intent, Unit } from './shared/state';
-import { makeAggroBrain } from './shared/bots';
-import type { BotBrain } from './shared/bots';
+const TEAM_COLORS: Record<Team, number> = { red: 0xef4444, blue: 0x3b82f6 };
+const TEAM_LIGHT: Record<Team, number> = { red: 0xfecaca, blue: 0xbfdbfe };
 
-const PLAYER_ID = 'r1';
-const PLAYER_TEAM: Team = 'red';
+const DEFAULT_SERVER =
+  (import.meta as { env?: Record<string, string> }).env?.VITE_LOCKS_SERVER ??
+  `ws://${window.location.hostname}:2567`;
+
+// ---------------------------------------------------------------------------
+
+class MenuScene extends Phaser.Scene {
+  private busy = false;
+  private errorText!: Phaser.GameObjects.Text;
+
+  constructor() {
+    super('MenuScene');
+  }
+
+  create() {
+    this.busy = false;
+    this.cameras.main.setBackgroundColor('#111827');
+    const cx = GAME_CONFIG.viewportWidth / 2;
+
+    this.add
+      .text(cx, 70, 'LOCKS', {
+        color: '#ffffff',
+        fontSize: '42px',
+        fontFamily: 'system-ui, sans-serif',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    this.add
+      .text(cx, 110, 'capture the flag in the fog', {
+        color: '#94a3b8',
+        fontSize: '14px',
+        fontFamily: 'system-ui, sans-serif',
+      })
+      .setOrigin(0.5);
+
+    this.makeButton(cx, 190, 'PRACTICE', () => {
+      this.scene.start('GameScene', { session: new LocalSession() });
+    });
+
+    this.makeButton(cx, 260, 'ONLINE', async () => {
+      if (this.busy) return;
+      this.busy = true;
+      this.errorText.setText('Connecting...');
+      try {
+        const name = `Guest${Math.floor(Math.random() * 900 + 100)}`;
+        const session = await OnlineSession.create(DEFAULT_SERVER, name);
+        this.scene.start('GameScene', { session });
+      } catch (error) {
+        this.busy = false;
+        this.errorText.setText(
+          `Could not reach server (${DEFAULT_SERVER}). Is it running?`
+        );
+        console.error(error);
+      }
+    });
+
+    this.errorText = this.add
+      .text(cx, 330, '', {
+        color: '#fca5a5',
+        fontSize: '12px',
+        fontFamily: 'system-ui, sans-serif',
+      })
+      .setOrigin(0.5);
+  }
+
+  private makeButton(x: number, y: number, label: string, onClick: () => void) {
+    const button = this.add
+      .rectangle(x, y, 220, 48, 0x1f2937)
+      .setStrokeStyle(2, 0x38bdf8, 0.7)
+      .setInteractive({ useHandCursor: true });
+    this.add
+      .text(x, y, label, {
+        color: '#e2e8f0',
+        fontSize: '18px',
+        fontFamily: 'system-ui, sans-serif',
+      })
+      .setOrigin(0.5);
+    button.on('pointerdown', onClick);
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 type UnitView = {
   body: Phaser.GameObjects.Arc;
   label: Phaser.GameObjects.Text;
   ghost: Phaser.GameObjects.Arc;
   carryDot: Phaser.GameObjects.Arc;
-  prevPos: Vec2;
   lastSeenAt: number;
   lastSeenPos: Vec2;
+  team: Team;
 };
 
 type Tracer = { from: Vec2; to: Vec2; until: number };
 
 class GameScene extends Phaser.Scene {
-  private state!: GameState;
-  private accumulator = 0;
+  private session!: GameSession;
+  private started = false;
 
   private unitViews: Map<string, UnitView> = new Map();
   private flagMarkers: Partial<Record<Team, Phaser.GameObjects.Arc[]>> = {};
+  private cameraTarget!: Phaser.GameObjects.Rectangle;
 
+  private connectingText!: Phaser.GameObjects.Text;
   private debugText!: Phaser.GameObjects.Text;
   private statusText!: Phaser.GameObjects.Text;
   private campText!: Phaser.GameObjects.Text;
@@ -48,6 +127,7 @@ class GameScene extends Phaser.Scene {
   private aimGraphics!: Phaser.GameObjects.Graphics;
   private shotGraphics!: Phaser.GameObjects.Graphics;
   private mobileControlGraphics!: Phaser.GameObjects.Graphics;
+  private minimapGraphics!: Phaser.GameObjects.Graphics;
 
   private fogRect!: Phaser.GameObjects.Rectangle;
   private fogMaskGraphics!: Phaser.GameObjects.Graphics;
@@ -61,6 +141,7 @@ class GameScene extends Phaser.Scene {
 
   private pendingLockTargetId: string | null = null;
   private pendingCancelLock = false;
+  private lastView: Snapshot | null = null;
 
   private mobileMovePointerId: number | null = null;
   private mobileMoveOrigin: Vec2 | null = null;
@@ -68,16 +149,17 @@ class GameScene extends Phaser.Scene {
   private mobileMoveVector: Vec2 = { x: 0, y: 0 };
 
   private statusClearEvent: Phaser.Time.TimerEvent | null = null;
-  private botBrains: Map<string, BotBrain> = new Map();
 
   constructor() {
     super('GameScene');
   }
 
+  init(data: { session: GameSession }) {
+    this.session = data.session;
+  }
+
   create() {
-    // scene.restart() reuses this instance: reset everything here.
-    this.state = createGameState();
-    this.accumulator = 0;
+    this.started = false;
     this.unitViews = new Map();
     this.flagMarkers = {};
     this.fogPolygonCache = new Map();
@@ -85,23 +167,22 @@ class GameScene extends Phaser.Scene {
     this.matchEndShown = false;
     this.pendingLockTargetId = null;
     this.pendingCancelLock = false;
+    this.lastView = null;
     this.mobileMovePointerId = null;
     this.mobileMoveOrigin = null;
     this.mobileMoveCurrent = null;
     this.mobileMoveVector = { x: 0, y: 0 };
     this.statusClearEvent = null;
-    this.botBrains = new Map();
 
     this.cameras.main.setBackgroundColor('#111827');
 
     this.createArena();
-    this.createUnits();
     this.createFog();
     this.createHud();
 
-    const playerView = this.unitViews.get(PLAYER_ID)!;
+    this.cameraTarget = this.add.rectangle(0, 0, 2, 2, 0x000000, 0);
     this.cameras.main.setBounds(0, 0, GAME_CONFIG.worldWidth, GAME_CONFIG.worldHeight);
-    this.cameras.main.startFollow(playerView.body, true, 0.12, 0.12);
+    this.cameras.main.startFollow(this.cameraTarget, true, 0.12, 0.12);
 
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keys = this.input.keyboard!.addKeys({
@@ -112,16 +193,15 @@ class GameScene extends Phaser.Scene {
     }) as Record<string, Phaser.Input.Keyboard.Key>;
 
     this.input.keyboard!.on('keydown-R', () => {
-      if (this.state.match.phase === 'ended') this.scene.restart();
+      if (this.lastView?.match.phase === 'ended') this.exitOrRestart();
     });
-
     this.input.keyboard!.on('keydown-X', () => {
       this.pendingCancelLock = true;
     });
 
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      this.handlePointerDown(pointer);
-    });
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) =>
+      this.handlePointerDown(pointer)
+    );
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       if (this.mobileMovePointerId === pointer.id) {
         this.mobileMoveCurrent = { x: pointer.x, y: pointer.y };
@@ -138,6 +218,18 @@ class GameScene extends Phaser.Scene {
     };
     this.input.on('pointerup', release);
     this.input.on('pointerupoutside', release);
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.session.dispose();
+    });
+  }
+
+  private exitOrRestart() {
+    if (this.session.mode === 'practice') {
+      this.scene.restart({ session: new LocalSession() });
+    } else {
+      this.scene.start('MenuScene');
+    }
   }
 
   // ------------------------------------------------------------------ setup
@@ -159,16 +251,14 @@ class GameScene extends Phaser.Scene {
     }
 
     for (const flag of MAP.flags) {
-      const color = flag.team === 'red' ? 0xef4444 : 0x3b82f6;
+      const color = TEAM_COLORS[flag.team];
 
       this.add.circle(flag.x, flag.y, flag.visionRadius, color, 0.08);
       const visionRing = this.add.circle(flag.x, flag.y, flag.visionRadius);
       visionRing.setStrokeStyle(2, color, 0.22);
 
-      if (flag.team === PLAYER_TEAM) {
-        const campRing = this.add.circle(flag.x, flag.y, flag.campRadius);
-        campRing.setStrokeStyle(2, 0xfca5a5, 0.32);
-      }
+      const campRing = this.add.circle(flag.x, flag.y, flag.campRadius);
+      campRing.setStrokeStyle(2, 0xfca5a5, 0.2);
 
       const outerMarker = this.add.circle(flag.x, flag.y, 28, color, 0.35);
       const innerMarker = this.add.circle(flag.x, flag.y, 8, color, 0.9);
@@ -182,40 +272,41 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  private createUnits() {
-    for (const unit of Object.values(this.state.units)) {
-      const isPlayer = unit.id === PLAYER_ID;
-      const color = unit.team === 'red' ? (isPlayer ? 0x38bdf8 : 0xf87171) : 0x3b82f6;
+  private ensureUnitView(id: string, team: Team, label: string, isSelf: boolean): UnitView {
+    let view = this.unitViews.get(id);
+    if (view !== undefined) return view;
 
-      const body = this.add.circle(unit.pos.x, unit.pos.y, GAME_CONFIG.playerRadius, color);
-      body.setStrokeStyle(2, unit.team === 'red' ? 0xbae6fd : 0xbfdbfe, 0.9);
-      body.setDepth(isPlayer ? 60 : 10);
+    const body = this.add.circle(0, 0, GAME_CONFIG.playerRadius, TEAM_COLORS[team]);
+    // Team color encodes team; YOU get the white ring.
+    body.setStrokeStyle(isSelf ? 3 : 1.5, isSelf ? 0xffffff : TEAM_LIGHT[team], 0.95);
+    body.setDepth(isSelf ? 60 : 10);
 
-      const label = this.add.text(unit.pos.x - 10, unit.pos.y - 34, unit.label, {
-        color: unit.team === 'red' ? '#bae6fd' : '#bfdbfe',
-        fontSize: '12px',
-        fontFamily: 'monospace',
-      });
-      label.setDepth(body.depth);
+    const labelText = this.add.text(0, 0, label, {
+      color: team === 'red' ? '#fecaca' : '#bfdbfe',
+      fontSize: '12px',
+      fontFamily: 'monospace',
+    });
+    labelText.setDepth(body.depth);
 
-      const ghost = this.add.circle(unit.pos.x, unit.pos.y, GAME_CONFIG.playerRadius, 0x3b82f6, 0.18);
-      ghost.setStrokeStyle(1, 0x93c5fd, 0.35);
-      ghost.setVisible(false);
+    const ghost = this.add.circle(0, 0, GAME_CONFIG.playerRadius, TEAM_COLORS[team], 0.18);
+    ghost.setStrokeStyle(1, TEAM_LIGHT[team], 0.35);
+    ghost.setVisible(false);
 
-      const carryDot = this.add.circle(unit.pos.x, unit.pos.y - GAME_CONFIG.playerRadius - 10, 6, 0xffffff, 0.95);
-      carryDot.setDepth(body.depth + 1);
-      carryDot.setVisible(false);
+    const carryDot = this.add.circle(0, 0, 6, 0xffffff, 0.95);
+    carryDot.setDepth(body.depth + 1);
+    carryDot.setVisible(false);
 
-      this.unitViews.set(unit.id, {
-        body,
-        label,
-        ghost,
-        carryDot,
-        prevPos: { ...unit.pos },
-        lastSeenAt: -Infinity,
-        lastSeenPos: { ...unit.pos },
-      });
-    }
+    view = {
+      body,
+      label: labelText,
+      ghost,
+      carryDot,
+      lastSeenAt: -Infinity,
+      lastSeenPos: { x: 0, y: 0 },
+      team,
+    };
+    this.unitViews.set(id, view);
+    return view;
   }
 
   private createFog() {
@@ -240,11 +331,14 @@ class GameScene extends Phaser.Scene {
     this.mobileControlGraphics = this.add.graphics();
     this.mobileControlGraphics.setDepth(100);
     this.mobileControlGraphics.setScrollFactor(0);
+    this.minimapGraphics = this.add.graphics();
+    this.minimapGraphics.setDepth(110);
+    this.minimapGraphics.setScrollFactor(0);
   }
 
   private createHud() {
     this.add
-      .text(12, 10, 'Sniper Locks prototype', {
+      .text(12, 10, 'Locks', {
         color: '#ffffff',
         fontSize: '15px',
         fontFamily: 'system-ui, sans-serif',
@@ -253,7 +347,7 @@ class GameScene extends Phaser.Scene {
       .setScrollFactor(0);
 
     this.add
-      .text(12, 30, 'Move: WASD/drag • Lock: click enemy • X: cancel lock', {
+      .text(12, 30, 'Move: WASD/drag • Lock: click enemy • X: cancel', {
         color: '#cbd5e1',
         fontSize: '11px',
         fontFamily: 'system-ui, sans-serif',
@@ -261,12 +355,18 @@ class GameScene extends Phaser.Scene {
       .setDepth(100)
       .setScrollFactor(0);
 
-    this.debugText = this.add
-      .text(12, 50, '', {
-        color: '#94a3b8',
-        fontSize: '10px',
-        fontFamily: 'monospace',
+    this.connectingText = this.add
+      .text(GAME_CONFIG.viewportWidth / 2, GAME_CONFIG.viewportHeight / 2, 'Connecting...', {
+        color: '#e2e8f0',
+        fontSize: '16px',
+        fontFamily: 'system-ui, sans-serif',
       })
+      .setOrigin(0.5)
+      .setDepth(100)
+      .setScrollFactor(0);
+
+    this.debugText = this.add
+      .text(12, 50, '', { color: '#94a3b8', fontSize: '10px', fontFamily: 'monospace' })
       .setDepth(100)
       .setScrollFactor(0);
 
@@ -302,14 +402,13 @@ class GameScene extends Phaser.Scene {
   // ------------------------------------------------------------------ input
 
   private handlePointerDown(pointer: Phaser.Input.Pointer) {
-    if (this.state.match.phase === 'ended') {
-      this.scene.restart();
+    if (this.lastView?.match.phase === 'ended') {
+      this.exitOrRestart();
       return;
     }
 
     const pointerEvent = pointer.event as Event & { pointerType?: string };
-    const deviceHasTouch =
-      typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+    const deviceHasTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
     const isTouch =
       (pointer as unknown as { wasTouch?: boolean }).wasTouch === true ||
       pointerEvent.pointerType === 'touch' ||
@@ -323,24 +422,19 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Lock attempt: click a rendered (i.e. team-visible) enemy.
+    if (this.lastView === null) return;
+
     const click: Vec2 = { x: pointer.worldX, y: pointer.worldY };
     let bestId: string | null = null;
     let bestDistance = Infinity;
-
-    for (const unit of Object.values(this.state.units)) {
-      if (unit.team === PLAYER_TEAM || !unit.alive) continue;
-      if (!isUnitVisibleToTeam(this.state, PLAYER_TEAM, unit)) continue;
-      const d = Math.hypot(click.x - unit.pos.x, click.y - unit.pos.y);
+    for (const enemy of this.lastView.visibleEnemies) {
+      const d = Math.hypot(click.x - enemy.pos.x, click.y - enemy.pos.y);
       if (d <= GAME_CONFIG.playerRadius + GAME_CONFIG.lockClickTolerance && d < bestDistance) {
         bestDistance = d;
-        bestId = unit.id;
+        bestId = enemy.id;
       }
     }
-
-    if (bestId !== null) {
-      this.pendingLockTargetId = bestId;
-    }
+    if (bestId !== null) this.pendingLockTargetId = bestId;
   }
 
   private updateMobileMoveVector(pointer: Phaser.Input.Pointer) {
@@ -388,48 +482,26 @@ class GameScene extends Phaser.Scene {
   // ------------------------------------------------------------------ loop
 
   update(time: number, delta: number) {
-    if (this.state.match.phase === 'ended') {
-      if (!this.matchEndShown) this.showMatchEnd();
+    if (this.lastView?.match.phase === 'ended') {
+      if (!this.matchEndShown) this.showMatchEnd(this.lastView);
       return;
     }
 
-    this.accumulator += delta;
-    // Avoid spiral-of-death after tab-switch pauses.
-    this.accumulator = Math.min(this.accumulator, TICK_MS * 8);
+    this.session.update(delta, this.buildPlayerIntent());
+    const frame = this.session.frame();
+    if (frame === null) return;
 
-    let ended = false;
-    while (this.accumulator >= TICK_MS && !ended) {
-      for (const [id, view] of this.unitViews) {
-        view.prevPos = { ...this.state.units[id].pos };
-      }
-
-      const intents: Record<string, Intent> = {};
-      for (const unit of Object.values(this.state.units)) {
-        // Offline mode: the local player always drives PLAYER_ID; every
-        // other slot runs a bot brain regardless of roster defaults.
-        if (unit.id === PLAYER_ID) {
-          intents[unit.id] = this.buildPlayerIntent();
-        } else {
-          let brain = this.botBrains.get(unit.id);
-          if (brain === undefined) {
-            brain = makeAggroBrain(unit.id);
-            this.botBrains.set(unit.id, brain);
-          }
-          intents[unit.id] = brain(perceive(this.state, unit.id));
-        }
-      }
-
-      const events = step(this.state, intents);
-      this.processEvents(events, time);
-      ended = events.some((event) => event.type === 'match-end');
-      this.accumulator -= TICK_MS;
+    if (!this.started) {
+      this.started = true;
+      this.connectingText.setVisible(false);
     }
 
-    const alpha = this.accumulator / TICK_MS;
-    this.render(alpha, time);
+    this.lastView = frame.view;
+    this.processEvents(frame.events, time, frame.view);
+    this.render(frame, time);
   }
 
-  private processEvents(events: GameEvent[], time: number) {
+  private processEvents(events: GameEvent[], time: number, view: Snapshot) {
     for (const event of events) {
       switch (event.type) {
         case 'shot':
@@ -448,7 +520,7 @@ class GameScene extends Phaser.Scene {
             duration: 600,
             onComplete: () => hitText.destroy(),
           });
-          if (event.unitId === PLAYER_ID) {
+          if (event.unitId === this.session.playerId) {
             this.setStatus(
               event.reason === 'camping' ? 'CAMPING — respawning...' : 'YOU DIED — respawning...',
               GAME_CONFIG.respawnTimeMs
@@ -458,28 +530,26 @@ class GameScene extends Phaser.Scene {
         }
         case 'flag-grab':
           this.setStatus(
-            event.byId === PLAYER_ID
+            event.byId === this.session.playerId
               ? 'ENEMY FLAG TAKEN — bring it home'
-              : `${this.state.units[event.byId].label} took the ${event.flagTeam.toUpperCase()} flag`,
+              : `${event.flagTeam.toUpperCase()} flag taken`,
             1500
           );
           break;
         case 'flag-capture':
-          this.setStatus(
-            `${event.scoringTeam.toUpperCase()} CAPTURES! +1`,
-            1500
-          );
+          this.setStatus(`${event.scoringTeam.toUpperCase()} CAPTURES! +1`, 1500);
           break;
         case 'flag-return':
           this.setStatus(`${event.flagTeam.toUpperCase()} flag returned`, 1200);
           break;
         case 'respawn':
-          if (event.unitId === PLAYER_ID) this.setStatus('RESPAWNED', 700);
+          if (event.unitId === this.session.playerId) this.setStatus('RESPAWNED', 700);
           break;
         case 'match-end':
           break;
       }
     }
+    void view;
   }
 
   private setStatus(text: string, clearAfterMs: number) {
@@ -492,69 +562,107 @@ class GameScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- render
 
-  private render(alpha: number, time: number) {
-    const player = this.state.units[PLAYER_ID];
+  private interp(prev: Map<string, Vec2>, id: string, pos: Vec2, alpha: number): Vec2 {
+    const from = prev.get(id);
+    if (from === undefined) return pos;
+    return { x: from.x + (pos.x - from.x) * alpha, y: from.y + (pos.y - from.y) * alpha };
+  }
 
-    for (const [id, view] of this.unitViews) {
-      const unit = this.state.units[id];
-      const x = view.prevPos.x + (unit.pos.x - view.prevPos.x) * alpha;
-      const y = view.prevPos.y + (unit.pos.y - view.prevPos.y) * alpha;
+  private render(frame: Frame, time: number) {
+    const { view, prev, alpha } = frame;
+    const self = view.self;
+    const selfId = this.session.playerId;
 
-      const onPlayerTeam = unit.team === PLAYER_TEAM;
-      const seen =
-        unit.alive && (onPlayerTeam || isUnitVisibleToTeam(this.state, PLAYER_TEAM, unit));
+    const drawn = new Set<string>();
 
-      view.body.setPosition(x, y);
-      view.label.setPosition(x - 10, y - 34);
-      view.body.setVisible(seen);
-      view.label.setVisible(seen);
-
-      if (seen && !onPlayerTeam) {
-        view.lastSeenAt = time;
-        view.lastSeenPos = { x, y };
-      }
-
-      const sinceSeen = time - view.lastSeenAt;
-      const showGhost =
-        !seen && !onPlayerTeam && unit.alive && sinceSeen <= GAME_CONFIG.lastSeenLingerMs;
-      view.ghost.setVisible(showGhost);
-      if (showGhost) {
-        view.ghost.setPosition(view.lastSeenPos.x, view.lastSeenPos.y);
-        view.ghost.setAlpha(1 - sinceSeen / GAME_CONFIG.lastSeenLingerMs);
-      }
-
-      // Carrier identity is public; position still gated by visibility.
-      const carrying = carriedFlagTeam(this.state.ctf, id);
-      const showDot = carrying !== null && seen;
-      view.carryDot.setVisible(showDot);
+    const drawUnit = (
+      id: string,
+      team: Team,
+      label: string,
+      pos: Vec2,
+      alive: boolean,
+      carrying: Team | null
+    ) => {
+      const unitView = this.ensureUnitView(id, team, label, id === selfId);
+      const p = this.interp(prev, id, pos, alpha);
+      unitView.body.setPosition(p.x, p.y);
+      unitView.label.setPosition(p.x - 10, p.y - 34);
+      unitView.body.setVisible(alive);
+      unitView.label.setVisible(alive);
+      unitView.ghost.setVisible(false);
+      const showDot = carrying !== null && alive;
+      unitView.carryDot.setVisible(showDot);
       if (showDot) {
-        view.carryDot.setFillStyle(carrying === 'red' ? 0xef4444 : 0x3b82f6, 0.95);
-        view.carryDot.setPosition(x, y - GAME_CONFIG.playerRadius - 10);
+        unitView.carryDot.setFillStyle(TEAM_COLORS[carrying], 0.95);
+        unitView.carryDot.setPosition(p.x, p.y - GAME_CONFIG.playerRadius - 10);
       }
+      if (id !== selfId && team !== self.team && alive) {
+        unitView.lastSeenAt = time;
+        unitView.lastSeenPos = p;
+      }
+      drawn.add(id);
+    };
+
+    const carryingOf = (id: string): Team | null => {
+      if (view.carrierIds.red === id) return 'red';
+      if (view.carrierIds.blue === id) return 'blue';
+      return null;
+    };
+
+    drawUnit(self.id, self.team, self.label, self.pos, self.alive, carryingOf(self.id));
+    for (const ally of view.allies) {
+      drawUnit(ally.id, ally.team, ally.label, ally.pos, ally.alive, carryingOf(ally.id));
+    }
+    for (const enemy of view.visibleEnemies) {
+      drawUnit(enemy.id, enemy.team, enemy.label, enemy.pos, true, enemy.carryingFlag);
+    }
+
+    // Units not in this frame's view: hide; enemies get a fading ghost.
+    for (const [id, unitView] of this.unitViews) {
+      if (drawn.has(id)) continue;
+      unitView.body.setVisible(false);
+      unitView.label.setVisible(false);
+      unitView.carryDot.setVisible(false);
+      const sinceSeen = time - unitView.lastSeenAt;
+      const showGhost =
+        unitView.team !== self.team && sinceSeen <= GAME_CONFIG.lastSeenLingerMs;
+      unitView.ghost.setVisible(showGhost);
+      if (showGhost) {
+        unitView.ghost.setPosition(unitView.lastSeenPos.x, unitView.lastSeenPos.y);
+        unitView.ghost.setAlpha(1 - sinceSeen / GAME_CONFIG.lastSeenLingerMs);
+      }
+    }
+
+    // Camera follows interpolated self.
+    const selfView = this.unitViews.get(selfId);
+    if (selfView !== undefined) {
+      this.cameraTarget.setPosition(selfView.body.x, selfView.body.y);
     }
 
     for (const flag of MAP.flags) {
-      const atBase = this.state.ctf.flags[flag.team].atBase;
+      const atBase = view.flagsAtBase[flag.team];
       for (const marker of this.flagMarkers[flag.team] ?? []) marker.setVisible(atBase);
     }
 
-    this.drawAim(player);
+    this.drawAim(self);
     this.drawTracers(time);
-    this.drawFog(player);
+    this.drawFog(view);
     this.drawMobileControls();
-    this.updateHud(player);
+    this.drawMinimap(view);
+    this.updateHud(view);
   }
 
-  private drawAim(player: Unit) {
+  private drawAim(self: Unit) {
     this.aimGraphics.clear();
-    if (!player.alive) return;
+    if (!self.alive) return;
 
-    const view = this.unitViews.get(PLAYER_ID)!;
-    const px = view.body.x;
-    const py = view.body.y;
-    const angle = player.facingRadians;
+    const selfView = this.unitViews.get(self.id);
+    if (selfView === undefined) return;
+    const px = selfView.body.x;
+    const py = selfView.body.y;
+    const angle = self.facingRadians;
 
-    if (player.lock !== null) {
+    if (self.lock !== null) {
       const halfCone = ((GAME_CONFIG.locks.attackConeDegrees * Math.PI) / 180) / 2;
       const coneLength = GAME_CONFIG.shotRange * 0.5;
       this.aimGraphics.lineStyle(1, 0xfbbf24, 0.3);
@@ -573,7 +681,11 @@ class GameScene extends Phaser.Scene {
     this.aimGraphics.lineTo(px + Math.cos(angle) * aimLength, py + Math.sin(angle) * aimLength);
     this.aimGraphics.strokePath();
     this.aimGraphics.fillStyle(0xffffff, 0.7);
-    this.aimGraphics.fillCircle(px + Math.cos(angle) * aimLength, py + Math.sin(angle) * aimLength, 3);
+    this.aimGraphics.fillCircle(
+      px + Math.cos(angle) * aimLength,
+      py + Math.sin(angle) * aimLength,
+      3
+    );
   }
 
   private drawTracers(time: number) {
@@ -590,16 +702,13 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  private drawFog(player: Unit) {
+  private drawFog(view: Snapshot) {
     this.fogMaskGraphics.clear();
+    const self = view.self;
 
-    if (player.alive) {
-      const view = this.unitViews.get(PLAYER_ID)!;
-      const renderPos: Vec2 = { x: view.body.x, y: view.body.y };
-
-      // Cached polygons for decay samples; live polygon every frame.
+    if (self.alive) {
       const liveKeys = new Set<number>();
-      for (const sample of player.visionSamples) {
+      for (const sample of self.visionSamples) {
         liveKeys.add(sample.atTick);
         if (!this.fogPolygonCache.has(sample.atTick)) {
           this.fogPolygonCache.set(
@@ -614,8 +723,8 @@ class GameScene extends Phaser.Scene {
         if (!liveKeys.has(key)) this.fogPolygonCache.delete(key);
       }
 
-      for (const sample of player.visionSamples) {
-        const ageMs = (this.state.tick - sample.atTick) * TICK_MS;
+      for (const sample of self.visionSamples) {
+        const ageMs = (view.tick - sample.atTick) * TICK_MS;
         const fade = Math.max(0.15, 1 - ageMs / GAME_CONFIG.visionMemoryMs) * 0.8;
         const polygon = this.fogPolygonCache.get(sample.atTick);
         if (polygon) {
@@ -624,6 +733,9 @@ class GameScene extends Phaser.Scene {
         }
       }
 
+      const selfView = this.unitViews.get(self.id);
+      const renderPos: Vec2 =
+        selfView !== undefined ? { x: selfView.body.x, y: selfView.body.y } : self.pos;
       const livePolygon = computeVisionPolygon(
         renderPos,
         MAP.walls,
@@ -635,7 +747,21 @@ class GameScene extends Phaser.Scene {
       this.fogPolygonCache.clear();
     }
 
-    const ownFlag = MAP.flags.find((flag) => flag.team === PLAYER_TEAM);
+    // Living teammates light their surroundings too (team vision) — including
+    // while YOU are dead: the original's dead players spectated through their
+    // team's eyes, which is also how you learn what killed you.
+    for (const ally of view.allies) {
+      if (!ally.alive) continue;
+      const allyPolygon = computeVisionPolygon(
+        ally.pos,
+        MAP.walls,
+        GAME_CONFIG.playerVisionRadius
+      ).map((p) => new Phaser.Math.Vector2(p.x, p.y));
+      this.fogMaskGraphics.fillStyle(0xffffff, 0.9);
+      this.fogMaskGraphics.fillPoints(allyPolygon, true);
+    }
+
+    const ownFlag = MAP.flags.find((flag) => flag.team === view.self.team);
     if (ownFlag) {
       this.fogMaskGraphics.fillStyle(0xffffff, 1);
       this.fogMaskGraphics.fillCircle(ownFlag.x, ownFlag.y, ownFlag.visionRadius);
@@ -661,67 +787,132 @@ class GameScene extends Phaser.Scene {
     this.mobileControlGraphics.fillCircle(this.mobileMoveCurrent.x, this.mobileMoveCurrent.y, 10);
   }
 
-  private updateHud(player: Unit) {
-    const remainingMs = remainingRoundMs(this.state);
-    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  private drawMinimap(view: Snapshot) {
+    const size = 118;
+    const pad = 8;
+    const scale = size / GAME_CONFIG.worldWidth;
+    const originX = GAME_CONFIG.viewportWidth - size - pad;
+    const originY = GAME_CONFIG.viewportHeight - size - pad;
+    const g = this.minimapGraphics;
+
+    g.clear();
+    g.fillStyle(0x0b1220, 0.85);
+    g.fillRect(originX, originY, size, size);
+    g.lineStyle(1, 0x334155, 1);
+    g.strokeRect(originX, originY, size, size);
+
+    for (const wall of MAP.walls) {
+      const { rect, blocksShots } = wall;
+      g.fillStyle(blocksShots ? 0x64748b : 0x3f6212, blocksShots ? 0.9 : 0.7);
+      g.fillRect(
+        originX + rect.left * scale,
+        originY + rect.top * scale,
+        Math.max(1, (rect.right - rect.left) * scale),
+        Math.max(1, (rect.bottom - rect.top) * scale)
+      );
+    }
+
+    for (const flag of MAP.flags) {
+      const atBase = view.flagsAtBase[flag.team];
+      g.lineStyle(1, TEAM_COLORS[flag.team], 1);
+      g.strokeCircle(originX + flag.x * scale, originY + flag.y * scale, 3);
+      if (atBase) {
+        g.fillStyle(TEAM_COLORS[flag.team], 1);
+        g.fillCircle(originX + flag.x * scale, originY + flag.y * scale, 2);
+      }
+    }
+
+    const dot = (pos: Vec2, color: number, self: boolean) => {
+      g.fillStyle(color, 1);
+      g.fillCircle(originX + pos.x * scale, originY + pos.y * scale, self ? 3 : 2.5);
+      if (self) {
+        g.lineStyle(1, 0xffffff, 1);
+        g.strokeCircle(originX + pos.x * scale, originY + pos.y * scale, 4);
+      }
+    };
+
+    if (view.self.alive) dot(view.self.pos, TEAM_COLORS[view.self.team], true);
+    for (const ally of view.allies) {
+      if (ally.alive) dot(ally.pos, TEAM_COLORS[ally.team], false);
+    }
+    // Enemies come from the perception filter — the minimap can't wallhack.
+    for (const enemy of view.visibleEnemies) {
+      dot(enemy.pos, TEAM_COLORS[enemy.team], false);
+    }
+
+    // Viewport rectangle.
+    const camera = this.cameras.main;
+    g.lineStyle(1, 0xe2e8f0, 0.5);
+    g.strokeRect(
+      originX + camera.scrollX * scale,
+      originY + camera.scrollY * scale,
+      GAME_CONFIG.viewportWidth * scale,
+      GAME_CONFIG.viewportHeight * scale
+    );
+  }
+
+  private updateHud(view: Snapshot) {
+    const totalSeconds = Math.max(0, Math.ceil(view.remainingMs / 1000));
     this.timerText.setText(
       `${Math.floor(totalSeconds / 60)}:${(totalSeconds % 60).toString().padStart(2, '0')}`
     );
 
-    const cooldownTicks = Math.max(
+    const self = view.self;
+    const cooldownMs = Math.max(
       0,
-      Math.round(GAME_CONFIG.shotCooldownMs / TICK_MS) - (this.state.tick - player.lastShotAtTick)
+      GAME_CONFIG.shotCooldownMs - (view.tick - self.lastShotAtTick) * TICK_MS
     );
-    const lockLabel =
-      player.lock === null
-        ? 'none'
-        : `${this.state.units[player.lock.targetId].label}${
-            isUnitVisibleToTeam(this.state, PLAYER_TEAM, this.state.units[player.lock.targetId])
-              ? ''
-              : ' (hidden)'
-          }`;
+    let lockLabel = 'none';
+    if (self.lock !== null) {
+      const lockTargetId = self.lock.targetId;
+      const lockTarget = view.visibleEnemies.find((enemy) => enemy.id === lockTargetId);
+      lockLabel =
+        lockTarget !== undefined ? lockTarget.label : `${lockTargetId.toUpperCase()} (hidden)`;
+    }
 
     this.debugText.setText(
       [
-        `tick=${this.state.tick} x=${player.pos.x.toFixed(0)} y=${player.pos.y.toFixed(0)}`,
-        `cooldown=${Math.max(0, Math.round(cooldownTicks * TICK_MS))}ms`,
+        `${this.session.mode} tick=${view.tick}`,
+        `cooldown=${Math.round(cooldownMs)}ms`,
         `lock=${lockLabel}`,
-        `score RED ${this.state.ctf.scores.red} — ${this.state.ctf.scores.blue} BLUE${
-          carriedFlagTeam(this.state.ctf, PLAYER_ID) !== null ? '  [CARRYING FLAG]' : ''
+        `score RED ${view.scores.red} — ${view.scores.blue} BLUE${
+          view.carrierIds.red === self.id || view.carrierIds.blue === self.id
+            ? '  [CARRYING FLAG]'
+            : ''
         }`,
       ].join('\n')
     );
 
-    this.updateCampText(player);
+    this.updateCampText(view);
   }
 
-  private updateCampText(player: Unit) {
-    if (!player.alive || player.campStartedTick === null) {
+  private updateCampText(view: Snapshot) {
+    const self = view.self;
+    if (!self.alive || self.campStartedTick === null) {
       this.campText.setText('');
       return;
     }
 
-    const graceMs = GAME_CONFIG.campGraceMs;
-    const warningMs = GAME_CONFIG.campWarningMs;
-    const elapsedMs = (this.state.tick - player.campStartedTick) * TICK_MS;
-
-    if (player.campExitedTick !== null) {
-      const outsideMs = (this.state.tick - player.campExitedTick) * TICK_MS;
+    if (self.campExitedTick !== null) {
+      const outsideMs = (view.tick - self.campExitedTick) * TICK_MS;
       const resetRemaining = Math.ceil((GAME_CONFIG.campResetMs - outsideMs) / 1000);
       this.campText.setText(`Camp timer resetting in ${Math.max(0, resetRemaining)}s`);
       return;
     }
 
-    if (elapsedMs >= graceMs) {
-      const remaining = Math.ceil((graceMs + warningMs - elapsedMs) / 1000);
+    const elapsedMs = (view.tick - self.campStartedTick) * TICK_MS;
+    if (elapsedMs >= GAME_CONFIG.campGraceMs) {
+      const remaining = Math.ceil(
+        (GAME_CONFIG.campGraceMs + GAME_CONFIG.campWarningMs - elapsedMs) / 1000
+      );
       this.campText.setText(`LEAVE YOUR FLAG — death in ${Math.max(0, remaining)}s`);
     } else {
-      const safeRemaining = Math.ceil((graceMs - elapsedMs) / 1000);
+      const safeRemaining = Math.ceil((GAME_CONFIG.campGraceMs - elapsedMs) / 1000);
       this.campText.setText(`Own flag zone: ${safeRemaining}s until warning`);
     }
   }
 
-  private showMatchEnd() {
+  private showMatchEnd(view: Snapshot) {
     this.matchEndShown = true;
     this.timerText.setText('0:00');
 
@@ -736,7 +927,7 @@ class GameScene extends Phaser.Scene {
     overlay.setDepth(200);
     overlay.setScrollFactor(0);
 
-    const result = this.state.match.result;
+    const result = view.match.result;
     const headline = result === 'draw' ? 'DRAW' : `${(result ?? '').toUpperCase()} TEAM WINS`;
     const headlineColor =
       result === 'red' ? '#fca5a5' : result === 'blue' ? '#93c5fd' : '#e2e8f0';
@@ -755,7 +946,7 @@ class GameScene extends Phaser.Scene {
       .text(
         GAME_CONFIG.viewportWidth / 2,
         GAME_CONFIG.viewportHeight / 2 + 2,
-        `RED ${this.state.ctf.scores.red} — ${this.state.ctf.scores.blue} BLUE`,
+        `RED ${view.scores.red} — ${view.scores.blue} BLUE`,
         { color: '#e2e8f0', fontSize: '20px', fontFamily: 'monospace' }
       )
       .setOrigin(0.5)
@@ -766,7 +957,9 @@ class GameScene extends Phaser.Scene {
       .text(
         GAME_CONFIG.viewportWidth / 2,
         GAME_CONFIG.viewportHeight / 2 + 40,
-        'Press R or tap to play again',
+        this.session.mode === 'practice'
+          ? 'Press R or tap to play again'
+          : 'Press R or tap for menu',
         { color: '#94a3b8', fontSize: '13px', fontFamily: 'system-ui, sans-serif' }
       )
       .setOrigin(0.5)
@@ -781,7 +974,7 @@ const config: Phaser.Types.Core.GameConfig = {
   height: GAME_CONFIG.viewportHeight,
   parent: 'app',
   backgroundColor: '#111827',
-  scene: GameScene,
+  scene: [MenuScene, GameScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
