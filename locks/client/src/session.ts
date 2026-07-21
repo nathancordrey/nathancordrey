@@ -118,9 +118,37 @@ export class OnlineSession implements GameSession {
     this.room = room;
   }
 
-  static async create(serverUrl: string, name: string): Promise<OnlineSession> {
-    const client = new ColyseusClient(serverUrl);
-    const room = await client.joinOrCreate('match', { name });
+  static async create(
+    lobbyUrl: string,
+    fallbackServerUrl: string,
+    name: string
+  ): Promise<OnlineSession> {
+    const guest = await postJson<GuestResponse>(`${trimSlash(lobbyUrl)}/guest`, { name });
+    let room: Room | null = null;
+    let lastJoinError: unknown = null;
+
+    // A room can end or fill between the broker response and the Colyseus
+    // handshake. Ask the broker for one fresh token before surfacing failure.
+    for (let attempt = 0; attempt < 2 && room === null; attempt++) {
+      const play = await postJson<QuickPlayResponse>(
+        `${trimSlash(lobbyUrl)}/play`,
+        {},
+        guest.token
+      );
+      const client = new ColyseusClient(play.gameServerUrl || fallbackServerUrl);
+      try {
+        room = await client.joinById(play.roomId, { token: play.joinToken });
+      } catch (error) {
+        lastJoinError = error;
+      }
+    }
+
+    if (room === null) {
+      throw lastJoinError instanceof Error
+        ? lastJoinError
+        : new Error('Could not join the selected match');
+    }
+
     const session = new OnlineSession(room);
 
     const welcome = new Promise<void>((resolve, reject) => {
@@ -176,4 +204,51 @@ export class OnlineSession implements GameSession {
   dispose(): void {
     void this.room.leave();
   }
+}
+
+
+type GuestResponse = {
+  token: string;
+  name: string;
+  expiresAt: string;
+};
+
+type QuickPlayResponse = {
+  roomId: string;
+  joinToken: string;
+  expiresAt: string;
+  gameServerUrl: string;
+};
+
+async function postJson<T>(
+  url: string,
+  body: Record<string, unknown>,
+  bearerToken?: string
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 8_000);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(bearerToken === undefined ? {} : { authorization: `Bearer ${bearerToken}` }),
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      throw new Error(payload?.error ?? `Lobby request failed (${response.status})`);
+    }
+    return (await response.json()) as T;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+function trimSlash(value: string): string {
+  return value.replace(/\/$/, '');
 }
