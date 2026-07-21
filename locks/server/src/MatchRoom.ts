@@ -2,7 +2,7 @@
 // brains), runs shared step() at the fixed tick rate, and sends each client
 // snapshots and events filtered for that client's team.
 
-import { Room, Client } from 'colyseus';
+import { Room, Client, ServerError } from '@colyseus/core';
 
 import { GAME_CONFIG } from '../../client/src/shared/config.js';
 import type { Team } from '../../client/src/shared/config.js';
@@ -22,8 +22,12 @@ import type {
   GameState,
   Intent,
 } from '../../client/src/shared/state.js';
+import { verifyJoinToken } from './joinToken.js';
+import { reportLobbyEvent } from './lobbyReporter.js';
 
-type JoinOptions = { name?: string; token?: string };
+type JoinOptions = { name?: string; token?: string; brokered?: boolean };
+
+type JoinAuth = { name: string; jti: string };
 
 type Seat = {
   unitId: string;
@@ -35,13 +39,17 @@ type Seat = {
 
 export class MatchRoom extends Room {
   maxClients = GAME_CONFIG.roster.length;
+  autoDispose = false;
 
   private state_!: GameState;
   private seats: Seat[] = [];
   private botBrains: Map<string, BotBrain> = new Map();
   private shutdownScheduled = false;
+  private brokered = false;
+  private usedJoinTokens = new Set<string>();
 
-  onCreate(_options: JoinOptions) {
+  onCreate(options: JoinOptions) {
+    this.brokered = options.brokered === true;
     this.state_ = createGameState();
 
     // Seats interleave red/blue so joiner #1 is red, #2 blue, #3 red...
@@ -92,24 +100,61 @@ export class MatchRoom extends Room {
     });
 
     this.setSimulationInterval(() => this.tick(), TICK_MS);
+
+    if (this.brokered) {
+      void reportLobbyEvent({
+        type: 'room_created',
+        roomId: this.roomId,
+        humanCount: 0,
+      });
+    }
   }
 
-  onJoin(client: Client, options: JoinOptions) {
+  onAuth(_client: Client, options: JoinOptions): JoinAuth {
+    const token = typeof options.token === 'string' ? options.token : '';
+    const secret =
+      process.env.JOIN_TOKEN_SECRET ??
+      process.env.SERVICE_SHARED_SECRET ??
+      (process.env.NODE_ENV === 'production' ? '' : 'locks-dev-secret-change-me');
+
+    if (token.length > 0) {
+      const verified = verifyJoinToken(token, secret, this.roomId);
+      if (verified === null) throw new ServerError(401, 'Invalid or expired join token');
+      if (this.usedJoinTokens.has(verified.jti)) {
+        throw new ServerError(401, 'Join token already used');
+      }
+      this.usedJoinTokens.add(verified.jti);
+      return { name: verified.name, jti: verified.jti };
+    }
+
+    const allowLegacy =
+      !this.brokered &&
+      (process.env.ALLOW_LEGACY_JOIN ?? (process.env.NODE_ENV === 'production' ? 'false' : 'true')) ===
+        'true';
+    if (allowLegacy) {
+      const requestedName = typeof options.name === 'string' ? options.name.trim() : '';
+      return { name: (requestedName || 'Player').slice(0, 16), jti: 'legacy' };
+    }
+
+    throw new ServerError(401, 'Quick-play token required');
+  }
+
+  onJoin(client: Client, options: JoinOptions, auth?: JoinAuth) {
     if (this.state_.match.phase === 'ended' || this.shutdownScheduled) {
       client.leave(4001, 'Match has ended');
       return;
     }
 
-    // Token stub: the lobby's signed join token slots in here later.
     const seat = this.seats.find((s) => s.client === null);
     if (seat === undefined) {
       client.leave(4000, 'Match is full');
       return;
     }
 
+    const authenticatedName = auth?.name ?? '';
     const requestedName = typeof options.name === 'string' ? options.name.trim() : '';
     seat.client = client;
-    seat.name = (requestedName || 'Player').slice(0, 16);
+    seat.name = (authenticatedName || requestedName || 'Player').slice(0, 16);
     seat.ready = false;
     seat.latestIntent = IDLE_INTENT;
 
@@ -120,6 +165,13 @@ export class MatchRoom extends Room {
     // Existing ready clients should see the reservation immediately. The new
     // client gets its roster only after its own handlers are ready.
     this.sendRosterToReadyClients();
+    if (this.brokered) {
+      void reportLobbyEvent({
+        type: 'player_joined',
+        roomId: this.roomId,
+        humanCount: this.humanCount(),
+      });
+    }
   }
 
   onLeave(client: Client) {
@@ -133,6 +185,23 @@ export class MatchRoom extends Room {
     if (rosterEntry !== undefined) this.state_.units[seat.unitId].label = rosterEntry.label;
     seat.name = rosterEntry?.label ?? seat.name;
     this.sendRosterToReadyClients();
+    if (this.brokered) {
+      void reportLobbyEvent({
+        type: 'player_left',
+        roomId: this.roomId,
+        humanCount: this.humanCount(),
+      });
+    }
+  }
+
+  async onDispose() {
+    if (this.brokered) {
+      await reportLobbyEvent({
+        type: 'room_disposed',
+        roomId: this.roomId,
+        humanCount: this.humanCount(),
+      });
+    }
   }
 
   private tick() {
@@ -191,14 +260,28 @@ export class MatchRoom extends Room {
     }
 
     if (this.state_.match.phase === 'ended') {
-      // Report results to the lobby here later; for now leave the final state
-      // visible briefly, reject new joins, then close the room once.
+      // Leave the final state visible briefly, reject new joins, report the
+      // idempotent result, then close the disposable room once.
       this.shutdownScheduled = true;
+      if (this.brokered) {
+        void reportLobbyEvent({
+          type: 'match_ended',
+          roomId: this.roomId,
+          humanCount: this.humanCount(),
+          result: this.state_.match.result ?? 'draw',
+          scoreRed: this.state_.ctf.scores.red,
+          scoreBlue: this.state_.ctf.scores.blue,
+        });
+      }
       void this.lock();
       this.clock.setTimeout(() => {
         void this.disconnect();
       }, 10_000);
     }
+  }
+
+  private humanCount(): number {
+    return this.seats.filter((seat) => seat.client !== null).length;
   }
 
   private snapshotFor(unitId: string) {
