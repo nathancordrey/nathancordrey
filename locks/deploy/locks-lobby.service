@@ -1,0 +1,18 @@
+# /etc/systemd/system/locks-lobby.service
+[Unit]
+Description=Locks lobby service
+After=network.target postgresql.service
+
+[Service]
+WorkingDirectory=/home/nathan/code/nathancordrey/locks/lobby
+ExecStart=/usr/bin/env npm start
+Environment=LOBBY_PORT=2568
+Environment=NODE_ENV=production
+# Set once Postgres is created (Slice 2 DB step); until then it runs in-memory:
+# Environment=DATABASE_URL=postgres://locks:PASSWORD@localhost:5432/locks
+Restart=always
+RestartSec=3
+User=nathan
+
+[Install]
+WantedBy=multi-user.target
