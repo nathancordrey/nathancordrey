@@ -8,6 +8,7 @@ WorkingDirectory=/home/nathan/code/nathancordrey/locks/server
 ExecStart=/usr/bin/env npm start
 Environment=PORT=2567
 Environment=NODE_ENV=production
+EnvironmentFile=-/etc/locks-game.env
 Restart=always
 RestartSec=3
 User=nathan
