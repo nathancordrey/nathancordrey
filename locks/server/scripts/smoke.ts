@@ -4,7 +4,7 @@
 
 import http from 'node:http';
 import express from 'express';
-import { Server } from 'colyseus';
+import { Server } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { Client } from 'colyseus.js';
 
