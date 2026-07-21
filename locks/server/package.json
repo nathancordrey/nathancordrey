@@ -7,11 +7,12 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "smoke:quickplay": "tsx scripts/quickplay-smoke.ts"
   },
   "dependencies": {
+    "@colyseus/core": "^0.16.24",
     "@colyseus/ws-transport": "^0.16.0",
-    "colyseus": "^0.16.0",
     "express": "^4.19.0",
     "tsx": "^4.19.0"
   },
