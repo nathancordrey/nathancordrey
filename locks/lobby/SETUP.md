@@ -83,3 +83,8 @@ Guest sessions exist but the client doesn't use them, and matchmaking still
 runs on the game server's `joinOrCreate` pool. Slice 3 wires the client to
 `POST /guest` and adds the quick-play broker (prefer-populated room pick +
 signed join token). This slice is just the foundation standing up.
+
+---
+
+Slice 2 is complete. For the lobby-brokered quick-play rollout, see
+`../SLICE3_DEPLOY.md`.
