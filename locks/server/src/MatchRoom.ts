@@ -5,7 +5,11 @@
 import { Room, Client, ServerError } from '@colyseus/core';
 
 import { GAME_CONFIG } from '../../client/src/shared/config.js';
-import { applyPlayerCommand, clearUnitCommands } from '../../client/src/shared/commands.js';
+import {
+  applyPlayerCommand,
+  clearUnitCommands,
+  visibleUnitCommandState,
+} from '../../client/src/shared/commands.js';
 import type { Team } from '../../client/src/shared/config.js';
 import { makeBotBrain, assignRole } from '../../client/src/shared/bots.js';
 import type { BotBrain } from '../../client/src/shared/bots.js';
@@ -111,9 +115,8 @@ export class MatchRoom extends Room {
       seat.latestIntent = sanitizeIntent(data);
     });
 
-    // Slice 4A foundation: commands are accepted and deterministically queued
-    // in the shared state, but existing WASD intents remain the active movement
-    // path until waypoint execution lands in the next section.
+    // Commands are buffered until the next fixed simulation tick, validated,
+    // and then executed by the deterministic shared waypoint system.
     this.onMessage('command', (client, data: unknown) => {
       if (this.state_.match.phase === 'ended') return;
       const seat = this.seats.find((s) => s.client === client);
@@ -283,6 +286,7 @@ export class MatchRoom extends Room {
         validated,
         message.queue ? 'append' : 'replace'
       );
+      if (validated.type === 'stop') this.state_.units[seat.unitId].lock = null;
     }
   }
 
@@ -388,6 +392,7 @@ export class MatchRoom extends Room {
       self: view.self,
       allies: view.allies,
       visibleEnemies: view.visibleEnemies,
+      commands: visibleUnitCommandState(this.state_.commands[unitId]),
     };
   }
 
