@@ -3,6 +3,7 @@
 // nothing more ever crosses the wire.
 
 import type { Team } from './config';
+import type { PlayerCommand } from './commands';
 import type { MatchState } from './sim';
 import type { PerceivedEnemy, Unit } from './state';
 
@@ -31,4 +32,10 @@ export type RosterInfoEntry = {
 };
 
 // Client → server message types: 'ready' (no payload) once handlers are
-// registered; 'intent' with an Intent payload (sanitized server-side).
+// registered; legacy 'intent' while WASD remains enabled; and 'command' with
+// PlayerCommandMessage for the authoritative waypoint/attack queue.
+
+export type PlayerCommandMessage = {
+  command: PlayerCommand;
+  queue: boolean;
+};
