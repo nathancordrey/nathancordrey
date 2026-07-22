@@ -2,6 +2,8 @@
 // deterministic queue operations; input devices and network validation live
 // outside this module.
 
+import type { Vec2 } from './geometry';
+
 export const MAX_COMMAND_QUEUE = 10;
 
 export type MoveCommand = {
@@ -23,7 +25,20 @@ export type PlayerCommand = MoveCommand | AttackCommand | StopCommand;
 export type ExecutablePlayerCommand = MoveCommand | AttackCommand;
 export type CommandQueueMode = 'replace' | 'append';
 
+// Path execution is simulation-only state. It intentionally remains beside
+// the active command so a saved/replayed deterministic state contains every
+// input needed to continue the same route.
 export type UnitCommandState = {
+  active: ExecutablePlayerCommand | null;
+  queue: ExecutablePlayerCommand[];
+  path: Vec2[];
+  pathIndex: number;
+  pathGoal: Vec2 | null;
+};
+
+// Safe subset sent only to the owning client. Runtime A* waypoints are not
+// exposed because the client only needs the ordered destinations for UI.
+export type VisibleUnitCommandState = {
   active: ExecutablePlayerCommand | null;
   queue: ExecutablePlayerCommand[];
 };
@@ -31,7 +46,20 @@ export type UnitCommandState = {
 export type ApplyCommandResult = 'applied' | 'cleared' | 'queue-full';
 
 export function createUnitCommandState(): UnitCommandState {
-  return { active: null, queue: [] };
+  return {
+    active: null,
+    queue: [],
+    path: [],
+    pathIndex: 0,
+    pathGoal: null,
+  };
+}
+
+export function visibleUnitCommandState(state: UnitCommandState): VisibleUnitCommandState {
+  return {
+    active: state.active === null ? null : cloneExecutableCommand(state.active),
+    queue: state.queue.map(cloneExecutableCommand),
+  };
 }
 
 export function applyPlayerCommand(
@@ -49,11 +77,13 @@ export function applyPlayerCommand(
   if (mode === 'replace') {
     state.active = safeCommand;
     state.queue = [];
+    resetActiveCommandRuntime(state);
     return 'applied';
   }
 
   if (state.active === null) {
     state.active = safeCommand;
+    resetActiveCommandRuntime(state);
     return 'applied';
   }
 
@@ -64,11 +94,19 @@ export function applyPlayerCommand(
 
 export function completeActiveCommand(state: UnitCommandState): void {
   state.active = state.queue.shift() ?? null;
+  resetActiveCommandRuntime(state);
 }
 
 export function clearUnitCommands(state: UnitCommandState): void {
   state.active = null;
   state.queue = [];
+  resetActiveCommandRuntime(state);
+}
+
+export function resetActiveCommandRuntime(state: UnitCommandState): void {
+  state.path = [];
+  state.pathIndex = 0;
+  state.pathGoal = null;
 }
 
 function cloneExecutableCommand(command: ExecutablePlayerCommand): ExecutablePlayerCommand {
