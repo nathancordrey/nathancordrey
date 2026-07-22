@@ -2,6 +2,8 @@ import './style.css';
 import Phaser from 'phaser';
 
 import { GAME_CONFIG, MAP } from './shared/config';
+import type { PlayerCommand } from './shared/commands';
+import { collidesWithWalls } from './shared/movement';
 import type { Team } from './shared/config';
 import type { Vec2 } from './shared/geometry';
 import { computeVisionPolygon } from './shared/sim';
@@ -44,6 +46,14 @@ const DEFAULT_LOBBY = (() => {
     ? `https://lobby.${ROOT_HOST}`
     : `http://${window.location.hostname}:2568`;
 })();
+
+// Waypoint is the product default. `?controls=wasd` keeps the old direct
+// movement available as a temporary development comparison during rollout.
+type ControlMode = 'waypoint' | 'wasd';
+const CONTROL_MODE: ControlMode =
+  new URLSearchParams(window.location.search).get('controls') === 'wasd'
+    ? 'wasd'
+    : 'waypoint';
 
 // ---------------------------------------------------------------------------
 
@@ -244,6 +254,7 @@ class GameScene extends Phaser.Scene {
   private aimGraphics!: Phaser.GameObjects.Graphics;
   private shotGraphics!: Phaser.GameObjects.Graphics;
   private mobileControlGraphics!: Phaser.GameObjects.Graphics;
+  private commandGraphics!: Phaser.GameObjects.Graphics;
   private minimapGraphics!: Phaser.GameObjects.Graphics;
 
   private fogRect!: Phaser.GameObjects.Rectangle;
@@ -264,6 +275,13 @@ class GameScene extends Phaser.Scene {
   private mobileMoveOrigin: Vec2 | null = null;
   private mobileMoveCurrent: Vec2 | null = null;
   private mobileMoveVector: Vec2 = { x: 0, y: 0 };
+
+  private touchCommandPointerId: number | null = null;
+  private touchCommandStart: Vec2 | null = null;
+  private touchCommandDragged = false;
+  private queueEnabled = false;
+  private queueButtonBg: Phaser.GameObjects.Rectangle | null = null;
+  private queueButtonText: Phaser.GameObjects.Text | null = null;
 
   private statusClearEvent: Phaser.Time.TimerEvent | null = null;
 
@@ -289,6 +307,12 @@ class GameScene extends Phaser.Scene {
     this.mobileMoveOrigin = null;
     this.mobileMoveCurrent = null;
     this.mobileMoveVector = { x: 0, y: 0 };
+    this.touchCommandPointerId = null;
+    this.touchCommandStart = null;
+    this.touchCommandDragged = false;
+    this.queueEnabled = false;
+    this.queueButtonBg = null;
+    this.queueButtonText = null;
     this.statusClearEvent = null;
 
     this.cameras.main.setBackgroundColor('#111827');
@@ -296,10 +320,13 @@ class GameScene extends Phaser.Scene {
     this.createArena();
     this.createFog();
     this.createHud();
+    this.createMobileCommandButtons();
 
     this.cameraTarget = this.add.rectangle(0, 0, 2, 2, 0x000000, 0);
     this.cameras.main.setBounds(0, 0, GAME_CONFIG.worldWidth, GAME_CONFIG.worldHeight);
     this.cameras.main.startFollow(this.cameraTarget, true, 0.12, 0.12);
+
+    this.input.mouse?.disableContextMenu();
 
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keys = this.input.keyboard!.addKeys({
@@ -315,6 +342,9 @@ class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-X', () => {
       this.pendingCancelLock = true;
     });
+    this.input.keyboard!.on('keydown-ESC', () => {
+      this.issueStopCommand();
+    });
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) =>
       this.handlePointerDown(pointer)
@@ -324,6 +354,13 @@ class GameScene extends Phaser.Scene {
         this.mobileMoveCurrent = { x: pointer.x, y: pointer.y };
         this.updateMobileMoveVector(pointer);
       }
+      if (this.touchCommandPointerId === pointer.id && this.touchCommandStart !== null) {
+        const moved = Math.hypot(
+          pointer.x - this.touchCommandStart.x,
+          pointer.y - this.touchCommandStart.y
+        );
+        if (moved >= 10) this.touchCommandDragged = true;
+      }
     });
     const release = (pointer: Phaser.Input.Pointer) => {
       if (this.mobileMovePointerId === pointer.id) {
@@ -331,6 +368,18 @@ class GameScene extends Phaser.Scene {
         this.mobileMoveOrigin = null;
         this.mobileMoveCurrent = null;
         this.mobileMoveVector = { x: 0, y: 0 };
+      }
+      if (this.touchCommandPointerId === pointer.id) {
+        const shouldIssue = !this.touchCommandDragged;
+        this.touchCommandPointerId = null;
+        this.touchCommandStart = null;
+        this.touchCommandDragged = false;
+        if (shouldIssue) {
+          this.issueContextualCommand(
+            { x: pointer.worldX, y: pointer.worldY },
+            this.queueEnabled
+          );
+        }
       }
     };
     this.input.on('pointerup', release);
@@ -448,6 +497,8 @@ class GameScene extends Phaser.Scene {
     this.mobileControlGraphics = this.add.graphics();
     this.mobileControlGraphics.setDepth(100);
     this.mobileControlGraphics.setScrollFactor(0);
+    this.commandGraphics = this.add.graphics();
+    this.commandGraphics.setDepth(55);
     this.minimapGraphics = this.add.graphics();
     this.minimapGraphics.setDepth(110);
     this.minimapGraphics.setScrollFactor(0);
@@ -464,11 +515,18 @@ class GameScene extends Phaser.Scene {
       .setScrollFactor(0);
 
     this.add
-      .text(12, 30, 'Move: WASD/drag • Lock: click enemy • X: cancel', {
-        color: '#cbd5e1',
-        fontSize: '11px',
-        fontFamily: 'system-ui, sans-serif',
-      })
+      .text(
+        12,
+        30,
+        CONTROL_MODE === 'waypoint'
+          ? 'Move: right-click/tap • Queue: Shift • Stop: Esc • Lock: click enemy'
+          : 'Move: WASD/drag • Lock: click enemy • X: cancel',
+        {
+          color: '#cbd5e1',
+          fontSize: '11px',
+          fontFamily: 'system-ui, sans-serif',
+        }
+      )
       .setDepth(100)
       .setScrollFactor(0);
 
@@ -516,6 +574,78 @@ class GameScene extends Phaser.Scene {
       .setScrollFactor(0);
   }
 
+  private createMobileCommandButtons() {
+    const hasTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+    if (CONTROL_MODE !== 'waypoint' || !hasTouch) return;
+
+    const y = GAME_CONFIG.viewportHeight - 25;
+    this.queueButtonBg = this.add
+      .rectangle(58, y, 96, 34, 0x1f2937, 0.92)
+      .setStrokeStyle(2, 0x64748b, 0.9)
+      .setScrollFactor(0)
+      .setDepth(120)
+      .setInteractive({ useHandCursor: true });
+    this.queueButtonText = this.add
+      .text(58, y, 'QUEUE OFF', {
+        color: '#cbd5e1',
+        fontSize: '11px',
+        fontFamily: 'system-ui, sans-serif',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(121);
+
+    this.queueButtonBg.on(
+      'pointerdown',
+      (
+        _pointer: Phaser.Input.Pointer,
+        _localX: number,
+        _localY: number,
+        event: { stopPropagation(): void }
+      ) => {
+        event.stopPropagation();
+        this.queueEnabled = !this.queueEnabled;
+        this.refreshQueueButton();
+      }
+    );
+
+    const stopBg = this.add
+      .rectangle(148, y, 70, 34, 0x3f1d1d, 0.92)
+      .setStrokeStyle(2, 0xf87171, 0.8)
+      .setScrollFactor(0)
+      .setDepth(120)
+      .setInteractive({ useHandCursor: true });
+    this.add
+      .text(148, y, 'STOP', {
+        color: '#fecaca',
+        fontSize: '11px',
+        fontFamily: 'system-ui, sans-serif',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(121);
+    stopBg.on(
+      'pointerdown',
+      (
+        _pointer: Phaser.Input.Pointer,
+        _localX: number,
+        _localY: number,
+        event: { stopPropagation(): void }
+      ) => {
+        event.stopPropagation();
+        this.issueStopCommand();
+      }
+    );
+  }
+
+  private refreshQueueButton() {
+    if (this.queueButtonBg === null || this.queueButtonText === null) return;
+    this.queueButtonBg.setFillStyle(this.queueEnabled ? 0x164e63 : 0x1f2937, 0.92);
+    this.queueButtonBg.setStrokeStyle(2, this.queueEnabled ? 0x38bdf8 : 0x64748b, 0.9);
+    this.queueButtonText.setText(this.queueEnabled ? 'QUEUE ON' : 'QUEUE OFF');
+    this.queueButtonText.setColor(this.queueEnabled ? '#bae6fd' : '#cbd5e1');
+  }
+
   // ------------------------------------------------------------------ input
 
   private handlePointerDown(pointer: Phaser.Input.Pointer) {
@@ -524,34 +654,92 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    const pointerEvent = pointer.event as Event & { pointerType?: string };
+    const pointerEvent = pointer.event as Event & {
+      pointerType?: string;
+      shiftKey?: boolean;
+    };
     const deviceHasTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
     const isTouch =
       (pointer as unknown as { wasTouch?: boolean }).wasTouch === true ||
       pointerEvent.pointerType === 'touch' ||
       (deviceHasTouch && pointerEvent.pointerType !== 'mouse');
 
-    if (isTouch && pointer.x < GAME_CONFIG.viewportWidth / 2) {
-      this.mobileMovePointerId = pointer.id;
-      this.mobileMoveOrigin = { x: pointer.x, y: pointer.y };
-      this.mobileMoveCurrent = { x: pointer.x, y: pointer.y };
-      this.updateMobileMoveVector(pointer);
+    if (CONTROL_MODE === 'wasd') {
+      if (isTouch && pointer.x < GAME_CONFIG.viewportWidth / 2) {
+        this.mobileMovePointerId = pointer.id;
+        this.mobileMoveOrigin = { x: pointer.x, y: pointer.y };
+        this.mobileMoveCurrent = { x: pointer.x, y: pointer.y };
+        this.updateMobileMoveVector(pointer);
+        return;
+      }
+      this.issueContextualCommand({ x: pointer.worldX, y: pointer.worldY }, false, false);
       return;
     }
 
-    if (this.lastView === null) return;
+    if (isTouch) {
+      this.touchCommandPointerId = pointer.id;
+      this.touchCommandStart = { x: pointer.x, y: pointer.y };
+      this.touchCommandDragged = false;
+      return;
+    }
 
-    const click: Vec2 = { x: pointer.worldX, y: pointer.worldY };
+    const commandPoint = { x: pointer.worldX, y: pointer.worldY };
+    const queue = pointerEvent.shiftKey === true;
+    if (pointer.rightButtonDown()) {
+      this.issueContextualCommand(commandPoint, queue, true);
+    } else if (pointer.leftButtonDown()) {
+      // Until sticky attack commands land in Slice 4C, left-click preserves
+      // the existing visible-enemy lock behavior and never moves on empty ground.
+      this.issueContextualCommand(commandPoint, false, false);
+    }
+  }
+
+  private issueContextualCommand(point: Vec2, queue: boolean, allowGround = true) {
+    if (this.lastView === null || !this.lastView.self.alive) return;
+
     let bestId: string | null = null;
     let bestDistance = Infinity;
     for (const enemy of this.lastView.visibleEnemies) {
-      const d = Math.hypot(click.x - enemy.pos.x, click.y - enemy.pos.y);
+      const d = Math.hypot(point.x - enemy.pos.x, point.y - enemy.pos.y);
       if (d <= GAME_CONFIG.playerRadius + GAME_CONFIG.lockClickTolerance && d < bestDistance) {
         bestDistance = d;
         bestId = enemy.id;
       }
     }
-    if (bestId !== null) this.pendingLockTargetId = bestId;
+
+    if (bestId !== null) {
+      if (CONTROL_MODE === 'waypoint') {
+        // Slice 4B keeps the proven lock combat path. Targeting an enemy
+        // interrupts waypoint travel; queued attack orders land in Slice 4C.
+        this.session.issueCommand({ type: 'stop' }, false);
+      }
+      this.pendingLockTargetId = bestId;
+      return;
+    }
+    if (!allowGround || CONTROL_MODE !== 'waypoint') return;
+
+    const radius = GAME_CONFIG.playerRadius;
+    const valid =
+      point.x >= radius &&
+      point.y >= radius &&
+      point.x <= GAME_CONFIG.worldWidth - radius &&
+      point.y <= GAME_CONFIG.worldHeight - radius &&
+      !collidesWithWalls(point.x, point.y, radius, MAP.walls);
+    if (!valid) {
+      this.setStatus('Cannot move there', 800);
+      return;
+    }
+
+    const command: PlayerCommand = { type: 'move', x: point.x, y: point.y };
+    this.session.issueCommand(command, queue);
+  }
+
+  private issueStopCommand() {
+    this.session.issueCommand({ type: 'stop' }, false);
+    this.pendingCancelLock = true;
+    this.queueEnabled = false;
+    this.refreshQueueButton();
+    this.setStatus('Orders cleared', 650);
   }
 
   private updateMobileMoveVector(pointer: Phaser.Input.Pointer) {
@@ -577,12 +765,14 @@ class GameScene extends Phaser.Scene {
   private buildPlayerIntent(): Intent {
     let dx = 0;
     let dy = 0;
-    if (this.cursors.left.isDown || this.keys.a.isDown) dx -= 1;
-    if (this.cursors.right.isDown || this.keys.d.isDown) dx += 1;
-    if (this.cursors.up.isDown || this.keys.w.isDown) dy -= 1;
-    if (this.cursors.down.isDown || this.keys.s.isDown) dy += 1;
-    dx += this.mobileMoveVector.x;
-    dy += this.mobileMoveVector.y;
+    if (CONTROL_MODE === 'wasd') {
+      if (this.cursors.left.isDown || this.keys.a.isDown) dx -= 1;
+      if (this.cursors.right.isDown || this.keys.d.isDown) dx += 1;
+      if (this.cursors.up.isDown || this.keys.w.isDown) dy -= 1;
+      if (this.cursors.down.isDown || this.keys.s.isDown) dy += 1;
+      dx += this.mobileMoveVector.x;
+      dy += this.mobileMoveVector.y;
+    }
 
     const intent: Intent = { move: { x: dx, y: dy } };
     if (this.pendingLockTargetId !== null) {
@@ -773,12 +963,49 @@ class GameScene extends Phaser.Scene {
       for (const marker of this.flagMarkers[flag.team] ?? []) marker.setVisible(atBase);
     }
 
+    this.drawCommandQueue(view);
     this.drawAim(self);
     this.drawTracers(time);
     this.drawFog(view);
     this.drawMobileControls();
     this.drawMinimap(view);
     this.updateHud(view);
+  }
+
+  private drawCommandQueue(view: Snapshot) {
+    this.commandGraphics.clear();
+    if (CONTROL_MODE !== 'waypoint' || !view.self.alive) return;
+
+    const commands = [
+      ...(view.commands.active === null ? [] : [view.commands.active]),
+      ...view.commands.queue,
+    ];
+    const moveCommands = commands.filter(
+      (command): command is Extract<PlayerCommand, { type: 'move' }> => command.type === 'move'
+    );
+    if (moveCommands.length === 0) return;
+
+    const selfView = this.unitViews.get(view.self.id);
+    let from =
+      selfView === undefined
+        ? { ...view.self.pos }
+        : { x: selfView.body.x, y: selfView.body.y };
+
+    this.commandGraphics.lineStyle(2, 0x38bdf8, 0.28);
+    for (let index = 0; index < moveCommands.length; index += 1) {
+      const command = moveCommands[index];
+      this.commandGraphics.beginPath();
+      this.commandGraphics.moveTo(from.x, from.y);
+      this.commandGraphics.lineTo(command.x, command.y);
+      this.commandGraphics.strokePath();
+
+      const active = index === 0 && view.commands.active?.type === 'move';
+      this.commandGraphics.fillStyle(active ? 0x7dd3fc : 0x38bdf8, active ? 0.9 : 0.55);
+      this.commandGraphics.fillCircle(command.x, command.y, active ? 7 : 5);
+      this.commandGraphics.lineStyle(2, 0xe0f2fe, active ? 0.8 : 0.45);
+      this.commandGraphics.strokeCircle(command.x, command.y, active ? 10 : 8);
+      from = { x: command.x, y: command.y };
+    }
   }
 
   private drawAim(self: Unit) {
@@ -1004,6 +1231,7 @@ class GameScene extends Phaser.Scene {
         `${this.session.mode} tick=${view.tick}`,
         `cooldown=${Math.round(cooldownMs)}ms`,
         `lock=${lockLabel}`,
+        `orders=${view.commands.active?.type ?? 'none'}+${view.commands.queue.length}`,
         `score RED ${view.scores.red} — ${view.scores.blue} BLUE${
           view.carrierIds.red === self.id || view.carrierIds.blue === self.id
             ? '  [CARRYING FLAG]'
