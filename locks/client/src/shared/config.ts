@@ -57,9 +57,8 @@ export const GAME_CONFIG = {
   lockClickTolerance: 8,
 
   locks: {
-    // Once a target leaves team vision, pursue only its last-known position.
-    // The hidden real position must never steer the pursuer through fog.
-    hiddenTracking: false,
+    // Once a target leaves team vision, the shared simulation always pursues
+    // only its last-known position; hidden tracking is not configurable.
     requireFacingCone: true,
     attackConeDegrees: 25,
     turnRateDegreesPerSecond: 360,
