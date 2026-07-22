@@ -12,9 +12,18 @@ export type MoveCommand = {
   y: number;
 };
 
+// Browser request shape. The authoritative server captures the target's
+// currently visible position and turns this into an ExecutableAttackCommand.
 export type AttackCommand = {
   type: 'attack';
   targetId: string;
+};
+
+export type ExecutableAttackCommand = AttackCommand & {
+  // Trusted position from the last tick on which the target was visible to
+  // the attacker's team. It is updated by the shared simulation and never by
+  // a hidden target's real position.
+  lastKnownPosition: Vec2;
 };
 
 export type StopCommand = {
@@ -22,7 +31,8 @@ export type StopCommand = {
 };
 
 export type PlayerCommand = MoveCommand | AttackCommand | StopCommand;
-export type ExecutablePlayerCommand = MoveCommand | AttackCommand;
+export type ExecutablePlayerCommand = MoveCommand | ExecutableAttackCommand;
+export type ValidatedPlayerCommand = ExecutablePlayerCommand | StopCommand;
 export type CommandQueueMode = 'replace' | 'append';
 
 // Path execution is simulation-only state. It intentionally remains beside
@@ -36,8 +46,9 @@ export type UnitCommandState = {
   pathGoal: Vec2 | null;
 };
 
-// Safe subset sent only to the owning client. Runtime A* waypoints are not
-// exposed because the client only needs the ordered destinations for UI.
+// Sent only to the owning client. Attack last-known positions are safe here:
+// they are positions that player's team already observed, and they let the UI
+// draw queued attack orders without exposing hidden real-time coordinates.
 export type VisibleUnitCommandState = {
   active: ExecutablePlayerCommand | null;
   queue: ExecutablePlayerCommand[];
@@ -64,7 +75,7 @@ export function visibleUnitCommandState(state: UnitCommandState): VisibleUnitCom
 
 export function applyPlayerCommand(
   state: UnitCommandState,
-  command: PlayerCommand,
+  command: ValidatedPlayerCommand,
   mode: CommandQueueMode
 ): ApplyCommandResult {
   if (command.type === 'stop') {
@@ -112,5 +123,9 @@ export function resetActiveCommandRuntime(state: UnitCommandState): void {
 function cloneExecutableCommand(command: ExecutablePlayerCommand): ExecutablePlayerCommand {
   return command.type === 'move'
     ? { type: 'move', x: command.x, y: command.y }
-    : { type: 'attack', targetId: command.targetId };
+    : {
+        type: 'attack',
+        targetId: command.targetId,
+        lastKnownPosition: { ...command.lastKnownPosition },
+      };
 }
