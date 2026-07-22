@@ -27,13 +27,17 @@ function main() {
   assert.deepEqual(redCommands.active, { type: 'move', x: 500, y: 500 });
 
   assert.equal(
-    applyPlayerCommand(redCommands, { type: 'attack', targetId: 'b1' }, 'append'),
+    applyPlayerCommand(redCommands, { type: 'attack', targetId: 'b1', lastKnownPosition: { x: 900, y: 500 } }, 'append'),
     'applied'
   );
-  assert.deepEqual(redCommands.queue, [{ type: 'attack', targetId: 'b1' }]);
+  assert.deepEqual(redCommands.queue, [{ type: 'attack', targetId: 'b1', lastKnownPosition: { x: 900, y: 500 } }]);
 
   completeActiveCommand(redCommands);
-  assert.deepEqual(redCommands.active, { type: 'attack', targetId: 'b1' });
+  assert.deepEqual(redCommands.active, {
+    type: 'attack',
+    targetId: 'b1',
+    lastKnownPosition: { x: 900, y: 500 },
+  });
   assert.deepEqual(redCommands.queue, []);
 
   for (let index = 0; index < MAX_COMMAND_QUEUE; index += 1) {
@@ -66,6 +70,17 @@ function main() {
     sanitizePlayerCommandMessage({ command: { type: 'move', x: Number.NaN, y: 3 } }),
     null
   );
+  assert.deepEqual(
+    sanitizePlayerCommandMessage({
+      command: {
+        type: 'attack',
+        targetId: 'b1',
+        lastKnownPosition: { x: 1, y: 1 },
+      },
+      queue: true,
+    }),
+    { command: { type: 'attack', targetId: 'b1' }, queue: true }
+  );
 
   const validPoint = findOpenPoint();
   assert.deepEqual(
@@ -89,7 +104,11 @@ function main() {
   state.units.b1.pos = { x: state.units.r1.pos.x + 50, y: state.units.r1.pos.y };
   assert.deepEqual(
     validatePlayerCommand(state, 'r1', { type: 'attack', targetId: 'b1' }),
-    { type: 'attack', targetId: 'b1' }
+    {
+      type: 'attack',
+      targetId: 'b1',
+      lastKnownPosition: { ...state.units.b1.pos },
+    }
   );
 
   state.units.r1.alive = false;
@@ -112,7 +131,7 @@ function main() {
   const deathState = createGameState(19);
   const redFlag = MAP.flags.find((flag) => flag.team === 'red');
   assert.ok(redFlag);
-  deathState.units.r1.pos = { x: redFlag.x, y: redFlag.y };
+  deathState.units.r1.pos = { x: redFlag!.x, y: redFlag!.y };
   deathState.units.r1.campStartedTick = 0;
   deathState.tick = msToTicks(GAME_CONFIG.campGraceMs + GAME_CONFIG.campWarningMs);
   applyPlayerCommand(
@@ -130,7 +149,14 @@ function main() {
   const stream = [
     { command: { type: 'move', x: 700, y: 700 } as const, mode: 'replace' as const },
     { command: { type: 'move', x: 800, y: 700 } as const, mode: 'append' as const },
-    { command: { type: 'attack', targetId: 'b1' } as const, mode: 'append' as const },
+    {
+      command: {
+        type: 'attack',
+        targetId: 'b1',
+        lastKnownPosition: { x: 1200, y: 800 },
+      } as const,
+      mode: 'append' as const,
+    },
   ];
   for (const entry of stream) {
     applyPlayerCommand(first.commands.r1, entry.command, entry.mode);
