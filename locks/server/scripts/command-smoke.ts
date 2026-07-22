@@ -1,6 +1,5 @@
-// Slice 4A command-foundation smoke test. Exercises deterministic queue
-// semantics, server validation, and lifecycle clearing without enabling
-// waypoint execution yet.
+// Command-model smoke test. Exercises deterministic queue semantics, server
+// validation, and lifecycle clearing used by waypoint execution.
 
 import assert from 'node:assert/strict';
 
@@ -9,6 +8,7 @@ import {
   applyPlayerCommand,
   clearUnitCommands,
   completeActiveCommand,
+  createUnitCommandState,
 } from '../../client/src/shared/commands.js';
 import { GAME_CONFIG, MAP } from '../../client/src/shared/config.js';
 import { createGameState, IDLE_INTENT, msToTicks, step } from '../../client/src/shared/state.js';
@@ -18,7 +18,7 @@ function main() {
   const state = createGameState(17);
   const redCommands = state.commands.r1;
 
-  assert.deepEqual(redCommands, { active: null, queue: [] });
+  assert.deepEqual(redCommands, createUnitCommandState());
 
   assert.equal(
     applyPlayerCommand(redCommands, { type: 'move', x: 500, y: 500 }, 'replace'),
@@ -53,7 +53,7 @@ function main() {
   );
 
   assert.equal(applyPlayerCommand(redCommands, { type: 'stop' }, 'append'), 'cleared');
-  assert.deepEqual(redCommands, { active: null, queue: [] });
+  assert.deepEqual(redCommands, createUnitCommandState());
 
   assert.deepEqual(
     sanitizePlayerCommandMessage({
@@ -106,7 +106,7 @@ function main() {
   respawnState.units.r1.respawnAtTick = 1;
   step(respawnState, {});
   assert.equal(respawnState.units.r1.alive, true);
-  assert.deepEqual(respawnState.commands.r1, { active: null, queue: [] });
+  assert.deepEqual(respawnState.commands.r1, createUnitCommandState());
 
   // Camping death also clears active and queued commands.
   const deathState = createGameState(19);
@@ -122,7 +122,7 @@ function main() {
   );
   step(deathState, { r1: IDLE_INTENT });
   assert.equal(deathState.units.r1.alive, false);
-  assert.deepEqual(deathState.commands.r1, { active: null, queue: [] });
+  assert.deepEqual(deathState.commands.r1, createUnitCommandState());
 
   // The same ordered stream produces the same command state.
   const first = createGameState(20);
@@ -139,7 +139,7 @@ function main() {
   assert.deepEqual(first.commands, second.commands);
 
   clearUnitCommands(first.commands.r1);
-  assert.deepEqual(first.commands.r1, { active: null, queue: [] });
+  assert.deepEqual(first.commands.r1, createUnitCommandState());
 
   console.log('COMMAND SMOKE PASS');
 }
