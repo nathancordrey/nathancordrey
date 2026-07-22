@@ -1,6 +1,8 @@
 import './style.css';
 import Phaser from 'phaser';
 
+import { CameraController } from './cameraController';
+import { PointerGestureController } from './pointerGestureController';
 import { GAME_CONFIG, MAP } from './shared/config';
 import type { PlayerCommand } from './shared/commands';
 import { collidesWithWalls } from './shared/movement';
@@ -237,6 +239,23 @@ type UnitView = {
 
 type Tracer = { from: Vec2; to: Vec2; until: number };
 
+type ContextualCommandOptions = {
+  queue: boolean;
+  allowGround?: boolean;
+  touch?: boolean;
+};
+
+type CommandGestureContext = {
+  commandOptions: ContextualCommandOptions;
+};
+
+type TapFeedback = {
+  point: Vec2;
+  kind: 'move' | 'attack' | 'invalid';
+  startedAt: number;
+  until: number;
+};
+
 class GameScene extends Phaser.Scene {
   private session!: GameSession;
   private started = false;
@@ -244,6 +263,8 @@ class GameScene extends Phaser.Scene {
   private unitViews: Map<string, UnitView> = new Map();
   private flagMarkers: Partial<Record<Team, Phaser.GameObjects.Arc[]>> = {};
   private cameraTarget!: Phaser.GameObjects.Rectangle;
+  private cameraController!: CameraController;
+  private cameraInitialized = false;
 
   private connectingText!: Phaser.GameObjects.Text;
   private debugText!: Phaser.GameObjects.Text;
@@ -255,6 +276,7 @@ class GameScene extends Phaser.Scene {
   private shotGraphics!: Phaser.GameObjects.Graphics;
   private mobileControlGraphics!: Phaser.GameObjects.Graphics;
   private commandGraphics!: Phaser.GameObjects.Graphics;
+  private tapFeedbackGraphics!: Phaser.GameObjects.Graphics;
   private minimapGraphics!: Phaser.GameObjects.Graphics;
 
   private fogRect!: Phaser.GameObjects.Rectangle;
@@ -282,14 +304,22 @@ class GameScene extends Phaser.Scene {
   private mobileMoveCurrent: Vec2 | null = null;
   private mobileMoveVector: Vec2 = { x: 0, y: 0 };
 
-  private touchCommandPointerId: number | null = null;
-  private touchCommandStart: Vec2 | null = null;
-  private touchCommandDragged = false;
+  private gestureController = new PointerGestureController<CommandGestureContext>();
   private queueEnabled = false;
   private queueButtonBg: Phaser.GameObjects.Rectangle | null = null;
   private queueButtonText: Phaser.GameObjects.Text | null = null;
+  private recenterButtonBg: Phaser.GameObjects.Rectangle | null = null;
+  private recenterButtonText: Phaser.GameObjects.Text | null = null;
+  private tapFeedbacks: TapFeedback[] = [];
+  private pendingRespawnRecenter = false;
 
   private statusClearEvent: Phaser.Time.TimerEvent | null = null;
+
+  private readonly handleWindowBlur = () => this.cancelPointerGestures();
+  private readonly handleVisibilityChange = () => {
+    if (document.visibilityState !== 'visible') this.cancelPointerGestures();
+  };
+  private readonly handleScaleResize = () => this.cameraController.handleResize();
 
   constructor() {
     super('GameScene');
@@ -306,6 +336,7 @@ class GameScene extends Phaser.Scene {
     this.fogPolygonCache = new Map();
     this.tracers = [];
     this.matchEndShown = false;
+    this.cameraInitialized = false;
     this.connectionOverlay = null;
     this.connectionHeadlineText = null;
     this.connectionDetailText = null;
@@ -318,12 +349,14 @@ class GameScene extends Phaser.Scene {
     this.mobileMoveOrigin = null;
     this.mobileMoveCurrent = null;
     this.mobileMoveVector = { x: 0, y: 0 };
-    this.touchCommandPointerId = null;
-    this.touchCommandStart = null;
-    this.touchCommandDragged = false;
+    this.gestureController = new PointerGestureController<CommandGestureContext>();
     this.queueEnabled = false;
     this.queueButtonBg = null;
     this.queueButtonText = null;
+    this.recenterButtonBg = null;
+    this.recenterButtonText = null;
+    this.tapFeedbacks = [];
+    this.pendingRespawnRecenter = false;
     this.statusClearEvent = null;
 
     this.cameras.main.setBackgroundColor('#111827');
@@ -331,11 +364,13 @@ class GameScene extends Phaser.Scene {
     this.createArena();
     this.createFog();
     this.createHud();
-    this.createMobileCommandButtons();
 
     this.cameraTarget = this.add.rectangle(0, 0, 2, 2, 0x000000, 0);
-    this.cameras.main.setBounds(0, 0, GAME_CONFIG.worldWidth, GAME_CONFIG.worldHeight);
-    this.cameras.main.startFollow(this.cameraTarget, true, 0.12, 0.12);
+    this.cameraController = new CameraController(this.cameras.main, this.cameraTarget, {
+      worldWidth: GAME_CONFIG.worldWidth,
+      worldHeight: GAME_CONFIG.worldHeight,
+    });
+    this.createMobileCommandButtons();
 
     this.input.mouse?.disableContextMenu();
 
@@ -360,6 +395,10 @@ class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-ESC', () => {
       this.issueStopCommand();
     });
+    this.input.keyboard!.on('keydown-SPACE', (event: KeyboardEvent) => {
+      event.preventDefault();
+      this.recenterCamera();
+    });
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) =>
       this.handlePointerDown(pointer)
@@ -369,38 +408,51 @@ class GameScene extends Phaser.Scene {
         this.mobileMoveCurrent = { x: pointer.x, y: pointer.y };
         this.updateMobileMoveVector(pointer);
       }
-      if (this.touchCommandPointerId === pointer.id && this.touchCommandStart !== null) {
-        const moved = Math.hypot(
-          pointer.x - this.touchCommandStart.x,
-          pointer.y - this.touchCommandStart.y
-        );
-        if (moved >= 10) this.touchCommandDragged = true;
+
+      const gesture = this.gestureController.move(pointer.id, {
+        x: pointer.x,
+        y: pointer.y,
+      });
+      if (gesture?.dragging && (gesture.delta.x !== 0 || gesture.delta.y !== 0)) {
+        const becameFree = this.cameraController.panBy(gesture.delta.x, gesture.delta.y);
+        if (becameFree) this.setStatus('Camera free — Recenter or Space to follow', 1200);
+        this.refreshRecenterButton();
       }
     });
     const release = (pointer: Phaser.Input.Pointer) => {
       if (this.mobileMovePointerId === pointer.id) {
-        this.mobileMovePointerId = null;
-        this.mobileMoveOrigin = null;
-        this.mobileMoveCurrent = null;
-        this.mobileMoveVector = { x: 0, y: 0 };
+        this.resetMobileMovePointer();
       }
-      if (this.touchCommandPointerId === pointer.id) {
-        const shouldIssue = !this.touchCommandDragged;
-        this.touchCommandPointerId = null;
-        this.touchCommandStart = null;
-        this.touchCommandDragged = false;
-        if (shouldIssue) {
-          this.issueContextualCommand(
-            { x: pointer.worldX, y: pointer.worldY },
-            this.queueEnabled
-          );
-        }
+
+      const result = this.gestureController.end(
+        pointer.id,
+        { x: pointer.x, y: pointer.y },
+        performance.now()
+      );
+      if (result?.kind === 'tap') {
+        const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        this.issueContextualCommand(
+          { x: worldPoint.x, y: worldPoint.y },
+          result.context.commandOptions
+        );
       }
     };
     this.input.on('pointerup', release);
     this.input.on('pointerupoutside', release);
+    this.input.on('pointercancel', (pointer: Phaser.Input.Pointer) => {
+      this.gestureController.cancel(pointer.id);
+      if (this.mobileMovePointerId === pointer.id) this.resetMobileMovePointer();
+    });
+
+    window.addEventListener('blur', this.handleWindowBlur);
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    this.scale.on('resize', this.handleScaleResize);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('blur', this.handleWindowBlur);
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+      this.scale.off('resize', this.handleScaleResize);
+      this.cancelPointerGestures();
       this.session.dispose();
     });
   }
@@ -514,6 +566,8 @@ class GameScene extends Phaser.Scene {
     this.mobileControlGraphics.setScrollFactor(0);
     this.commandGraphics = this.add.graphics();
     this.commandGraphics.setDepth(55);
+    this.tapFeedbackGraphics = this.add.graphics();
+    this.tapFeedbackGraphics.setDepth(65);
     this.minimapGraphics = this.add.graphics();
     this.minimapGraphics.setDepth(110);
     this.minimapGraphics.setScrollFactor(0);
@@ -534,7 +588,7 @@ class GameScene extends Phaser.Scene {
         12,
         30,
         CONTROL_MODE === 'waypoint'
-          ? 'Move/attack: right-click or tap • Queue: Shift • Stop: Esc'
+          ? 'Command: right-click/tap • Pan: drag • Recenter: Space • Stop: Esc'
           : 'Move: WASD/drag • Lock: click enemy • X: cancel',
         {
           color: '#cbd5e1',
@@ -593,17 +647,19 @@ class GameScene extends Phaser.Scene {
     const hasTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
     if (CONTROL_MODE !== 'waypoint' || !hasTouch) return;
 
-    const y = GAME_CONFIG.viewportHeight - 25;
+    const y = GAME_CONFIG.viewportHeight - 32;
+    const height = 52;
+
     this.queueButtonBg = this.add
-      .rectangle(58, y, 96, 34, 0x1f2937, 0.92)
+      .rectangle(60, y, 104, height, 0x1f2937, 0.9)
       .setStrokeStyle(2, 0x64748b, 0.9)
       .setScrollFactor(0)
       .setDepth(120)
       .setInteractive({ useHandCursor: true });
     this.queueButtonText = this.add
-      .text(58, y, 'QUEUE OFF', {
+      .text(60, y, 'QUEUE OFF', {
         color: '#cbd5e1',
-        fontSize: '11px',
+        fontSize: '12px',
         fontFamily: 'system-ui, sans-serif',
       })
       .setOrigin(0.5)
@@ -625,15 +681,15 @@ class GameScene extends Phaser.Scene {
     );
 
     const stopBg = this.add
-      .rectangle(148, y, 70, 34, 0x3f1d1d, 0.92)
+      .rectangle(157, y, 78, height, 0x3f1d1d, 0.9)
       .setStrokeStyle(2, 0xf87171, 0.8)
       .setScrollFactor(0)
       .setDepth(120)
       .setInteractive({ useHandCursor: true });
     this.add
-      .text(148, y, 'STOP', {
+      .text(157, y, 'STOP', {
         color: '#fecaca',
-        fontSize: '11px',
+        fontSize: '12px',
         fontFamily: 'system-ui, sans-serif',
       })
       .setOrigin(0.5)
@@ -651,14 +707,54 @@ class GameScene extends Phaser.Scene {
         this.issueStopCommand();
       }
     );
+
+    this.recenterButtonBg = this.add
+      .rectangle(257, y, 110, height, 0x1f2937, 0.78)
+      .setStrokeStyle(2, 0x64748b, 0.65)
+      .setScrollFactor(0)
+      .setDepth(120)
+      .setInteractive({ useHandCursor: true });
+    this.recenterButtonText = this.add
+      .text(257, y, 'RECENTER', {
+        color: '#94a3b8',
+        fontSize: '12px',
+        fontFamily: 'system-ui, sans-serif',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(121);
+    this.recenterButtonBg.on(
+      'pointerdown',
+      (
+        _pointer: Phaser.Input.Pointer,
+        _localX: number,
+        _localY: number,
+        event: { stopPropagation(): void }
+      ) => {
+        event.stopPropagation();
+        this.recenterCamera();
+      }
+    );
+
+    this.refreshQueueButton();
+    this.refreshRecenterButton();
   }
 
   private refreshQueueButton() {
     if (this.queueButtonBg === null || this.queueButtonText === null) return;
-    this.queueButtonBg.setFillStyle(this.queueEnabled ? 0x164e63 : 0x1f2937, 0.92);
+    this.queueButtonBg.setFillStyle(this.queueEnabled ? 0x164e63 : 0x1f2937, 0.9);
     this.queueButtonBg.setStrokeStyle(2, this.queueEnabled ? 0x38bdf8 : 0x64748b, 0.9);
     this.queueButtonText.setText(this.queueEnabled ? 'QUEUE ON' : 'QUEUE OFF');
     this.queueButtonText.setColor(this.queueEnabled ? '#bae6fd' : '#cbd5e1');
+  }
+
+  private refreshRecenterButton() {
+    if (this.recenterButtonBg === null || this.recenterButtonText === null) return;
+    const free = this.cameraController.mode() === 'free';
+    this.recenterButtonBg.setFillStyle(free ? 0x164e63 : 0x1f2937, free ? 0.95 : 0.72);
+    this.recenterButtonBg.setStrokeStyle(2, free ? 0x38bdf8 : 0x64748b, free ? 1 : 0.55);
+    this.recenterButtonText.setText(free ? 'RECENTER •' : 'RECENTER');
+    this.recenterButtonText.setColor(free ? '#e0f2fe' : '#94a3b8');
   }
 
   // ------------------------------------------------------------------ input
@@ -675,11 +771,7 @@ class GameScene extends Phaser.Scene {
       pointerType?: string;
       shiftKey?: boolean;
     };
-    const deviceHasTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
-    const isTouch =
-      (pointer as unknown as { wasTouch?: boolean }).wasTouch === true ||
-      pointerEvent.pointerType === 'touch' ||
-      (deviceHasTouch && pointerEvent.pointerType !== 'mouse');
+    const isTouch = this.isTouchPointer(pointer, pointerEvent.pointerType);
 
     if (CONTROL_MODE === 'wasd') {
       if (isTouch && pointer.x < GAME_CONFIG.viewportWidth / 2) {
@@ -689,51 +781,77 @@ class GameScene extends Phaser.Scene {
         this.updateMobileMoveVector(pointer);
         return;
       }
-      this.issueContextualCommand({ x: pointer.worldX, y: pointer.worldY }, false, false);
+      this.issueContextualCommand(
+        { x: pointer.worldX, y: pointer.worldY },
+        { queue: false, allowGround: false }
+      );
       return;
     }
 
-    if (isTouch) {
-      this.touchCommandPointerId = pointer.id;
-      this.touchCommandStart = { x: pointer.x, y: pointer.y };
-      this.touchCommandDragged = false;
-      return;
-    }
-
-    const commandPoint = { x: pointer.worldX, y: pointer.worldY };
-    const queue = pointerEvent.shiftKey === true;
     if (pointer.rightButtonDown()) {
-      this.issueContextualCommand(commandPoint, queue, true);
-    } else if (pointer.leftButtonDown()) {
-      // Left-click on a visible enemy is also accepted as an attack shortcut;
-      // empty-ground left clicks remain inert.
-      this.issueContextualCommand(commandPoint, false, false);
+      this.issueContextualCommand(
+        { x: pointer.worldX, y: pointer.worldY },
+        { queue: pointerEvent.shiftKey === true, allowGround: true }
+      );
+      return;
     }
+
+    if (!isTouch && !pointer.leftButtonDown()) return;
+
+    this.gestureController.begin(
+      pointer.id,
+      { x: pointer.x, y: pointer.y },
+      performance.now(),
+      {
+        commandOptions: {
+          queue: isTouch ? this.queueEnabled : false,
+          allowGround: isTouch,
+          touch: isTouch,
+        },
+      }
+    );
   }
 
-  private issueContextualCommand(point: Vec2, queue: boolean, allowGround = true) {
+  private isTouchPointer(pointer: Phaser.Input.Pointer, pointerType?: string): boolean {
+    const deviceHasTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+    return (
+      (pointer as unknown as { wasTouch?: boolean }).wasTouch === true ||
+      pointerType === 'touch' ||
+      (deviceHasTouch && pointerType !== 'mouse')
+    );
+  }
+
+  private issueContextualCommand(point: Vec2, options: ContextualCommandOptions) {
     if (this.lastView === null || !this.lastView.self.alive) return;
 
+    const touchPadding = options.touch ? this.touchTargetPaddingWorld() : 0;
     let bestId: string | null = null;
     let bestDistance = Infinity;
+    let bestPosition: Vec2 | null = null;
     for (const enemy of this.lastView.visibleEnemies) {
       const d = Math.hypot(point.x - enemy.pos.x, point.y - enemy.pos.y);
-      if (d <= GAME_CONFIG.playerRadius + GAME_CONFIG.lockClickTolerance && d < bestDistance) {
+      const hitRadius =
+        GAME_CONFIG.playerRadius + GAME_CONFIG.lockClickTolerance + touchPadding;
+      if (d <= hitRadius && d < bestDistance) {
         bestDistance = d;
         bestId = enemy.id;
+        bestPosition = enemy.pos;
       }
     }
 
     if (bestId !== null) {
       if (CONTROL_MODE === 'waypoint') {
-        this.session.issueCommand({ type: 'attack', targetId: bestId }, queue);
-        this.setStatus(queue ? 'Attack queued' : 'Attack order', 650);
+        this.session.issueCommand({ type: 'attack', targetId: bestId }, options.queue);
+        this.setStatus(options.queue ? 'Attack queued' : 'Attack order', 650);
+        if (options.touch && bestPosition !== null) {
+          this.addTapFeedback(bestPosition, 'attack');
+        }
       } else {
         this.pendingLockTargetId = bestId;
       }
       return;
     }
-    if (!allowGround || CONTROL_MODE !== 'waypoint') return;
+    if (options.allowGround !== true || CONTROL_MODE !== 'waypoint') return;
 
     const radius = GAME_CONFIG.playerRadius;
     const valid =
@@ -744,19 +862,68 @@ class GameScene extends Phaser.Scene {
       !collidesWithWalls(point.x, point.y, radius, MAP.walls);
     if (!valid) {
       this.setStatus('Cannot move there', 800);
+      if (options.touch) this.addTapFeedback(point, 'invalid');
       return;
     }
 
     const command: PlayerCommand = { type: 'move', x: point.x, y: point.y };
-    this.session.issueCommand(command, queue);
+    this.session.issueCommand(command, options.queue);
+    if (options.touch) this.addTapFeedback(point, 'move');
+  }
+
+  private touchTargetPaddingWorld(): number {
+    const rect = this.game.canvas.getBoundingClientRect();
+    if (rect.width <= 0) return 16;
+    const logicalPerCssPixel = GAME_CONFIG.viewportWidth / rect.width;
+    const worldPerLogicalPixel = 1 / Math.max(0.001, this.cameras.main.zoom);
+    return Math.max(12, Math.min(30, 15 * logicalPerCssPixel * worldPerLogicalPixel));
+  }
+
+  private addTapFeedback(point: Vec2, kind: TapFeedback['kind']) {
+    const startedAt = this.time.now;
+    this.tapFeedbacks.push({
+      point: { ...point },
+      kind,
+      startedAt,
+      until: startedAt + 220,
+    });
   }
 
   private issueStopCommand() {
     this.session.issueCommand({ type: 'stop' }, false);
     this.pendingCancelLock = true;
+    this.disableQueue();
+    this.setStatus('Orders cleared', 650);
+  }
+
+  private disableQueue() {
+    if (!this.queueEnabled) return;
     this.queueEnabled = false;
     this.refreshQueueButton();
-    this.setStatus('Orders cleared', 650);
+  }
+
+  private recenterCamera(showStatus = true) {
+    if (this.lastView === null) return;
+    const selfView = this.unitViews.get(this.lastView.self.id);
+    const point =
+      selfView !== undefined
+        ? { x: selfView.body.x, y: selfView.body.y }
+        : { ...this.lastView.self.pos };
+    this.cameraController.recenter(point, true);
+    this.refreshRecenterButton();
+    if (showStatus) this.setStatus('Camera following', 700);
+  }
+
+  private cancelPointerGestures() {
+    this.gestureController.cancel();
+    this.resetMobileMovePointer();
+  }
+
+  private resetMobileMovePointer() {
+    this.mobileMovePointerId = null;
+    this.mobileMoveOrigin = null;
+    this.mobileMoveCurrent = null;
+    this.mobileMoveVector = { x: 0, y: 0 };
   }
 
   private updateMobileMoveVector(pointer: Phaser.Input.Pointer) {
@@ -807,6 +974,8 @@ class GameScene extends Phaser.Scene {
 
   update(time: number, delta: number) {
     if (this.lastView?.match.phase === 'ended') {
+      this.disableQueue();
+      this.cancelPointerGestures();
       if (!this.matchEndShown) this.showMatchEnd(this.lastView);
       return;
     }
@@ -818,7 +987,11 @@ class GameScene extends Phaser.Scene {
       connection.state === 'error'
     ) {
       this.showConnectionOverlay(connection);
-      if (connection.state !== 'stale') return;
+      if (connection.state !== 'stale') {
+        this.disableQueue();
+        this.cancelPointerGestures();
+        return;
+      }
     } else if (connection.state === 'connected' && !this.connectionRetryBusy) {
       this.clearConnectionOverlay();
     }
@@ -864,6 +1037,8 @@ class GameScene extends Phaser.Scene {
           const dKill = Math.hypot(event.at.x - view.self.pos.x, event.at.y - view.self.pos.y);
           playKill(isSelf, dKill);
           if (isSelf) {
+            this.cancelPointerGestures();
+            this.disableQueue();
             this.setStatus(
               event.reason === 'camping' ? 'CAMPING — respawning...' : 'YOU DIED — respawning...',
               GAME_CONFIG.respawnTimeMs
@@ -890,6 +1065,8 @@ class GameScene extends Phaser.Scene {
         case 'respawn':
           if (event.unitId === this.session.playerId) {
             playRespawn();
+            this.pendingRespawnRecenter = true;
+            this.disableQueue();
             this.setStatus('RESPAWNED', 700);
           }
           break;
@@ -981,10 +1158,18 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Camera follows interpolated self.
+    // Camera target uses the interpolated player position. Follow mode has a
+    // deadzone; manual drag switches to free mode until explicit recenter.
     const selfView = this.unitViews.get(selfId);
     if (selfView !== undefined) {
-      this.cameraTarget.setPosition(selfView.body.x, selfView.body.y);
+      const cameraPoint = { x: selfView.body.x, y: selfView.body.y };
+      this.cameraController.setTarget(cameraPoint);
+      if (!this.cameraInitialized || this.pendingRespawnRecenter) {
+        this.cameraController.recenter(cameraPoint, true);
+        this.cameraInitialized = true;
+        this.pendingRespawnRecenter = false;
+        this.refreshRecenterButton();
+      }
     }
 
     for (const flag of MAP.flags) {
@@ -993,6 +1178,7 @@ class GameScene extends Phaser.Scene {
     }
 
     this.drawCommandQueue(view);
+    this.drawTapFeedback(time);
     this.drawAim(self);
     this.drawTracers(time);
     this.drawFog(view);
@@ -1051,6 +1237,29 @@ class GameScene extends Phaser.Scene {
       }
 
       from = { ...destination };
+    }
+  }
+
+  private drawTapFeedback(time: number) {
+    this.tapFeedbackGraphics.clear();
+    this.tapFeedbacks = this.tapFeedbacks.filter((feedback) => time <= feedback.until);
+
+    for (const feedback of this.tapFeedbacks) {
+      const life = Math.max(1, feedback.until - feedback.startedAt);
+      const remaining = Math.max(0, feedback.until - time) / life;
+      const radius = 9 + (1 - remaining) * 7;
+      const color =
+        feedback.kind === 'attack' ? 0xfb923c : feedback.kind === 'invalid' ? 0xf87171 : 0x38bdf8;
+      this.tapFeedbackGraphics.lineStyle(2, color, 0.25 + remaining * 0.7);
+      this.tapFeedbackGraphics.strokeCircle(feedback.point.x, feedback.point.y, radius);
+      if (feedback.kind !== 'move') {
+        this.tapFeedbackGraphics.beginPath();
+        this.tapFeedbackGraphics.moveTo(feedback.point.x - radius, feedback.point.y);
+        this.tapFeedbackGraphics.lineTo(feedback.point.x + radius, feedback.point.y);
+        this.tapFeedbackGraphics.moveTo(feedback.point.x, feedback.point.y - radius);
+        this.tapFeedbackGraphics.lineTo(feedback.point.x, feedback.point.y + radius);
+        this.tapFeedbackGraphics.strokePath();
+      }
     }
   }
 
@@ -1248,8 +1457,8 @@ class GameScene extends Phaser.Scene {
     g.strokeRect(
       originX + camera.scrollX * scale,
       originY + camera.scrollY * scale,
-      GAME_CONFIG.viewportWidth * scale,
-      GAME_CONFIG.viewportHeight * scale
+      (camera.width / Math.max(0.001, camera.zoom)) * scale,
+      (camera.height / Math.max(0.001, camera.zoom)) * scale
     );
   }
 
@@ -1477,6 +1686,8 @@ class GameScene extends Phaser.Scene {
 
   private showMatchEnd(view: Snapshot) {
     this.matchEndShown = true;
+    this.disableQueue();
+    this.cancelPointerGestures();
     this.timerText.setText('0:00');
 
     const overlay = this.add.rectangle(
