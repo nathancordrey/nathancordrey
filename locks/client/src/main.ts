@@ -534,7 +534,7 @@ class GameScene extends Phaser.Scene {
         12,
         30,
         CONTROL_MODE === 'waypoint'
-          ? 'Move: right-click/tap • Queue: Shift • Stop: Esc • Lock: click enemy'
+          ? 'Move/attack: right-click or tap • Queue: Shift • Stop: Esc'
           : 'Move: WASD/drag • Lock: click enemy • X: cancel',
         {
           color: '#cbd5e1',
@@ -705,8 +705,8 @@ class GameScene extends Phaser.Scene {
     if (pointer.rightButtonDown()) {
       this.issueContextualCommand(commandPoint, queue, true);
     } else if (pointer.leftButtonDown()) {
-      // Until sticky attack commands land in Slice 4C, left-click preserves
-      // the existing visible-enemy lock behavior and never moves on empty ground.
+      // Left-click on a visible enemy is also accepted as an attack shortcut;
+      // empty-ground left clicks remain inert.
       this.issueContextualCommand(commandPoint, false, false);
     }
   }
@@ -726,11 +726,11 @@ class GameScene extends Phaser.Scene {
 
     if (bestId !== null) {
       if (CONTROL_MODE === 'waypoint') {
-        // Slice 4B keeps the proven lock combat path. Targeting an enemy
-        // interrupts waypoint travel; queued attack orders land in Slice 4C.
-        this.session.issueCommand({ type: 'stop' }, false);
+        this.session.issueCommand({ type: 'attack', targetId: bestId }, queue);
+        this.setStatus(queue ? 'Attack queued' : 'Attack order', 650);
+      } else {
+        this.pendingLockTargetId = bestId;
       }
-      this.pendingLockTargetId = bestId;
       return;
     }
     if (!allowGround || CONTROL_MODE !== 'waypoint') return;
@@ -1009,10 +1009,7 @@ class GameScene extends Phaser.Scene {
       ...(view.commands.active === null ? [] : [view.commands.active]),
       ...view.commands.queue,
     ];
-    const moveCommands = commands.filter(
-      (command): command is Extract<PlayerCommand, { type: 'move' }> => command.type === 'move'
-    );
-    if (moveCommands.length === 0) return;
+    if (commands.length === 0) return;
 
     const selfView = this.unitViews.get(view.self.id);
     let from =
@@ -1020,20 +1017,40 @@ class GameScene extends Phaser.Scene {
         ? { ...view.self.pos }
         : { x: selfView.body.x, y: selfView.body.y };
 
-    this.commandGraphics.lineStyle(2, 0x38bdf8, 0.28);
-    for (let index = 0; index < moveCommands.length; index += 1) {
-      const command = moveCommands[index];
+    for (let index = 0; index < commands.length; index += 1) {
+      const command = commands[index];
+      const active = index === 0;
+      const destination =
+        command.type === 'move'
+          ? { x: command.x, y: command.y }
+          : view.visibleEnemies.find((enemy) => enemy.id === command.targetId)?.pos ??
+            command.lastKnownPosition;
+
+      const lineColor = command.type === 'move' ? 0x38bdf8 : 0xfb923c;
+      this.commandGraphics.lineStyle(2, lineColor, active ? 0.5 : 0.28);
       this.commandGraphics.beginPath();
       this.commandGraphics.moveTo(from.x, from.y);
-      this.commandGraphics.lineTo(command.x, command.y);
+      this.commandGraphics.lineTo(destination.x, destination.y);
       this.commandGraphics.strokePath();
 
-      const active = index === 0 && view.commands.active?.type === 'move';
-      this.commandGraphics.fillStyle(active ? 0x7dd3fc : 0x38bdf8, active ? 0.9 : 0.55);
-      this.commandGraphics.fillCircle(command.x, command.y, active ? 7 : 5);
-      this.commandGraphics.lineStyle(2, 0xe0f2fe, active ? 0.8 : 0.45);
-      this.commandGraphics.strokeCircle(command.x, command.y, active ? 10 : 8);
-      from = { x: command.x, y: command.y };
+      if (command.type === 'move') {
+        this.commandGraphics.fillStyle(active ? 0x7dd3fc : 0x38bdf8, active ? 0.9 : 0.55);
+        this.commandGraphics.fillCircle(destination.x, destination.y, active ? 7 : 5);
+        this.commandGraphics.lineStyle(2, 0xe0f2fe, active ? 0.8 : 0.45);
+        this.commandGraphics.strokeCircle(destination.x, destination.y, active ? 10 : 8);
+      } else {
+        const radius = active ? 13 : 10;
+        this.commandGraphics.lineStyle(2, active ? 0xfdba74 : 0xfb923c, active ? 0.9 : 0.55);
+        this.commandGraphics.strokeCircle(destination.x, destination.y, radius);
+        this.commandGraphics.beginPath();
+        this.commandGraphics.moveTo(destination.x - radius - 4, destination.y);
+        this.commandGraphics.lineTo(destination.x + radius + 4, destination.y);
+        this.commandGraphics.moveTo(destination.x, destination.y - radius - 4);
+        this.commandGraphics.lineTo(destination.x, destination.y + radius + 4);
+        this.commandGraphics.strokePath();
+      }
+
+      from = { ...destination };
     }
   }
 
