@@ -3,8 +3,8 @@
 // The client, bots, and the future server all drive this same function.
 
 import type { Vec2 } from './geometry';
-import { clearUnitCommands, createUnitCommandState } from './commands';
-import { moveCommandDirection } from './waypoints';
+import { clearUnitCommands, completeActiveCommand, createUnitCommandState } from './commands';
+import { moveCommandDirection, routeDirectionToGoal } from './waypoints';
 import type { UnitCommandState } from './commands';
 import { distance } from './geometry';
 import type { Team } from './config';
@@ -310,37 +310,128 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
   }
 
   // 4) Movement + facing. Manual input remains available as a temporary
-  // development comparison. Otherwise an active move command owns movement;
-  // when no move command exists, the legacy sticky lock chase applies.
+  // development comparison. Otherwise authoritative move/attack commands own
+  // movement. Attack commands never read a hidden target's exact position:
+  // they pursue only the last team-visible position stored on the command.
   for (const unit of units) {
     if (!unit.alive) continue;
     const intent = intents[unit.id] ?? IDLE_INTENT;
     const commandState = state.commands[unit.id];
 
-    // Entering a move order cancels the current attack lock, matching RTS
-    // command semantics. Appended moves do not cancel until they become active.
-    if (commandState.active?.type === 'move') unit.lock = null;
+    let dx = intent.move.x;
+    let dy = intent.move.y;
+    const manual = dx !== 0 || dy !== 0;
+    let commandDirection: Vec2 | null = null;
+    let attackOrderActive = false;
 
+    // Complete invalid/reached orders and activate the next queued order in
+    // the same tick. The guard is bounded by the command queue limit.
+    for (let guard = 0; guard <= 10; guard += 1) {
+      const active = commandState.active;
+      if (active === null) break;
+
+      if (active.type === 'move') {
+        // Entering a move order cancels the current attack lock, matching RTS
+        // command semantics. Appended moves do not cancel until active.
+        unit.lock = null;
+        const route = moveCommandDirection(commandState, unit.pos);
+        if (route.direction !== null) commandDirection = route.direction;
+        // moveCommandDirection may have completed one or more move orders and
+        // exposed an attack order; process it immediately when no direction
+        // is needed for the current tick.
+        if (route.direction === null && commandState.active?.type === 'attack') continue;
+        break;
+      }
+
+      const target = state.units[active.targetId];
+      if (target === undefined || target.team === unit.team) {
+        unit.lock = null;
+        completeActiveCommand(commandState);
+        continue;
+      }
+
+      attackOrderActive = true;
+      const targetVisible = visibleTo(unit.team, target);
+      if (targetVisible) active.lastKnownPosition = { ...target.pos };
+
+      if (unit.lock?.targetId !== target.id) {
+        unit.lock = {
+          targetId: target.id,
+          createdAtTick: t,
+          lastKnownPosition: { ...active.lastKnownPosition },
+        };
+      } else if (targetVisible) {
+        unit.lock.lastKnownPosition = { ...target.pos };
+      } else {
+        unit.lock.lastKnownPosition = { ...active.lastKnownPosition };
+      }
+
+      // Hold at a useful firing distance only when the visible target also
+      // has a clear bullet path. Otherwise path around cover toward it.
+      const firingPosition =
+        targetVisible &&
+        canFireAtTarget(
+          { pos: unit.pos, facingRadians: unit.facingRadians },
+          {
+            x: target.pos.x,
+            y: target.pos.y,
+            radius: GAME_CONFIG.playerRadius,
+            alive: target.alive,
+            targetable: true,
+          },
+          MAP.walls,
+          GAME_CONFIG.shotRange * GAME_CONFIG.locks.chaseStandoffFraction,
+          Math.PI * 2,
+          false
+        );
+
+      if (firingPosition) break;
+
+      const route = routeDirectionToGoal(
+        commandState,
+        unit.pos,
+        active.lastKnownPosition,
+        targetVisible
+      );
+
+      // Once the last-known position is reached without reacquisition, the
+      // attack order is complete. Continue with the next queued order.
+      if (!targetVisible && route.reached) {
+        unit.lock = null;
+        attackOrderActive = false;
+        completeActiveCommand(commandState);
+        continue;
+      }
+
+      commandDirection = route.direction;
+      break;
+    }
+
+    // Legacy sticky locks remain for the temporary WASD comparison and bot
+    // intents. An active attack command owns its own A* chase above.
     let chasePoint: Vec2 | null = null;
-    if (unit.lock !== null) {
+    if (!attackOrderActive && commandState.active?.type !== 'move' && unit.lock !== null) {
       const target = state.units[unit.lock.targetId];
-      if (target === undefined || !target.alive) {
+      if (target === undefined) {
         unit.lock = null;
       } else {
         const targetVisible = visibleTo(unit.team, target);
         if (targetVisible) unit.lock.lastKnownPosition = { ...target.pos };
-        chasePoint = GAME_CONFIG.locks.hiddenTracking || targetVisible
+        chasePoint = targetVisible
           ? { ...target.pos }
           : { ...unit.lock.lastKnownPosition };
 
-        // Hold position at standoff range when the target is visible.
-        if (
+        // A hidden/dead target is only known through its last position. Once
+        // that point is reached without reacquisition, end the legacy lock.
+        if (!targetVisible && distance(unit.pos, chasePoint) <= 2) {
+          unit.lock = null;
+          chasePoint = null;
+        } else if (
           targetVisible &&
           distance(unit.pos, chasePoint) <=
             GAME_CONFIG.shotRange * GAME_CONFIG.locks.chaseStandoffFraction
         ) {
           chasePoint = null;
-          // Still face the target while holding.
           const desired = Math.atan2(target.pos.y - unit.pos.y, target.pos.x - unit.pos.x);
           unit.facingRadians = turnTowards(
             unit.facingRadians,
@@ -351,12 +442,7 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
       }
     }
 
-    let dx = intent.move.x;
-    let dy = intent.move.y;
-    const manual = dx !== 0 || dy !== 0;
-
     if (!manual) {
-      const commandDirection = moveCommandDirection(commandState, unit.pos).direction;
       if (commandDirection !== null) {
         dx = commandDirection.x;
         dy = commandDirection.y;
@@ -382,12 +468,13 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
       );
     }
 
-    // Facing: toward the lock's chase direction if locked, else movement.
+    // Facing: toward the lock's visible/last-known target if locked, else
+    // movement. A hidden target's actual position is never consulted here.
     const turnStep = degToRad(GAME_CONFIG.locks.turnRateDegreesPerSecond) * tickSeconds;
     if (unit.lock !== null) {
       const target = state.units[unit.lock.targetId];
       if (target !== undefined) {
-        const facePoint = GAME_CONFIG.locks.hiddenTracking || visibleTo(unit.team, target)
+        const facePoint = visibleTo(unit.team, target)
           ? target.pos
           : unit.lock.lastKnownPosition;
         const desired = Math.atan2(facePoint.y - unit.pos.y, facePoint.x - unit.pos.x);
@@ -473,8 +560,31 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
     });
   }
 
+  const killedVisibility = new Map<string, Set<Team>>();
   for (const unitId of killedBy.keys()) {
+    const target = state.units[unitId];
+    const teams = new Set<Team>();
+    if (target !== undefined) {
+      for (const team of ['red', 'blue'] satisfies Team[]) {
+        if (visibleTo(team, target)) teams.add(team);
+      }
+    }
+    killedVisibility.set(unitId, teams);
     killUnit(state, unitId, t, events);
+  }
+
+  // A team that visibly destroys a target knows the attack is complete. A
+  // hidden death must not silently reveal itself by cancelling the order;
+  // those attackers continue to the last-known position instead.
+  for (const [unitId, teams] of killedVisibility) {
+    for (const other of units) {
+      if (!teams.has(other.team)) continue;
+      if (other.lock?.targetId === unitId) other.lock = null;
+      const active = state.commands[other.id].active;
+      if (active?.type === 'attack' && active.targetId === unitId) {
+        completeActiveCommand(state.commands[other.id]);
+      }
+    }
   }
 
   // 7) CTF: grab and capture by proximity.
@@ -556,11 +666,6 @@ function killUnit(state: GameState, unitId: string, tick: number, events: GameEv
   unit.visionSamples = [];
   unit.campStartedTick = null;
   unit.campExitedTick = null;
-
-  // Locks end when their target dies.
-  for (const other of Object.values(state.units)) {
-    if (other.lock?.targetId === unitId) other.lock = null;
-  }
 
   // Death sends any carried flag straight home.
   const carried = carriedFlagTeam(state.ctf, unitId);
