@@ -3,7 +3,7 @@
 // nothing more ever crosses the wire.
 
 import type { Team } from './config';
-import type { PlayerCommand } from './commands';
+import type { PlayerCommand, VisibleUnitCommandState } from './commands';
 import type { MatchState } from './sim';
 import type { PerceivedEnemy, Unit } from './state';
 
@@ -17,6 +17,7 @@ export type Snapshot = {
   self: Unit;
   allies: Unit[];
   visibleEnemies: PerceivedEnemy[];
+  commands: VisibleUnitCommandState;
 };
 
 export type WelcomeMessage = {
