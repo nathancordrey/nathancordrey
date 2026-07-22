@@ -5,6 +5,7 @@
 import { Room, Client, ServerError } from '@colyseus/core';
 
 import { GAME_CONFIG } from '../../client/src/shared/config.js';
+import { applyPlayerCommand, clearUnitCommands } from '../../client/src/shared/commands.js';
 import type { Team } from '../../client/src/shared/config.js';
 import { makeBotBrain, assignRole } from '../../client/src/shared/bots.js';
 import type { BotBrain } from '../../client/src/shared/bots.js';
@@ -24,6 +25,11 @@ import type {
 } from '../../client/src/shared/state.js';
 import { verifyJoinToken } from './joinToken.js';
 import { reportLobbyEvent } from './lobbyReporter.js';
+import {
+  sanitizePlayerCommandMessage,
+  validatePlayerCommand,
+} from './playerCommands.js';
+import type { SanitizedPlayerCommandMessage } from './playerCommands.js';
 
 type JoinOptions = { name?: string; token?: string; brokered?: boolean };
 
@@ -35,6 +41,7 @@ type Seat = {
   name: string;
   ready: boolean;
   latestIntent: Intent;
+  pendingCommands: SanitizedPlayerCommandMessage[];
 };
 
 export class MatchRoom extends Room {
@@ -47,6 +54,7 @@ export class MatchRoom extends Room {
   private shutdownScheduled = false;
   private brokered = false;
   private usedJoinTokens = new Set<string>();
+  private readonly heartbeatTicks = Math.max(1, Math.round(30_000 / TICK_MS));
 
   onCreate(options: JoinOptions) {
     this.brokered = options.brokered === true;
@@ -66,6 +74,7 @@ export class MatchRoom extends Room {
       name: entry.label,
       ready: false,
       latestIntent: IDLE_INTENT,
+      pendingCommands: [],
     }));
 
     for (const entry of GAME_CONFIG.roster) {
@@ -90,6 +99,9 @@ export class MatchRoom extends Room {
       });
       client.send('snapshot', this.snapshotFor(seat.unitId));
       this.sendRosterToReadyClients();
+      console.log(
+        `[locks-game][room ${this.roomId}] ready unit=${seat.unitId} humans=${this.humanCount()}`
+      );
     });
 
     this.onMessage('intent', (client, data: unknown) => {
@@ -99,7 +111,24 @@ export class MatchRoom extends Room {
       seat.latestIntent = sanitizeIntent(data);
     });
 
-    this.setSimulationInterval(() => this.tick(), TICK_MS);
+    // Slice 4A foundation: commands are accepted and deterministically queued
+    // in the shared state, but existing WASD intents remain the active movement
+    // path until waypoint execution lands in the next section.
+    this.onMessage('command', (client, data: unknown) => {
+      if (this.state_.match.phase === 'ended') return;
+      const seat = this.seats.find((s) => s.client === client);
+      if (seat === undefined || !seat.ready) return;
+      const parsed = sanitizePlayerCommandMessage(data);
+      if (parsed === null) return;
+      // Bound pre-tick input buffering separately from the simulation queue.
+      if (seat.pendingCommands.length >= 32) return;
+      seat.pendingCommands.push(parsed);
+    });
+
+    console.log(
+      `[locks-game][room ${this.roomId}] created brokered=${this.brokered} seats=${this.maxClients}`
+    );
+    this.setSimulationInterval(() => this.tickSafely(), TICK_MS);
 
     if (this.brokered) {
       void reportLobbyEvent({
@@ -157,6 +186,8 @@ export class MatchRoom extends Room {
     seat.name = (authenticatedName || requestedName || 'Player').slice(0, 16);
     seat.ready = false;
     seat.latestIntent = IDLE_INTENT;
+    seat.pendingCommands = [];
+    clearUnitCommands(this.state_.commands[seat.unitId]);
 
     // The name becomes the unit's in-world label; reverts to the roster label
     // when the seat drops back to a bot.
@@ -165,6 +196,9 @@ export class MatchRoom extends Room {
     // Existing ready clients should see the reservation immediately. The new
     // client gets its roster only after its own handlers are ready.
     this.sendRosterToReadyClients();
+    console.log(
+      `[locks-game][room ${this.roomId}] joined unit=${seat.unitId} name=${JSON.stringify(seat.name)} humans=${this.humanCount()}`
+    );
     if (this.brokered) {
       void reportLobbyEvent({
         type: 'player_joined',
@@ -180,11 +214,16 @@ export class MatchRoom extends Room {
     seat.client = null;
     seat.ready = false;
     seat.latestIntent = IDLE_INTENT; // seat reverts to bot control
+    seat.pendingCommands = [];
+    clearUnitCommands(this.state_.commands[seat.unitId]);
     // Label reverts to the roster default (e.g. "R1") now that a bot drives it.
     const rosterEntry = GAME_CONFIG.roster.find((r) => r.id === seat.unitId);
     if (rosterEntry !== undefined) this.state_.units[seat.unitId].label = rosterEntry.label;
     seat.name = rosterEntry?.label ?? seat.name;
     this.sendRosterToReadyClients();
+    console.log(
+      `[locks-game][room ${this.roomId}] left unit=${seat.unitId} humans=${this.humanCount()}`
+    );
     if (this.brokered) {
       void reportLobbyEvent({
         type: 'player_left',
@@ -195,12 +234,55 @@ export class MatchRoom extends Room {
   }
 
   async onDispose() {
+    console.log(
+      `[locks-game][room ${this.roomId}] disposed tick=${this.state_?.tick ?? -1} humans=${this.humanCount()}`
+    );
     if (this.brokered) {
       await reportLobbyEvent({
         type: 'room_disposed',
         roomId: this.roomId,
         humanCount: this.humanCount(),
       });
+    }
+  }
+
+  private tickSafely() {
+    try {
+      this.tick();
+    } catch (error) {
+      console.error(
+        `[locks-game][room ${this.roomId}] simulation tick failed at tick=${this.state_?.tick ?? -1}`,
+        error
+      );
+      this.shutdownScheduled = true;
+      try {
+        void this.lock();
+      } catch {
+        // Room may already be locked while handling the failure.
+      }
+      try {
+        void Promise.resolve(this.disconnect()).catch(() => {});
+      } catch {
+        // Room may already be disposing.
+      }
+    }
+  }
+
+  private applyPendingCommands(seat: Seat) {
+    if (seat.pendingCommands.length === 0) return;
+    const pending = seat.pendingCommands.splice(0);
+    for (const message of pending) {
+      const validated = validatePlayerCommand(
+        this.state_,
+        seat.unitId,
+        message.command
+      );
+      if (validated === null) continue;
+      applyPlayerCommand(
+        this.state_.commands[seat.unitId],
+        validated,
+        message.queue ? 'append' : 'replace'
+      );
     }
   }
 
@@ -212,6 +294,7 @@ export class MatchRoom extends Room {
 
     for (const seat of this.seats) {
       if (seat.client !== null && seat.ready) {
+        this.applyPendingCommands(seat);
         intents[seat.unitId] = validateIntentForUnit(
           this.state_,
           seat.unitId,
@@ -259,7 +342,16 @@ export class MatchRoom extends Room {
       seat.client.send('snapshot', this.snapshotFor(seat.unitId));
     }
 
+    if (this.state_.tick % this.heartbeatTicks === 0) {
+      console.log(
+        `[locks-game][room ${this.roomId}] heartbeat tick=${this.state_.tick} humans=${this.humanCount()} phase=${this.state_.match.phase} score=${this.state_.ctf.scores.red}-${this.state_.ctf.scores.blue}`
+      );
+    }
+
     if (this.state_.match.phase === 'ended') {
+      console.log(
+        `[locks-game][room ${this.roomId}] match ended tick=${this.state_.tick} result=${this.state_.match.result ?? 'draw'} score=${this.state_.ctf.scores.red}-${this.state_.ctf.scores.blue}`
+      );
       // Leave the final state visible briefly, reject new joins, report the
       // idempotent result, then close the disposable room once.
       this.shutdownScheduled = true;
