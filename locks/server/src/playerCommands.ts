@@ -4,7 +4,10 @@
 
 import { GAME_CONFIG, MAP } from '../../client/src/shared/config.js';
 import { collidesWithWalls } from '../../client/src/shared/movement.js';
-import type { PlayerCommand } from '../../client/src/shared/commands.js';
+import type {
+  PlayerCommand,
+  ValidatedPlayerCommand,
+} from '../../client/src/shared/commands.js';
 import type { PlayerCommandMessage } from '../../client/src/shared/protocol.js';
 import { isUnitVisibleToTeam } from '../../client/src/shared/state.js';
 import type { GameState } from '../../client/src/shared/state.js';
@@ -34,6 +37,8 @@ export function sanitizePlayerCommandMessage(
   if (raw.type === 'attack' && typeof raw.targetId === 'string') {
     const targetId = raw.targetId.trim().slice(0, 32);
     if (targetId.length === 0) return null;
+    // Never accept a browser-provided last-known position. Validation below
+    // captures the target's authoritative currently visible position.
     return {
       command: { type: 'attack', targetId },
       queue,
@@ -47,7 +52,7 @@ export function validatePlayerCommand(
   state: GameState,
   unitId: string,
   command: PlayerCommand
-): PlayerCommand | null {
+): ValidatedPlayerCommand | null {
   const source = state.units[unitId];
   if (source === undefined || !source.alive || state.match.phase === 'ended') return null;
 
@@ -80,7 +85,11 @@ export function validatePlayerCommand(
     return null;
   }
 
-  return { type: 'attack', targetId: target.id };
+  return {
+    type: 'attack',
+    targetId: target.id,
+    lastKnownPosition: { ...target.pos },
+  };
 }
 
 function isFiniteNumber(value: unknown): value is number {
