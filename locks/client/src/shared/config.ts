@@ -57,9 +57,9 @@ export const GAME_CONFIG = {
   lockClickTolerance: 8,
 
   locks: {
-    // Stale locks keep chasing the target's REAL hidden position (Option B
-    // from the design note). Set false to chase last-known position instead.
-    hiddenTracking: true,
+    // Once a target leaves team vision, pursue only its last-known position.
+    // The hidden real position must never steer the pursuer through fog.
+    hiddenTracking: false,
     requireFacingCone: true,
     attackConeDegrees: 25,
     turnRateDegreesPerSecond: 360,
