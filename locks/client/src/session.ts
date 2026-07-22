@@ -12,6 +12,7 @@ import type { BotBrain } from './shared/bots';
 import type { Snapshot, WelcomeMessage } from './shared/protocol';
 import {
   createGameState,
+  isUnitVisibleToTeam,
   perceive,
   remainingRoundMs,
   step,
@@ -101,6 +102,29 @@ export class LocalSession implements GameSession {
   issueCommand(command: PlayerCommand, queue: boolean): void {
     const unit = this.state.units[this.playerId];
     if (!unit.alive || this.state.match.phase === 'ended') return;
+
+    if (command.type === 'attack') {
+      const target = this.state.units[command.targetId];
+      if (
+        target === undefined ||
+        !target.alive ||
+        target.team === unit.team ||
+        !isUnitVisibleToTeam(this.state, unit.team, target)
+      ) {
+        return;
+      }
+      applyPlayerCommand(
+        this.state.commands[this.playerId],
+        {
+          type: 'attack',
+          targetId: target.id,
+          lastKnownPosition: { ...target.pos },
+        },
+        queue ? 'append' : 'replace'
+      );
+      return;
+    }
+
     applyPlayerCommand(
       this.state.commands[this.playerId],
       command,
