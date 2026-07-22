@@ -4,6 +4,8 @@
 import { Client as ColyseusClient, Room } from 'colyseus.js';
 
 import type { Vec2 } from './shared/geometry';
+import { applyPlayerCommand, visibleUnitCommandState } from './shared/commands';
+import type { PlayerCommand } from './shared/commands';
 import { makeBotBrain, assignRole } from './shared/bots';
 import { GAME_CONFIG } from './shared/config';
 import type { BotBrain } from './shared/bots';
@@ -28,6 +30,7 @@ export interface GameSession {
   readonly mode: 'practice' | 'online';
   readonly playerId: string;
   update(deltaMs: number, intent: Intent): void;
+  issueCommand(command: PlayerCommand, queue: boolean): void;
   frame(): Frame | null; // null until the session has produced a view
   dispose(): void;
 }
@@ -87,10 +90,22 @@ export class LocalSession implements GameSession {
     }
   }
 
+  issueCommand(command: PlayerCommand, queue: boolean): void {
+    const unit = this.state.units[this.playerId];
+    if (!unit.alive || this.state.match.phase === 'ended') return;
+    applyPlayerCommand(
+      this.state.commands[this.playerId],
+      command,
+      queue ? 'append' : 'replace'
+    );
+    if (command.type === 'stop') unit.lock = null;
+  }
+
   frame(): Frame {
     const view: Snapshot = {
       ...perceive(this.state, this.playerId),
       remainingMs: remainingRoundMs(this.state),
+      commands: visibleUnitCommandState(this.state.commands[this.playerId]),
     };
     const events = this.pendingEvents;
     this.pendingEvents = [];
@@ -182,6 +197,10 @@ export class OnlineSession implements GameSession {
       this.room.send('intent', intent);
       this.sendAccumulator = 0;
     }
+  }
+
+  issueCommand(command: PlayerCommand, queue: boolean): void {
+    this.room.send('command', { command, queue });
   }
 
   frame(): Frame | null {
