@@ -213,7 +213,7 @@ export class OnlineSession implements GameSession {
     });
     room.onMessage('roster', () => {});
 
-    room.onError((code: number, message: string) => {
+    room.onError((code: number, message?: string) => {
       const safeMessage = message || 'The game server reported an error.';
       session.roomError = { code, message: safeMessage };
       console.error(`[locks] room error code=${code} message=${JSON.stringify(safeMessage)}`);
