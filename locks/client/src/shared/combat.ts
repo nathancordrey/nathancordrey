@@ -96,7 +96,7 @@ export function verifyLockShot(
 
 // --- Lock orders: facing, cones, and fire validation ----------------------
 // A lock is a sticky attack/chase order, not an instant shot. Movement may
-// track a hidden target (hiddenTracking), but firing requires the full set
+// pursue only a last-known position through fog; firing requires the full set
 // of simulation conditions below. See design note 2026-07-17.
 
 export type LockOrder = {
