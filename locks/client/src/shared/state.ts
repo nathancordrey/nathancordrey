@@ -4,6 +4,7 @@
 
 import type { Vec2 } from './geometry';
 import { clearUnitCommands, createUnitCommandState } from './commands';
+import { moveCommandDirection } from './waypoints';
 import type { UnitCommandState } from './commands';
 import { distance } from './geometry';
 import type { Team } from './config';
@@ -308,12 +309,17 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
     }
   }
 
-  // 4) Movement + facing. Manual input overrides chase without cancelling
-  // the lock. Hidden tracking chases the target's REAL position but the
-  // perception layer never reveals it.
+  // 4) Movement + facing. Manual input remains available as a temporary
+  // development comparison. Otherwise an active move command owns movement;
+  // when no move command exists, the legacy sticky lock chase applies.
   for (const unit of units) {
     if (!unit.alive) continue;
     const intent = intents[unit.id] ?? IDLE_INTENT;
+    const commandState = state.commands[unit.id];
+
+    // Entering a move order cancels the current attack lock, matching RTS
+    // command semantics. Appended moves do not cancel until they become active.
+    if (commandState.active?.type === 'move') unit.lock = null;
 
     let chasePoint: Vec2 | null = null;
     if (unit.lock !== null) {
@@ -349,11 +355,17 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
     let dy = intent.move.y;
     const manual = dx !== 0 || dy !== 0;
 
-    if (!manual && chasePoint !== null) {
-      const d = distance(unit.pos, chasePoint);
-      if (d > 2) {
-        dx = (chasePoint.x - unit.pos.x) / d;
-        dy = (chasePoint.y - unit.pos.y) / d;
+    if (!manual) {
+      const commandDirection = moveCommandDirection(commandState, unit.pos).direction;
+      if (commandDirection !== null) {
+        dx = commandDirection.x;
+        dy = commandDirection.y;
+      } else if (chasePoint !== null) {
+        const d = distance(unit.pos, chasePoint);
+        if (d > 2) {
+          dx = (chasePoint.x - unit.pos.x) / d;
+          dy = (chasePoint.y - unit.pos.y) / d;
+        }
       }
     }
 
