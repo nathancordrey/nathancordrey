@@ -3,6 +3,8 @@
 // The client, bots, and the future server all drive this same function.
 
 import type { Vec2 } from './geometry';
+import { clearUnitCommands, createUnitCommandState } from './commands';
+import type { UnitCommandState } from './commands';
 import { distance } from './geometry';
 import type { Team } from './config';
 import { GAME_CONFIG, MAP } from './config';
@@ -83,6 +85,9 @@ export type GameState = {
   ctf: CtfState;
   match: MatchState;
   rng: RngState;
+  // Authoritative waypoint/attack orders. Kept outside Unit so team
+  // snapshots cannot leak another player's queued target or destination.
+  commands: Record<string, UnitCommandState>;
 };
 
 export type GameEvent =
@@ -98,9 +103,11 @@ export type GameEvent =
 
 export function createGameState(seed: number = GAME_CONFIG.defaultSeed): GameState {
   const units: Record<string, Unit> = {};
+  const commands: Record<string, UnitCommandState> = {};
 
   for (const entry of GAME_CONFIG.roster) {
     const initialFacing = entry.team === 'red' ? 0 : Math.PI;
+    commands[entry.id] = createUnitCommandState();
     units[entry.id] = {
       id: entry.id,
       team: entry.team,
@@ -131,6 +138,7 @@ export function createGameState(seed: number = GAME_CONFIG.defaultSeed): GameSta
     ctf: createCtfState(),
     match: createMatchState(),
     rng: createRng(seed),
+    commands,
   };
 }
 
@@ -258,6 +266,7 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
       unit.pos = { ...unit.spawn };
       unit.facingRadians = unit.initialFacing;
       unit.lock = null;
+      clearUnitCommands(state.commands[unit.id]);
       unit.visionSamples = [];
       unit.lastVisionSampleTick = -1_000_000;
       unit.campStartedTick = null;
@@ -517,6 +526,7 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
   // 9) Match end.
   const remainingMs = GAME_CONFIG.roundDurationMs - ticksToMs(t);
   if (evaluateMatch(state.match, state.ctf, remainingMs, GAME_CONFIG.scoreToWin)) {
+    for (const commandState of Object.values(state.commands)) clearUnitCommands(commandState);
     events.push({ type: 'match-end', result: state.match.result! });
   }
 
@@ -530,6 +540,7 @@ function killUnit(state: GameState, unitId: string, tick: number, events: GameEv
   unit.alive = false;
   unit.respawnAtTick = tick + msToTicks(GAME_CONFIG.respawnTimeMs);
   unit.lock = null;
+  clearUnitCommands(state.commands[unitId]);
   unit.visionSamples = [];
   unit.campStartedTick = null;
   unit.campExitedTick = null;
