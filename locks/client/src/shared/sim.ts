@@ -3,6 +3,7 @@
 
 export * from './commands';
 export * from './movement';
+export * from './waypoints';
 export * from './vision';
 export * from './combat';
 export * from './ctf';
