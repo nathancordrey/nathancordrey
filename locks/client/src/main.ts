@@ -20,7 +20,7 @@ import {
   playShot,
   playUiClick,
 } from './sound';
-import type { Frame, GameSession } from './session';
+import type { Frame, GameSession, SessionConnectionStatus } from './session';
 
 const TEAM_COLORS: Record<Team, number> = { red: 0xef4444, blue: 0x3b82f6 };
 const TEAM_LIGHT: Record<Team, number> = { red: 0xfecaca, blue: 0xbfdbfe };
@@ -264,6 +264,12 @@ class GameScene extends Phaser.Scene {
   private tracers: Tracer[] = [];
   private matchEndShown = false;
 
+  private connectionOverlay: Phaser.GameObjects.Container | null = null;
+  private connectionHeadlineText: Phaser.GameObjects.Text | null = null;
+  private connectionDetailText: Phaser.GameObjects.Text | null = null;
+  private connectionRetryBusy = false;
+  private connectionRetryError: string | null = null;
+
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
 
@@ -300,6 +306,11 @@ class GameScene extends Phaser.Scene {
     this.fogPolygonCache = new Map();
     this.tracers = [];
     this.matchEndShown = false;
+    this.connectionOverlay = null;
+    this.connectionHeadlineText = null;
+    this.connectionDetailText = null;
+    this.connectionRetryBusy = false;
+    this.connectionRetryError = null;
     this.pendingLockTargetId = null;
     this.pendingCancelLock = false;
     this.lastView = null;
@@ -337,7 +348,11 @@ class GameScene extends Phaser.Scene {
     }) as Record<string, Phaser.Input.Keyboard.Key>;
 
     this.input.keyboard!.on('keydown-R', () => {
-      if (this.lastView?.match.phase === 'ended') this.exitOrRestart();
+      if (this.connectionOverlay !== null && this.session.mode === 'online') {
+        void this.retryOnlineMatch();
+      } else if (this.lastView?.match.phase === 'ended') {
+        this.exitOrRestart();
+      }
     });
     this.input.keyboard!.on('keydown-X', () => {
       this.pendingCancelLock = true;
@@ -649,6 +664,8 @@ class GameScene extends Phaser.Scene {
   // ------------------------------------------------------------------ input
 
   private handlePointerDown(pointer: Phaser.Input.Pointer) {
+    if (this.connectionOverlay !== null) return;
+
     if (this.lastView?.match.phase === 'ended') {
       this.exitOrRestart();
       return;
@@ -792,6 +809,18 @@ class GameScene extends Phaser.Scene {
     if (this.lastView?.match.phase === 'ended') {
       if (!this.matchEndShown) this.showMatchEnd(this.lastView);
       return;
+    }
+
+    const connection = this.session.connectionStatus();
+    if (
+      connection.state === 'stale' ||
+      connection.state === 'closed' ||
+      connection.state === 'error'
+    ) {
+      this.showConnectionOverlay(connection);
+      if (connection.state !== 'stale') return;
+    } else if (connection.state === 'connected' && !this.connectionRetryBusy) {
+      this.clearConnectionOverlay();
     }
 
     this.session.update(delta, this.buildPlayerIntent());
@@ -1267,6 +1296,166 @@ class GameScene extends Phaser.Scene {
       const safeRemaining = Math.ceil((GAME_CONFIG.campGraceMs - elapsedMs) / 1000);
       this.campText.setText(`Own flag zone: ${safeRemaining}s until warning`);
     }
+  }
+
+  private showConnectionOverlay(status: SessionConnectionStatus) {
+    if (
+      status.state !== 'stale' &&
+      status.state !== 'closed' &&
+      status.state !== 'error'
+    ) {
+      return;
+    }
+
+    if (this.connectionOverlay === null) {
+      const blocker = this.add
+        .rectangle(
+          GAME_CONFIG.viewportWidth / 2,
+          GAME_CONFIG.viewportHeight / 2,
+          GAME_CONFIG.viewportWidth,
+          GAME_CONFIG.viewportHeight,
+          0x000000,
+          0.78
+        )
+        .setInteractive();
+
+      const headline = this.add
+        .text(GAME_CONFIG.viewportWidth / 2, GAME_CONFIG.viewportHeight / 2 - 76, '', {
+          color: '#f8fafc',
+          fontSize: '30px',
+          fontFamily: 'system-ui, sans-serif',
+        })
+        .setOrigin(0.5);
+
+      const detail = this.add
+        .text(GAME_CONFIG.viewportWidth / 2, GAME_CONFIG.viewportHeight / 2 - 26, '', {
+          color: '#cbd5e1',
+          fontSize: '13px',
+          fontFamily: 'system-ui, sans-serif',
+          align: 'center',
+          wordWrap: { width: 380 },
+        })
+        .setOrigin(0.5);
+
+      const retryBg = this.add
+        .rectangle(GAME_CONFIG.viewportWidth / 2 - 82, GAME_CONFIG.viewportHeight / 2 + 46, 140, 42, 0x164e63)
+        .setStrokeStyle(2, 0x38bdf8, 0.9)
+        .setInteractive({ useHandCursor: true });
+      const retryText = this.add
+        .text(GAME_CONFIG.viewportWidth / 2 - 82, GAME_CONFIG.viewportHeight / 2 + 46, 'PLAY AGAIN', {
+          color: '#e0f2fe',
+          fontSize: '14px',
+          fontFamily: 'system-ui, sans-serif',
+        })
+        .setOrigin(0.5);
+
+      const menuBg = this.add
+        .rectangle(GAME_CONFIG.viewportWidth / 2 + 82, GAME_CONFIG.viewportHeight / 2 + 46, 140, 42, 0x1f2937)
+        .setStrokeStyle(2, 0x64748b, 0.9)
+        .setInteractive({ useHandCursor: true });
+      const menuText = this.add
+        .text(GAME_CONFIG.viewportWidth / 2 + 82, GAME_CONFIG.viewportHeight / 2 + 46, 'MENU', {
+          color: '#e2e8f0',
+          fontSize: '14px',
+          fontFamily: 'system-ui, sans-serif',
+        })
+        .setOrigin(0.5);
+
+      retryBg.on(
+        'pointerdown',
+        (
+          _pointer: Phaser.Input.Pointer,
+          _localX: number,
+          _localY: number,
+          event: { stopPropagation(): void }
+        ) => {
+          event.stopPropagation();
+          void this.retryOnlineMatch();
+        }
+      );
+      menuBg.on(
+        'pointerdown',
+        (
+          _pointer: Phaser.Input.Pointer,
+          _localX: number,
+          _localY: number,
+          event: { stopPropagation(): void }
+        ) => {
+          event.stopPropagation();
+          if (this.connectionRetryBusy) return;
+          this.scene.start('MenuScene');
+        }
+      );
+
+      this.connectionOverlay = this.add
+        .container(0, 0, [blocker, headline, detail, retryBg, retryText, menuBg, menuText])
+        .setDepth(300)
+        .setScrollFactor(0);
+      this.connectionHeadlineText = headline;
+      this.connectionDetailText = detail;
+    }
+
+    let headline = 'CONNECTION INTERRUPTED';
+    let detail = '';
+    if (status.state === 'stale') {
+      const seconds = Math.max(3, Math.floor(status.staleForMs / 1000));
+      detail = `No game updates for ${seconds}s. Waiting for the server…`;
+    } else if (status.state === 'error') {
+      headline = 'GAME SERVER ERROR';
+      detail = `${status.message} (code ${status.code})`;
+    } else {
+      headline = status.expected ? 'MATCH ENDED' : 'CONNECTION LOST';
+      detail = `${status.message} (close code ${status.code})`;
+    }
+
+    this.connectionHeadlineText?.setText(headline);
+    this.connectionDetailText?.setText(
+      this.connectionRetryBusy
+        ? 'Connecting to a new match…'
+        : this.connectionRetryError ?? detail
+    );
+  }
+
+  private clearConnectionOverlay() {
+    if (this.connectionOverlay === null) return;
+    this.connectionOverlay.destroy(true);
+    this.connectionOverlay = null;
+    this.connectionHeadlineText = null;
+    this.connectionDetailText = null;
+    this.connectionRetryError = null;
+  }
+
+  private async retryOnlineMatch() {
+    if (this.session.mode !== 'online' || this.connectionRetryBusy) return;
+    this.connectionRetryBusy = true;
+    this.connectionRetryError = null;
+    this.connectionDetailText?.setText('Connecting to a new match…');
+    this.session.dispose();
+
+    try {
+      const session = await OnlineSession.create(
+        DEFAULT_LOBBY,
+        DEFAULT_SERVER,
+        this.savedOnlineName()
+      );
+      this.scene.restart({ session });
+    } catch (error) {
+      this.connectionRetryBusy = false;
+      const message = error instanceof Error ? error.message : 'Could not join a new match.';
+      this.connectionRetryError = `Retry failed: ${message}`;
+      this.connectionDetailText?.setText(this.connectionRetryError.slice(0, 160));
+      console.error('[locks] retry failed', error);
+    }
+  }
+
+  private savedOnlineName(): string {
+    try {
+      const saved = localStorage.getItem('locks.name')?.trim();
+      if (saved) return saved.slice(0, 16);
+    } catch {
+      /* ignore */
+    }
+    return `Guest${Math.floor(Math.random() * 900 + 100)}`;
   }
 
   private showMatchEnd(view: Snapshot) {
