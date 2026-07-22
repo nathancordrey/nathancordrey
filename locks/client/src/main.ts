@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { CameraController } from './cameraController';
 import { PointerGestureController } from './pointerGestureController';
 import { GAME_CONFIG, MAP } from './shared/config';
-import type { PlayerCommand } from './shared/commands';
+import type { ExecutablePlayerCommand, PlayerCommand } from './shared/commands';
 import { collidesWithWalls } from './shared/movement';
 import type { Team } from './shared/config';
 import type { Vec2 } from './shared/geometry';
@@ -252,6 +252,22 @@ type CommandGestureContext = {
 type TapFeedback = {
   point: Vec2;
   kind: 'move' | 'attack' | 'invalid';
+  targetId?: string;
+  startedAt: number;
+  until: number;
+  confirmedAt: number | null;
+};
+
+type CommandMarkerSnapshot = {
+  key: string;
+  kind: 'move' | 'attack';
+  point: Vec2;
+  hidden: boolean;
+  active: boolean;
+  queueNumber: number | null;
+};
+
+type FadingCommandMarker = Omit<CommandMarkerSnapshot, 'key' | 'queueNumber'> & {
   startedAt: number;
   until: number;
 };
@@ -271,11 +287,15 @@ class GameScene extends Phaser.Scene {
   private statusText!: Phaser.GameObjects.Text;
   private campText!: Phaser.GameObjects.Text;
   private timerText!: Phaser.GameObjects.Text;
+  private orderText!: Phaser.GameObjects.Text;
 
   private aimGraphics!: Phaser.GameObjects.Graphics;
   private shotGraphics!: Phaser.GameObjects.Graphics;
   private mobileControlGraphics!: Phaser.GameObjects.Graphics;
   private commandGraphics!: Phaser.GameObjects.Graphics;
+  private commandLabelTexts: Phaser.GameObjects.Text[] = [];
+  private previousCommandMarkers: Map<string, CommandMarkerSnapshot> = new Map();
+  private fadingCommandMarkers: FadingCommandMarker[] = [];
   private tapFeedbackGraphics!: Phaser.GameObjects.Graphics;
   private minimapGraphics!: Phaser.GameObjects.Graphics;
 
@@ -308,6 +328,7 @@ class GameScene extends Phaser.Scene {
   private queueEnabled = false;
   private queueButtonBg: Phaser.GameObjects.Rectangle | null = null;
   private queueButtonText: Phaser.GameObjects.Text | null = null;
+  private queueButtonRenderKey = '';
   private recenterButtonBg: Phaser.GameObjects.Rectangle | null = null;
   private recenterButtonText: Phaser.GameObjects.Text | null = null;
   private tapFeedbacks: TapFeedback[] = [];
@@ -353,8 +374,12 @@ class GameScene extends Phaser.Scene {
     this.queueEnabled = false;
     this.queueButtonBg = null;
     this.queueButtonText = null;
+    this.queueButtonRenderKey = '';
     this.recenterButtonBg = null;
     this.recenterButtonText = null;
+    this.commandLabelTexts = [];
+    this.previousCommandMarkers = new Map();
+    this.fadingCommandMarkers = [];
     this.tapFeedbacks = [];
     this.pendingRespawnRecenter = false;
     this.statusClearEvent = null;
@@ -641,6 +666,19 @@ class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setDepth(100)
       .setScrollFactor(0);
+
+    this.orderText = this.add
+      .text(GAME_CONFIG.viewportWidth - 12, 10, 'ORDER  IDLE', {
+        color: '#e2e8f0',
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        align: 'right',
+        backgroundColor: '#0b1220',
+        padding: { x: 6, y: 4 },
+      })
+      .setOrigin(1, 0)
+      .setDepth(100)
+      .setScrollFactor(0);
   }
 
   private createMobileCommandButtons() {
@@ -677,6 +715,7 @@ class GameScene extends Phaser.Scene {
         event.stopPropagation();
         this.queueEnabled = !this.queueEnabled;
         this.refreshQueueButton();
+        this.setStatus(this.queueEnabled ? 'Queue mode on' : 'Queue mode off', 650);
       }
     );
 
@@ -742,10 +781,22 @@ class GameScene extends Phaser.Scene {
 
   private refreshQueueButton() {
     if (this.queueButtonBg === null || this.queueButtonText === null) return;
-    this.queueButtonBg.setFillStyle(this.queueEnabled ? 0x164e63 : 0x1f2937, 0.9);
-    this.queueButtonBg.setStrokeStyle(2, this.queueEnabled ? 0x38bdf8 : 0x64748b, 0.9);
-    this.queueButtonText.setText(this.queueEnabled ? 'QUEUE ON' : 'QUEUE OFF');
-    this.queueButtonText.setColor(this.queueEnabled ? '#bae6fd' : '#cbd5e1');
+    const pending = this.lastView?.commands.queue.length ?? 0;
+    const renderKey = `${this.queueEnabled}:${pending}`;
+    if (renderKey === this.queueButtonRenderKey) return;
+    this.queueButtonRenderKey = renderKey;
+
+    this.queueButtonBg.setFillStyle(this.queueEnabled ? 0x0369a1 : 0x1f2937, 0.94);
+    this.queueButtonBg.setStrokeStyle(2, this.queueEnabled ? 0x7dd3fc : 0x64748b, 0.95);
+    this.queueButtonText.setText(
+      this.queueEnabled && pending > 0
+        ? `QUEUE ON · ${pending}`
+        : this.queueEnabled
+          ? 'QUEUE ON'
+          : 'QUEUE OFF'
+    );
+    this.queueButtonText.setColor(this.queueEnabled ? '#f0f9ff' : '#cbd5e1');
+    this.queueButtonText.setFontStyle(this.queueEnabled ? 'bold' : 'normal');
   }
 
   private refreshRecenterButton() {
@@ -844,7 +895,7 @@ class GameScene extends Phaser.Scene {
         this.session.issueCommand({ type: 'attack', targetId: bestId }, options.queue);
         this.setStatus(options.queue ? 'Attack queued' : 'Attack order', 650);
         if (options.touch && bestPosition !== null) {
-          this.addTapFeedback(bestPosition, 'attack');
+          this.addTapFeedback(bestPosition, 'attack', bestId);
         }
       } else {
         this.pendingLockTargetId = bestId;
@@ -868,6 +919,7 @@ class GameScene extends Phaser.Scene {
 
     const command: PlayerCommand = { type: 'move', x: point.x, y: point.y };
     this.session.issueCommand(command, options.queue);
+    this.setStatus(options.queue ? 'Move queued' : 'Move order', 650);
     if (options.touch) this.addTapFeedback(point, 'move');
   }
 
@@ -879,13 +931,15 @@ class GameScene extends Phaser.Scene {
     return Math.max(12, Math.min(30, 15 * logicalPerCssPixel * worldPerLogicalPixel));
   }
 
-  private addTapFeedback(point: Vec2, kind: TapFeedback['kind']) {
+  private addTapFeedback(point: Vec2, kind: TapFeedback['kind'], targetId?: string) {
     const startedAt = this.time.now;
     this.tapFeedbacks.push({
       point: { ...point },
       kind,
+      targetId,
       startedAt,
-      until: startedAt + 220,
+      until: startedAt + (kind === 'invalid' ? 320 : 900),
+      confirmedAt: null,
     });
   }
 
@@ -1177,7 +1231,8 @@ class GameScene extends Phaser.Scene {
       for (const marker of this.flagMarkers[flag.team] ?? []) marker.setVisible(atBase);
     }
 
-    this.drawCommandQueue(view);
+    this.drawCommandQueue(view, time);
+    this.reconcileTapFeedback(view, time);
     this.drawTapFeedback(time);
     this.drawAim(self);
     this.drawTracers(time);
@@ -1187,15 +1242,24 @@ class GameScene extends Phaser.Scene {
     this.updateHud(view);
   }
 
-  private drawCommandQueue(view: Snapshot) {
+  private drawCommandQueue(view: Snapshot, time: number) {
     this.commandGraphics.clear();
-    if (CONTROL_MODE !== 'waypoint' || !view.self.alive) return;
+    for (const label of this.commandLabelTexts) label.setVisible(false);
 
-    const commands = [
-      ...(view.commands.active === null ? [] : [view.commands.active]),
-      ...view.commands.queue,
-    ];
-    if (commands.length === 0) return;
+    if (CONTROL_MODE !== 'waypoint' || !view.self.alive) {
+      this.previousCommandMarkers.clear();
+      this.fadingCommandMarkers = [];
+      return;
+    }
+
+    const markers = this.commandMarkers(view);
+    this.updateFadingCommandMarkers(markers, time);
+
+    for (const fading of this.fadingCommandMarkers) {
+      const life = Math.max(1, fading.until - fading.startedAt);
+      const alpha = Math.max(0, (fading.until - time) / life);
+      this.drawCommandMarker(fading, 0.45 * alpha);
+    }
 
     const selfView = this.unitViews.get(view.self.id);
     let from =
@@ -1203,40 +1267,188 @@ class GameScene extends Phaser.Scene {
         ? { ...view.self.pos }
         : { x: selfView.body.x, y: selfView.body.y };
 
-    for (let index = 0; index < commands.length; index += 1) {
-      const command = commands[index];
-      const active = index === 0;
-      const destination =
-        command.type === 'move'
-          ? { x: command.x, y: command.y }
-          : view.visibleEnemies.find((enemy) => enemy.id === command.targetId)?.pos ??
-            command.lastKnownPosition;
-
-      const lineColor = command.type === 'move' ? 0x38bdf8 : 0xfb923c;
-      this.commandGraphics.lineStyle(2, lineColor, active ? 0.5 : 0.28);
+    for (let index = 0; index < markers.length; index += 1) {
+      const marker = markers[index];
+      const lineColor = marker.kind === 'move' ? 0x38bdf8 : 0xfb923c;
+      this.commandGraphics.lineStyle(
+        marker.active ? 3 : 2,
+        lineColor,
+        marker.active ? 0.7 : 0.25
+      );
       this.commandGraphics.beginPath();
       this.commandGraphics.moveTo(from.x, from.y);
-      this.commandGraphics.lineTo(destination.x, destination.y);
+      this.commandGraphics.lineTo(marker.point.x, marker.point.y);
       this.commandGraphics.strokePath();
 
-      if (command.type === 'move') {
-        this.commandGraphics.fillStyle(active ? 0x7dd3fc : 0x38bdf8, active ? 0.9 : 0.55);
-        this.commandGraphics.fillCircle(destination.x, destination.y, active ? 7 : 5);
-        this.commandGraphics.lineStyle(2, 0xe0f2fe, active ? 0.8 : 0.45);
-        this.commandGraphics.strokeCircle(destination.x, destination.y, active ? 10 : 8);
-      } else {
-        const radius = active ? 13 : 10;
-        this.commandGraphics.lineStyle(2, active ? 0xfdba74 : 0xfb923c, active ? 0.9 : 0.55);
-        this.commandGraphics.strokeCircle(destination.x, destination.y, radius);
-        this.commandGraphics.beginPath();
-        this.commandGraphics.moveTo(destination.x - radius - 4, destination.y);
-        this.commandGraphics.lineTo(destination.x + radius + 4, destination.y);
-        this.commandGraphics.moveTo(destination.x, destination.y - radius - 4);
-        this.commandGraphics.lineTo(destination.x, destination.y + radius + 4);
-        this.commandGraphics.strokePath();
-      }
+      this.drawCommandMarker(marker, 1);
+      this.positionCommandLabel(index, marker);
+      from = { ...marker.point };
+    }
+  }
 
-      from = { ...destination };
+  private commandMarkers(view: Snapshot): CommandMarkerSnapshot[] {
+    const entries: Array<{
+      command: ExecutablePlayerCommand;
+      active: boolean;
+      queueNumber: number | null;
+    }> = [];
+    if (view.commands.active !== null) {
+      entries.push({ command: view.commands.active, active: true, queueNumber: null });
+    }
+    view.commands.queue.forEach((command, index) => {
+      entries.push({ command, active: false, queueNumber: index + 1 });
+    });
+
+    const occurrences = new Map<string, number>();
+    return entries.map(({ command, active, queueNumber }) => {
+      const visibleTarget =
+        command.type === 'attack'
+          ? view.visibleEnemies.find((enemy) => enemy.id === command.targetId)
+          : undefined;
+      const point =
+        command.type === 'move'
+          ? { x: command.x, y: command.y }
+          : visibleTarget?.pos ?? command.lastKnownPosition;
+      const baseKey =
+        command.type === 'move'
+          ? `move:${command.x.toFixed(2)}:${command.y.toFixed(2)}`
+          : `attack:${command.targetId}`;
+      const occurrence = occurrences.get(baseKey) ?? 0;
+      occurrences.set(baseKey, occurrence + 1);
+
+      return {
+        key: `${baseKey}:${occurrence}`,
+        kind: command.type,
+        point: { ...point },
+        hidden: command.type === 'attack' && visibleTarget === undefined,
+        active,
+        queueNumber,
+      };
+    });
+  }
+
+  private updateFadingCommandMarkers(markers: CommandMarkerSnapshot[], time: number) {
+    const currentKeys = new Set(markers.map((marker) => marker.key));
+    for (const previous of this.previousCommandMarkers.values()) {
+      if (currentKeys.has(previous.key)) continue;
+      this.fadingCommandMarkers.push({
+        kind: previous.kind,
+        point: { ...previous.point },
+        hidden: previous.hidden,
+        active: previous.active,
+        startedAt: time,
+        until: time + 180,
+      });
+    }
+
+    this.fadingCommandMarkers = this.fadingCommandMarkers.filter((marker) => time <= marker.until);
+    this.previousCommandMarkers = new Map(
+      markers.map((marker) => [marker.key, { ...marker, point: { ...marker.point } }])
+    );
+  }
+
+  private drawCommandMarker(
+    marker: Pick<CommandMarkerSnapshot, 'kind' | 'point' | 'hidden' | 'active'>,
+    alphaScale: number
+  ) {
+    const { point, kind, hidden, active } = marker;
+    if (kind === 'move') {
+      this.commandGraphics.fillStyle(
+        active ? 0x7dd3fc : 0x38bdf8,
+        (active ? 0.95 : 0.5) * alphaScale
+      );
+      this.commandGraphics.fillCircle(point.x, point.y, active ? 8 : 5);
+      this.commandGraphics.lineStyle(
+        active ? 3 : 2,
+        0xe0f2fe,
+        (active ? 0.95 : 0.42) * alphaScale
+      );
+      this.commandGraphics.strokeCircle(point.x, point.y, active ? 12 : 8);
+      return;
+    }
+
+    const radius = active ? 14 : 10;
+    const alpha = (hidden ? (active ? 0.62 : 0.38) : active ? 0.98 : 0.52) * alphaScale;
+    this.commandGraphics.lineStyle(
+      active ? 3 : 2,
+      active ? 0xfdba74 : 0xfb923c,
+      alpha
+    );
+    this.commandGraphics.strokeCircle(point.x, point.y, radius);
+    this.commandGraphics.beginPath();
+    if (hidden) {
+      const gap = 4;
+      this.commandGraphics.moveTo(point.x - radius - 4, point.y);
+      this.commandGraphics.lineTo(point.x - gap, point.y);
+      this.commandGraphics.moveTo(point.x + gap, point.y);
+      this.commandGraphics.lineTo(point.x + radius + 4, point.y);
+      this.commandGraphics.moveTo(point.x, point.y - radius - 4);
+      this.commandGraphics.lineTo(point.x, point.y - gap);
+      this.commandGraphics.moveTo(point.x, point.y + gap);
+      this.commandGraphics.lineTo(point.x, point.y + radius + 4);
+    } else {
+      this.commandGraphics.moveTo(point.x - radius - 4, point.y);
+      this.commandGraphics.lineTo(point.x + radius + 4, point.y);
+      this.commandGraphics.moveTo(point.x, point.y - radius - 4);
+      this.commandGraphics.lineTo(point.x, point.y + radius + 4);
+    }
+    this.commandGraphics.strokePath();
+    if (hidden) {
+      this.commandGraphics.fillStyle(0xfb923c, 0.55 * alphaScale);
+      this.commandGraphics.fillCircle(point.x, point.y, 2.5);
+    }
+  }
+
+  private positionCommandLabel(index: number, marker: CommandMarkerSnapshot) {
+    const label = this.ensureCommandLabel(index);
+    label.setText(marker.active ? '▶' : String(marker.queueNumber ?? ''));
+    label.setColor(marker.kind === 'move' ? '#e0f2fe' : '#ffedd5');
+    label.setAlpha(marker.active ? 1 : 0.8);
+    const offset = marker.kind === 'move' ? 15 : marker.active ? 19 : 15;
+    label.setPosition(marker.point.x + offset, marker.point.y - offset);
+    label.setVisible(true);
+  }
+
+  private ensureCommandLabel(index: number): Phaser.GameObjects.Text {
+    while (this.commandLabelTexts.length <= index) {
+      const label = this.add
+        .text(0, 0, '', {
+          color: '#ffffff',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+          backgroundColor: '#0f172a',
+          padding: { x: 3, y: 1 },
+        })
+        .setOrigin(0.5)
+        .setDepth(58)
+        .setVisible(false);
+      this.commandLabelTexts.push(label);
+    }
+    return this.commandLabelTexts[index];
+  }
+
+  private reconcileTapFeedback(view: Snapshot, time: number) {
+    const commands = [
+      ...(view.commands.active === null ? [] : [view.commands.active]),
+      ...view.commands.queue,
+    ];
+
+    for (const feedback of this.tapFeedbacks) {
+      if (feedback.kind === 'invalid' || feedback.confirmedAt !== null) continue;
+      const confirmed = commands.some((command) => {
+        if (feedback.kind === 'attack') {
+          return command.type === 'attack' && command.targetId === feedback.targetId;
+        }
+        return (
+          command.type === 'move' &&
+          Math.hypot(command.x - feedback.point.x, command.y - feedback.point.y) <= 1
+        );
+      });
+      if (confirmed) {
+        feedback.confirmedAt = time;
+        feedback.until = Math.min(feedback.until, time + 140);
+      }
     }
   }
 
@@ -1247,11 +1459,16 @@ class GameScene extends Phaser.Scene {
     for (const feedback of this.tapFeedbacks) {
       const life = Math.max(1, feedback.until - feedback.startedAt);
       const remaining = Math.max(0, feedback.until - time) / life;
-      const radius = 9 + (1 - remaining) * 7;
+      const confirmed = feedback.confirmedAt !== null;
+      const radius = confirmed ? 10 + (1 - remaining) * 4 : 9 + (1 - remaining) * 7;
       const color =
         feedback.kind === 'attack' ? 0xfb923c : feedback.kind === 'invalid' ? 0xf87171 : 0x38bdf8;
-      this.tapFeedbackGraphics.lineStyle(2, color, 0.25 + remaining * 0.7);
+      this.tapFeedbackGraphics.lineStyle(confirmed ? 3 : 2, color, 0.25 + remaining * 0.7);
       this.tapFeedbackGraphics.strokeCircle(feedback.point.x, feedback.point.y, radius);
+      if (confirmed && feedback.kind !== 'invalid') {
+        this.tapFeedbackGraphics.fillStyle(color, 0.35 + remaining * 0.45);
+        this.tapFeedbackGraphics.fillCircle(feedback.point.x, feedback.point.y, 3);
+      }
       if (feedback.kind !== 'move') {
         this.tapFeedbackGraphics.beginPath();
         this.tapFeedbackGraphics.moveTo(feedback.point.x - radius, feedback.point.y);
@@ -1495,7 +1712,40 @@ class GameScene extends Phaser.Scene {
       ].join('\n')
     );
 
+    this.updateOrderText(view);
+    this.refreshQueueButton();
     this.updateCampText(view);
+  }
+
+  private updateOrderText(view: Snapshot) {
+    if (!view.self.alive) {
+      this.orderText.setText('ORDER  RESPAWNING');
+      this.orderText.setColor('#cbd5e1');
+      return;
+    }
+
+    const active = view.commands.active;
+    let primary = 'ORDER  IDLE';
+    let color = '#cbd5e1';
+    if (active?.type === 'move') {
+      primary = 'ORDER  ▶ MOVE';
+      color = '#e0f2fe';
+    } else if (active?.type === 'attack') {
+      const visible = view.visibleEnemies.find((enemy) => enemy.id === active.targetId);
+      primary =
+        visible === undefined
+          ? 'ORDER  ▶ ATTACK LAST SEEN'
+          : `ORDER  ▶ ATTACK ${visible.label}`;
+      color = '#ffedd5';
+    }
+
+    const secondary: string[] = [];
+    if (view.commands.queue.length > 0) secondary.push(`NEXT ${view.commands.queue.length}`);
+    if (this.queueEnabled) secondary.push('QUEUE MODE ON');
+    this.orderText.setText(
+      secondary.length > 0 ? `${primary}\n${secondary.join('  •  ')}` : primary
+    );
+    this.orderText.setColor(color);
   }
 
   private updateCampText(view: Snapshot) {
