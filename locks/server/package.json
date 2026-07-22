@@ -8,7 +8,8 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "smoke": "tsx scripts/smoke.ts",
-    "smoke:quickplay": "tsx scripts/quickplay-smoke.ts"
+    "smoke:quickplay": "tsx scripts/quickplay-smoke.ts",
+    "smoke:commands": "tsx scripts/command-smoke.ts"
   },
   "dependencies": {
     "@colyseus/core": "^0.16.24",
