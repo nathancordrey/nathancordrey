@@ -211,7 +211,7 @@ export class MatchRoom extends Room {
     }
   }
 
-  onLeave(client: Client) {
+  onLeave(client: Client, consented: boolean) {
     const seat = this.seats.find((s) => s.client === client);
     if (seat === undefined) return;
     seat.client = null;
@@ -225,7 +225,7 @@ export class MatchRoom extends Room {
     seat.name = rosterEntry?.label ?? seat.name;
     this.sendRosterToReadyClients();
     console.log(
-      `[locks-game][room ${this.roomId}] left unit=${seat.unitId} humans=${this.humanCount()}`
+      `[locks-game][room ${this.roomId}] left unit=${seat.unitId} humans=${this.humanCount()} consented=${consented}`
     );
     if (this.brokered) {
       void reportLobbyEvent({
