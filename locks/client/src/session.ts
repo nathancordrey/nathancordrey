@@ -26,12 +26,20 @@ export type Frame = {
   events: GameEvent[];
 };
 
+export type SessionConnectionStatus =
+  | { state: 'connected' }
+  | { state: 'connecting' }
+  | { state: 'stale'; staleForMs: number }
+  | { state: 'closed'; code: number; message: string; expected: boolean }
+  | { state: 'error'; code: number; message: string };
+
 export interface GameSession {
   readonly mode: 'practice' | 'online';
   readonly playerId: string;
   update(deltaMs: number, intent: Intent): void;
   issueCommand(command: PlayerCommand, queue: boolean): void;
   frame(): Frame | null; // null until the session has produced a view
+  connectionStatus(): SessionConnectionStatus;
   dispose(): void;
 }
 
@@ -112,6 +120,10 @@ export class LocalSession implements GameSession {
     return { view, prev: this.prev, alpha: this.accumulator / TICK_MS, events };
   }
 
+  connectionStatus(): SessionConnectionStatus {
+    return { state: 'connected' };
+  }
+
   dispose(): void {}
 }
 
@@ -128,6 +140,11 @@ export class OnlineSession implements GameSession {
   private lastSnapshotAt = 0;
   private pendingEvents: GameEvent[] = [];
   private sendAccumulator = 0;
+  private disposed = false;
+  private closed: { code: number; message: string; expected: boolean } | null = null;
+  private roomError: { code: number; message: string } | null = null;
+
+  private static readonly SNAPSHOT_STALE_MS = 3_000;
 
   private constructor(room: Room) {
     this.room = room;
@@ -165,12 +182,23 @@ export class OnlineSession implements GameSession {
     }
 
     const session = new OnlineSession(room);
+    let welcomeSettled = false;
+    let welcomeTimeout = 0;
+    let rejectWelcome: (error: Error) => void = () => {};
 
     const welcome = new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Server welcome timed out')), 8000);
+      rejectWelcome = reject;
+      welcomeTimeout = window.setTimeout(() => {
+        if (welcomeSettled) return;
+        welcomeSettled = true;
+        reject(new Error('Server welcome timed out'));
+      }, 8_000);
+
       room.onMessage('welcome', (data: WelcomeMessage) => {
         session.playerId = data.unitId;
-        clearTimeout(timeout);
+        if (welcomeSettled) return;
+        welcomeSettled = true;
+        window.clearTimeout(welcomeTimeout);
         resolve();
       });
     });
@@ -185,12 +213,47 @@ export class OnlineSession implements GameSession {
     });
     room.onMessage('roster', () => {});
 
-    room.send('ready');
-    await welcome;
-    return session;
+    room.onError((code: number, message: string) => {
+      const safeMessage = message || 'The game server reported an error.';
+      session.roomError = { code, message: safeMessage };
+      console.error(`[locks] room error code=${code} message=${JSON.stringify(safeMessage)}`);
+      if (!welcomeSettled) {
+        welcomeSettled = true;
+        window.clearTimeout(welcomeTimeout);
+        rejectWelcome(new Error(`Game server error (${code}): ${safeMessage}`));
+      }
+    });
+
+    room.onLeave((code: number) => {
+      const expected =
+        session.disposed || session.view?.match.phase === 'ended' || code === 4001;
+      const message = describeCloseCode(code);
+      session.closed = { code, message, expected };
+      const logMessage =
+        `[locks] room left code=${code} expected=${expected} ` +
+        `phase=${session.view?.match.phase ?? 'unknown'} message=${JSON.stringify(message)}`;
+      if (expected) console.info(logMessage);
+      else console.warn(logMessage);
+      if (!welcomeSettled) {
+        welcomeSettled = true;
+        window.clearTimeout(welcomeTimeout);
+        rejectWelcome(new Error(`${message} (code ${code})`));
+      }
+    });
+
+    try {
+      room.send('ready');
+      await welcome;
+      return session;
+    } catch (error) {
+      session.dispose();
+      throw error;
+    }
   }
 
   update(deltaMs: number, intent: Intent): void {
+    if (this.disposed || this.closed !== null || this.roomError !== null) return;
+
     this.sendAccumulator += deltaMs;
     const hasOrder = intent.lockTargetId !== undefined || intent.cancelLock === true;
     if (this.sendAccumulator >= TICK_MS || hasOrder) {
@@ -200,6 +263,7 @@ export class OnlineSession implements GameSession {
   }
 
   issueCommand(command: PlayerCommand, queue: boolean): void {
+    if (this.disposed || this.closed !== null || this.roomError !== null) return;
     this.room.send('command', { command, queue });
   }
 
@@ -220,8 +284,49 @@ export class OnlineSession implements GameSession {
     return { view: this.view, prev, alpha, events };
   }
 
+  connectionStatus(): SessionConnectionStatus {
+    if (this.roomError !== null) return { state: 'error', ...this.roomError };
+    if (this.closed !== null) return { state: 'closed', ...this.closed };
+    if (this.view === null || this.lastSnapshotAt === 0) return { state: 'connecting' };
+
+    const staleForMs = performance.now() - this.lastSnapshotAt;
+    if (staleForMs >= OnlineSession.SNAPSHOT_STALE_MS) {
+      return { state: 'stale', staleForMs };
+    }
+    return { state: 'connected' };
+  }
+
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
     void this.room.leave();
+  }
+}
+
+function describeCloseCode(code: number): string {
+  switch (code) {
+    case 1000:
+      return 'The match connection closed.';
+    case 1001:
+      return 'The browser or server closed the connection.';
+    case 1002:
+      return 'The game connection encountered a protocol error.';
+    case 1003:
+      return 'The game connection received unsupported data.';
+    case 1005:
+      return 'The connection closed without a status code.';
+    case 1006:
+      return 'The connection ended unexpectedly.';
+    case 1011:
+      return 'The game server encountered an internal error.';
+    case 4000:
+      return 'The selected match is full.';
+    case 4001:
+      return 'The selected match has ended.';
+    default:
+      return code >= 4000 && code <= 4999
+        ? 'The game server closed the match connection.'
+        : 'The match connection was lost.';
   }
 }
 
