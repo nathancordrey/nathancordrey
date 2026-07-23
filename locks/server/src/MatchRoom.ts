@@ -1,6 +1,6 @@
-// MatchRoom: the authoritative game loop. Gathers intents (sockets + bot
-// brains), runs shared step() at the fixed tick rate, and sends each client
-// snapshots and events filtered for that client's team.
+// MatchRoom: the authoritative game loop. Applies public human commands,
+// optional hidden dev-WASD intents, and bot intents at the fixed tick rate,
+// then sends each client team-filtered snapshots and events.
 
 import { Room, Client, ServerError } from '@colyseus/core';
 
