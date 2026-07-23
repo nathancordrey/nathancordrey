@@ -49,8 +49,9 @@ const DEFAULT_LOBBY = (() => {
     : `http://${window.location.hostname}:2568`;
 })();
 
-// Waypoint is the product default. `?controls=wasd` keeps the old direct
-// movement available as a temporary development comparison during rollout.
+// Waypoint commands are the public default. The unlinked `?controls=wasd`
+// query flag preserves direct movement as a developer comparison tool. It is
+// intentionally not advertised in the menu and is not a security boundary.
 type ControlMode = 'waypoint' | 'wasd';
 const CONTROL_MODE: ControlMode =
   new URLSearchParams(window.location.search).get('controls') === 'wasd'
