@@ -7,9 +7,16 @@ import type { Vec2 } from './shared/geometry';
 import { applyPlayerCommand, visibleUnitCommandState } from './shared/commands';
 import type { PlayerCommand } from './shared/commands';
 import { makeBotBrain, assignRole } from './shared/bots';
-import { GAME_CONFIG } from './shared/config';
+import { GAME_CONFIG, MAP } from './shared/config';
+import { collidesWithWalls } from './shared/movement';
 import type { BotBrain } from './shared/bots';
-import type { Snapshot, WelcomeMessage } from './shared/protocol';
+import type {
+  CommandResultMessage,
+  CommandResultReason,
+  Snapshot,
+  WelcomeMessage,
+} from './shared/protocol';
+import { shouldAcceptSnapshotTick } from './snapshotGuard';
 import {
   createGameState,
   isUnitVisibleToTeam,
@@ -25,6 +32,7 @@ export type Frame = {
   prev: Map<string, Vec2>;
   alpha: number; // 0..1 interpolation between prev and view positions
   events: GameEvent[];
+  commandResults: CommandResultMessage[];
 };
 
 export type SessionConnectionStatus =
@@ -38,7 +46,7 @@ export interface GameSession {
   readonly mode: 'practice' | 'online';
   readonly playerId: string;
   update(deltaMs: number, intent: Intent): void;
-  issueCommand(command: PlayerCommand, queue: boolean): void;
+  issueCommand(command: PlayerCommand, queue: boolean): number | null;
   frame(): Frame | null; // null until the session has produced a view
   connectionStatus(): SessionConnectionStatus;
   dispose(): void;
@@ -60,6 +68,8 @@ export class LocalSession implements GameSession {
   private accumulator = 0;
   private prev: Map<string, Vec2> = new Map();
   private pendingEvents: GameEvent[] = [];
+  private pendingCommandResults: CommandResultMessage[] = [];
+  private nextCommandId = 1;
 
   update(deltaMs: number, intent: Intent): void {
     this.accumulator = Math.min(this.accumulator + deltaMs, TICK_MS * 8);
@@ -99,10 +109,19 @@ export class LocalSession implements GameSession {
     }
   }
 
-  issueCommand(command: PlayerCommand, queue: boolean): void {
+  issueCommand(command: PlayerCommand, queue: boolean): number | null {
+    const requestId = this.nextCommandId++;
     const unit = this.state.units[this.playerId];
-    if (!unit.alive || this.state.match.phase === 'ended') return;
+    if (this.state.match.phase === 'ended') {
+      this.pushLocalCommandResult(requestId, 'rejected', 'match-ended');
+      return requestId;
+    }
+    if (!unit.alive) {
+      this.pushLocalCommandResult(requestId, 'rejected', 'dead');
+      return requestId;
+    }
 
+    let validated: Parameters<typeof applyPlayerCommand>[1];
     if (command.type === 'attack') {
       const target = this.state.units[command.targetId];
       if (
@@ -111,26 +130,58 @@ export class LocalSession implements GameSession {
         target.team === unit.team ||
         !isUnitVisibleToTeam(this.state, unit.team, target)
       ) {
-        return;
+        this.pushLocalCommandResult(requestId, 'rejected', 'target-unavailable');
+        return requestId;
       }
-      applyPlayerCommand(
-        this.state.commands[this.playerId],
-        {
-          type: 'attack',
-          targetId: target.id,
-          lastKnownPosition: { ...target.pos },
-        },
-        queue ? 'append' : 'replace'
-      );
-      return;
+      validated = {
+        type: 'attack',
+        targetId: target.id,
+        lastKnownPosition: { ...target.pos },
+      };
+    } else if (command.type === 'move') {
+      const radius = GAME_CONFIG.playerRadius;
+      if (
+        command.x < radius ||
+        command.y < radius ||
+        command.x > GAME_CONFIG.worldWidth - radius ||
+        command.y > GAME_CONFIG.worldHeight - radius ||
+        collidesWithWalls(command.x, command.y, radius, MAP.walls)
+      ) {
+        this.pushLocalCommandResult(requestId, 'rejected', 'invalid-destination');
+        return requestId;
+      }
+      validated = command;
+    } else {
+      validated = command;
     }
 
-    applyPlayerCommand(
+    const applied = applyPlayerCommand(
       this.state.commands[this.playerId],
-      command,
+      validated,
       queue ? 'append' : 'replace'
     );
+    if (applied === 'queue-full') {
+      this.pushLocalCommandResult(requestId, 'rejected', 'queue-full');
+      return requestId;
+    }
     if (command.type === 'stop') unit.lock = null;
+    this.pushLocalCommandResult(requestId, 'accepted');
+    return requestId;
+  }
+
+  private pushLocalCommandResult(
+    requestId: number,
+    outcome: CommandResultMessage['outcome'],
+    reason?: CommandResultReason
+  ) {
+    const commands = this.state.commands[this.playerId];
+    this.pendingCommandResults.push({
+      requestId,
+      outcome,
+      activeType: commands.active?.type ?? null,
+      queuedCount: commands.queue.length,
+      ...(reason === undefined ? {} : { reason }),
+    });
   }
 
   frame(): Frame {
@@ -141,7 +192,9 @@ export class LocalSession implements GameSession {
     };
     const events = this.pendingEvents;
     this.pendingEvents = [];
-    return { view, prev: this.prev, alpha: this.accumulator / TICK_MS, events };
+    const commandResults = this.pendingCommandResults;
+    this.pendingCommandResults = [];
+    return { view, prev: this.prev, alpha: this.accumulator / TICK_MS, events, commandResults };
   }
 
   connectionStatus(): SessionConnectionStatus {
@@ -163,6 +216,8 @@ export class OnlineSession implements GameSession {
   private prevView: Snapshot | null = null;
   private lastSnapshotAt = 0;
   private pendingEvents: GameEvent[] = [];
+  private pendingCommandResults: CommandResultMessage[] = [];
+  private nextCommandId = 1;
   private sendAccumulator = 0;
   private disposed = false;
   private closed: { code: number; message: string; expected: boolean } | null = null;
@@ -228,12 +283,20 @@ export class OnlineSession implements GameSession {
     });
 
     room.onMessage('snapshot', (snap: Snapshot) => {
+      const currentTick = session.view?.tick ?? null;
+      if (!shouldAcceptSnapshotTick(currentTick, snap.tick)) {
+        console.warn(`[locks] ignored stale snapshot tick=${snap.tick} current=${currentTick}`);
+        return;
+      }
       session.prevView = session.view;
       session.view = snap;
       session.lastSnapshotAt = performance.now();
     });
     room.onMessage('events', (events: GameEvent[]) => {
       session.pendingEvents.push(...events);
+    });
+    room.onMessage('command-result', (result: CommandResultMessage) => {
+      session.pendingCommandResults.push(result);
     });
     room.onMessage('roster', () => {});
 
@@ -286,9 +349,11 @@ export class OnlineSession implements GameSession {
     }
   }
 
-  issueCommand(command: PlayerCommand, queue: boolean): void {
-    if (this.disposed || this.closed !== null || this.roomError !== null) return;
-    this.room.send('command', { command, queue });
+  issueCommand(command: PlayerCommand, queue: boolean): number | null {
+    if (this.disposed || this.closed !== null || this.roomError !== null) return null;
+    const requestId = this.nextCommandId++;
+    this.room.send('command', { command, queue, requestId });
+    return requestId;
   }
 
   frame(): Frame | null {
@@ -305,7 +370,9 @@ export class OnlineSession implements GameSession {
     const alpha = Math.min(1, (performance.now() - this.lastSnapshotAt) / TICK_MS);
     const events = this.pendingEvents;
     this.pendingEvents = [];
-    return { view: this.view, prev, alpha, events };
+    const commandResults = this.pendingCommandResults;
+    this.pendingCommandResults = [];
+    return { view: this.view, prev, alpha, events, commandResults };
   }
 
   connectionStatus(): SessionConnectionStatus {
