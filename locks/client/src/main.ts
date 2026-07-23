@@ -330,10 +330,7 @@ class GameScene extends Phaser.Scene {
   private queueButtonBg: Phaser.GameObjects.Rectangle | null = null;
   private queueButtonText: Phaser.GameObjects.Text | null = null;
   private queueButtonRenderKey = '';
-  private recenterButtonBg: Phaser.GameObjects.Rectangle | null = null;
-  private recenterButtonText: Phaser.GameObjects.Text | null = null;
   private tapFeedbacks: TapFeedback[] = [];
-  private pendingRespawnRecenter = false;
 
   private statusClearEvent: Phaser.Time.TimerEvent | null = null;
 
@@ -376,13 +373,10 @@ class GameScene extends Phaser.Scene {
     this.queueButtonBg = null;
     this.queueButtonText = null;
     this.queueButtonRenderKey = '';
-    this.recenterButtonBg = null;
-    this.recenterButtonText = null;
     this.commandLabelTexts = [];
     this.previousCommandMarkers = new Map();
     this.fadingCommandMarkers = [];
     this.tapFeedbacks = [];
-    this.pendingRespawnRecenter = false;
     this.statusClearEvent = null;
 
     this.cameras.main.setBackgroundColor('#111827');
@@ -421,10 +415,6 @@ class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-ESC', () => {
       this.issueStopCommand();
     });
-    this.input.keyboard!.on('keydown-SPACE', (event: KeyboardEvent) => {
-      event.preventDefault();
-      this.recenterCamera();
-    });
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) =>
       this.handlePointerDown(pointer)
@@ -435,15 +425,12 @@ class GameScene extends Phaser.Scene {
         this.updateMobileMoveVector(pointer);
       }
 
-      const gesture = this.gestureController.move(pointer.id, {
+      // Continue classifying tap versus drag, but the camera always follows.
+      // Once a gesture becomes a drag, releasing it never issues a command.
+      this.gestureController.move(pointer.id, {
         x: pointer.x,
         y: pointer.y,
       });
-      if (gesture?.dragging && (gesture.delta.x !== 0 || gesture.delta.y !== 0)) {
-        const becameFree = this.cameraController.panBy(gesture.delta.x, gesture.delta.y);
-        if (becameFree) this.setStatus('Camera free — Recenter or Space to follow', 1200);
-        this.refreshRecenterButton();
-      }
     });
     const release = (pointer: Phaser.Input.Pointer) => {
       if (this.mobileMovePointerId === pointer.id) {
@@ -614,7 +601,7 @@ class GameScene extends Phaser.Scene {
         12,
         30,
         CONTROL_MODE === 'waypoint'
-          ? 'Command: right-click/tap • Pan: drag • Recenter: Space • Stop: Esc'
+          ? 'Command: right-click/tap • Queue: Shift/QUEUE • Stop: Esc'
           : 'Move: WASD/drag • Lock: click enemy • X: cancel',
         {
           color: '#cbd5e1',
@@ -748,36 +735,7 @@ class GameScene extends Phaser.Scene {
       }
     );
 
-    this.recenterButtonBg = this.add
-      .rectangle(257, y, 110, height, 0x1f2937, 0.78)
-      .setStrokeStyle(2, 0x64748b, 0.65)
-      .setScrollFactor(0)
-      .setDepth(120)
-      .setInteractive({ useHandCursor: true });
-    this.recenterButtonText = this.add
-      .text(257, y, 'RECENTER', {
-        color: '#94a3b8',
-        fontSize: '12px',
-        fontFamily: 'system-ui, sans-serif',
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(121);
-    this.recenterButtonBg.on(
-      'pointerdown',
-      (
-        _pointer: Phaser.Input.Pointer,
-        _localX: number,
-        _localY: number,
-        event: { stopPropagation(): void }
-      ) => {
-        event.stopPropagation();
-        this.recenterCamera();
-      }
-    );
-
     this.refreshQueueButton();
-    this.refreshRecenterButton();
   }
 
   private refreshQueueButton() {
@@ -800,14 +758,6 @@ class GameScene extends Phaser.Scene {
     this.queueButtonText.setFontStyle(this.queueEnabled ? 'bold' : 'normal');
   }
 
-  private refreshRecenterButton() {
-    if (this.recenterButtonBg === null || this.recenterButtonText === null) return;
-    const free = this.cameraController.mode() === 'free';
-    this.recenterButtonBg.setFillStyle(free ? 0x164e63 : 0x1f2937, free ? 0.95 : 0.72);
-    this.recenterButtonBg.setStrokeStyle(2, free ? 0x38bdf8 : 0x64748b, free ? 1 : 0.55);
-    this.recenterButtonText.setText(free ? 'RECENTER •' : 'RECENTER');
-    this.recenterButtonText.setColor(free ? '#e0f2fe' : '#94a3b8');
-  }
 
   // ------------------------------------------------------------------ input
 
@@ -974,17 +924,6 @@ class GameScene extends Phaser.Scene {
     this.refreshQueueButton();
   }
 
-  private recenterCamera(showStatus = true) {
-    if (this.lastView === null) return;
-    const selfView = this.unitViews.get(this.lastView.self.id);
-    const point =
-      selfView !== undefined
-        ? { x: selfView.body.x, y: selfView.body.y }
-        : { ...this.lastView.self.pos };
-    this.cameraController.recenter(point, true);
-    this.refreshRecenterButton();
-    if (showStatus) this.setStatus('Camera following', 700);
-  }
 
   private cancelPointerGestures() {
     this.gestureController.cancel();
@@ -1187,7 +1126,6 @@ class GameScene extends Phaser.Scene {
         case 'respawn':
           if (event.unitId === this.session.playerId) {
             playRespawn();
-            this.pendingRespawnRecenter = true;
             this.disableQueue();
             this.setStatus('RESPAWNED', 700);
           }
@@ -1280,17 +1218,15 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Camera target uses the interpolated player position. Follow mode has a
-    // deadzone; manual drag switches to free mode until explicit recenter.
+    // The camera always follows the interpolated player position. There is no
+    // free-camera state, deadzone, drag pan, or manual recenter control.
     const selfView = this.unitViews.get(selfId);
     if (selfView !== undefined) {
       const cameraPoint = { x: selfView.body.x, y: selfView.body.y };
       this.cameraController.setTarget(cameraPoint);
-      if (!this.cameraInitialized || this.pendingRespawnRecenter) {
+      if (!this.cameraInitialized) {
         this.cameraController.recenter(cameraPoint, true);
         this.cameraInitialized = true;
-        this.pendingRespawnRecenter = false;
-        this.refreshRecenterButton();
       }
     }
 
