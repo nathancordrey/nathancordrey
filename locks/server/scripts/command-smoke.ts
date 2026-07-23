@@ -64,7 +64,7 @@ function main() {
       command: { type: 'move', x: 800, y: 900 },
       queue: true,
     }),
-    { command: { type: 'move', x: 800, y: 900 }, queue: true }
+    { command: { type: 'move', x: 800, y: 900 }, queue: true, requestId: null }
   );
   assert.equal(
     sanitizePlayerCommandMessage({ command: { type: 'move', x: Number.NaN, y: 3 } }),
@@ -79,7 +79,7 @@ function main() {
       },
       queue: true,
     }),
-    { command: { type: 'attack', targetId: 'b1' }, queue: true }
+    { command: { type: 'attack', targetId: 'b1' }, queue: true, requestId: null }
   );
 
   const validPoint = findOpenPoint();
