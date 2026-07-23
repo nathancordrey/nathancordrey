@@ -1,5 +1,5 @@
-// Smoke test for Session A: boots the game server in-process, joins two
-// clients to the exact same room, drives one of them with intents, and
+// Smoke test for the authoritative room: boots the game server in-process,
+// joins two clients to the exact same room, issues a movement command, and
 // asserts that snapshots flow and the humans receive opposite-team seats.
 
 import http from 'node:http';
@@ -22,7 +22,6 @@ async function main() {
 
   let roomA: Awaited<ReturnType<Client['joinOrCreate']>> | null = null;
   let roomB: Awaited<ReturnType<Client['joinById']>> | null = null;
-  let drive: ReturnType<typeof setInterval> | null = null;
   let exitCode = 1;
 
   try {
@@ -42,6 +41,7 @@ async function main() {
     let enemySeenA = 0;
     let welcomeA: Record<string, unknown> | null = null;
     let welcomeB: Record<string, unknown> | null = null;
+    let commandAccepted = false;
 
     roomA.onMessage('welcome', (data: Record<string, unknown>) => {
       welcomeA = data;
@@ -61,6 +61,10 @@ async function main() {
       for (const event of events) console.log('event:', JSON.stringify(event));
     });
     roomB.onMessage('events', () => {});
+
+    roomA.onMessage('command-result', (result: { outcome?: string }) => {
+      if (result.outcome === 'accepted') commandAccepted = true;
+    });
 
     // Register snapshot handlers before the ready handshake so the first
     // server-sent snapshot cannot race past the test.
@@ -98,14 +102,14 @@ async function main() {
     roomA.send('ready');
     roomB.send('ready');
 
-    // Drive A forward (east) for 3 seconds.
-    drive = setInterval(() => {
-      roomA?.send('intent', { move: { x: 1, y: 0 } });
-    }, 33);
+    // Move A east with the production command protocol.
+    roomA.send('command', {
+      command: { type: 'move', x: 700, y: 1008 },
+      queue: false,
+      requestId: 1,
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 3000));
-    clearInterval(drive);
-    drive = null;
 
     console.log('room IDs:', roomA.roomId, roomB.roomId);
     console.log('snapshots A:', snapshotsA, 'B:', snapshotsB);
@@ -120,12 +124,12 @@ async function main() {
       teamB !== '' &&
       teamA !== teamB &&
       snapshotsA > 60 &&
-      snapshotsB > 60;
+      snapshotsB > 60 &&
+      commandAccepted;
 
     console.log(pass ? 'SMOKE PASS' : 'SMOKE FAIL');
     exitCode = pass ? 0 : 1;
   } finally {
-    if (drive !== null) clearInterval(drive);
     if (roomA !== null) await roomA.leave().catch(() => {});
     if (roomB !== null) await roomB.leave().catch(() => {});
     await gameServer.gracefullyShutdown(false).catch(() => {});
