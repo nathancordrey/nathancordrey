@@ -11,6 +11,7 @@ import {
   visibleUnitCommandState,
 } from '../../client/src/shared/commands.js';
 import type { Team } from '../../client/src/shared/config.js';
+import type { CommandResultMessage, CommandResultReason } from '../../client/src/shared/protocol.js';
 import { makeBotBrain, assignRole } from '../../client/src/shared/bots.js';
 import type { BotBrain } from '../../client/src/shared/bots.js';
 import {
@@ -30,8 +31,9 @@ import type {
 import { verifyJoinToken } from './joinToken.js';
 import { reportLobbyEvent } from './lobbyReporter.js';
 import {
+  bufferPendingPlayerCommand,
   sanitizePlayerCommandMessage,
-  validatePlayerCommand,
+  validatePlayerCommandDetailed,
 } from './playerCommands.js';
 import type { SanitizedPlayerCommandMessage } from './playerCommands.js';
 
@@ -81,11 +83,7 @@ export class MatchRoom extends Room {
       pendingCommands: [],
     }));
 
-    for (const entry of GAME_CONFIG.roster) {
-      const teammates = GAME_CONFIG.roster.filter((r) => r.team === entry.team);
-      const indexInTeam = teammates.findIndex((r) => r.id === entry.id);
-      this.botBrains.set(entry.id, makeBotBrain(entry.id, assignRole(indexInTeam)));
-    }
+    for (const entry of GAME_CONFIG.roster) this.resetBotBrain(entry.id);
 
     // Clients say 'ready' after registering their message handlers. Until
     // then, do not send snapshots/events that could be lost during setup.
@@ -123,9 +121,19 @@ export class MatchRoom extends Room {
       if (seat === undefined || !seat.ready) return;
       const parsed = sanitizePlayerCommandMessage(data);
       if (parsed === null) return;
-      // Bound pre-tick input buffering separately from the simulation queue.
-      if (seat.pendingCommands.length >= 32) return;
-      seat.pendingCommands.push(parsed);
+
+      const buffered = bufferPendingPlayerCommand(seat.pendingCommands, parsed);
+      for (const superseded of buffered.superseded) {
+        this.sendCommandResult(seat, superseded.requestId, 'superseded', 'superseded');
+      }
+      if (!buffered.buffered) {
+        this.sendCommandResult(
+          seat,
+          parsed.requestId,
+          'rejected',
+          buffered.reason ?? 'input-buffer-full'
+        );
+      }
     });
 
     console.log(
@@ -191,6 +199,7 @@ export class MatchRoom extends Room {
     seat.latestIntent = IDLE_INTENT;
     seat.pendingCommands = [];
     clearUnitCommands(this.state_.commands[seat.unitId]);
+    this.state_.units[seat.unitId].lock = null;
 
     // The name becomes the unit's in-world label; reverts to the roster label
     // when the seat drops back to a bot.
@@ -219,6 +228,8 @@ export class MatchRoom extends Room {
     seat.latestIntent = IDLE_INTENT; // seat reverts to bot control
     seat.pendingCommands = [];
     clearUnitCommands(this.state_.commands[seat.unitId]);
+    this.state_.units[seat.unitId].lock = null;
+    this.resetBotBrain(seat.unitId);
     // Label reverts to the roster default (e.g. "R1") now that a bot drives it.
     const rosterEntry = GAME_CONFIG.roster.find((r) => r.id === seat.unitId);
     if (rosterEntry !== undefined) this.state_.units[seat.unitId].label = rosterEntry.label;
@@ -275,19 +286,55 @@ export class MatchRoom extends Room {
     if (seat.pendingCommands.length === 0) return;
     const pending = seat.pendingCommands.splice(0);
     for (const message of pending) {
-      const validated = validatePlayerCommand(
+      const validation = validatePlayerCommandDetailed(
         this.state_,
         seat.unitId,
         message.command
       );
-      if (validated === null) continue;
-      applyPlayerCommand(
+      if (!validation.ok) {
+        this.sendCommandResult(seat, message.requestId, 'rejected', validation.reason);
+        continue;
+      }
+
+      const applied = applyPlayerCommand(
         this.state_.commands[seat.unitId],
-        validated,
+        validation.command,
         message.queue ? 'append' : 'replace'
       );
-      if (validated.type === 'stop') this.state_.units[seat.unitId].lock = null;
+      if (applied === 'queue-full') {
+        this.sendCommandResult(seat, message.requestId, 'rejected', 'queue-full');
+        continue;
+      }
+
+      if (validation.command.type === 'stop') this.state_.units[seat.unitId].lock = null;
+      this.sendCommandResult(seat, message.requestId, 'accepted');
     }
+  }
+
+  private sendCommandResult(
+    seat: Seat,
+    requestId: number | null,
+    outcome: CommandResultMessage['outcome'],
+    reason?: CommandResultReason
+  ) {
+    if (requestId === null || seat.client === null || !seat.ready) return;
+    const commands = this.state_.commands[seat.unitId];
+    const payload: CommandResultMessage = {
+      requestId,
+      outcome,
+      activeType: commands.active?.type ?? null,
+      queuedCount: commands.queue.length,
+      ...(reason === undefined ? {} : { reason }),
+    };
+    seat.client.send('command-result', payload);
+  }
+
+  private resetBotBrain(unitId: string) {
+    const entry = GAME_CONFIG.roster.find((candidate) => candidate.id === unitId);
+    if (entry === undefined) return;
+    const teammates = GAME_CONFIG.roster.filter((candidate) => candidate.team === entry.team);
+    const indexInTeam = teammates.findIndex((candidate) => candidate.id === unitId);
+    this.botBrains.set(unitId, makeBotBrain(unitId, assignRole(indexInTeam)));
   }
 
   private tick() {
