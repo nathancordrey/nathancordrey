@@ -33,8 +33,8 @@ export type RosterInfoEntry = {
 };
 
 // Client → server message types: 'ready' (no payload) once handlers are
-// registered; legacy 'intent' while WASD remains enabled; and 'command' with
-// PlayerCommandMessage for the authoritative waypoint/attack queue.
+// registered; 'command' for the public authoritative waypoint/attack queue;
+// and legacy 'intent' only when the hidden `?controls=wasd` dev flag is active.
 
 export type PlayerCommandMessage = {
   command: PlayerCommand;
