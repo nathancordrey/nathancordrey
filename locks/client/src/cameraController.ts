@@ -2,29 +2,22 @@ import type Phaser from 'phaser';
 
 import type { Vec2 } from './shared/geometry';
 
-export type CameraMode = 'follow' | 'free';
-
 type CameraControllerOptions = {
   worldWidth: number;
   worldHeight: number;
-  deadzoneWidthFraction?: number;
-  deadzoneHeightFraction?: number;
   followLerp?: number;
 };
 
 /**
- * Owns the two intentional camera states used by waypoint controls:
- * soft follow until the player pans, then free camera until explicit recenter.
+ * Owns the single production camera mode: a smooth, always-on follow of the
+ * local player's interpolated render position.
  */
 export class CameraController {
   private readonly camera: Phaser.Cameras.Scene2D.Camera;
   private readonly target: Phaser.GameObjects.Rectangle;
   private readonly worldWidth: number;
   private readonly worldHeight: number;
-  private readonly deadzoneWidthFraction: number;
-  private readonly deadzoneHeightFraction: number;
   private readonly followLerp: number;
-  private currentMode: CameraMode = 'follow';
   private followingStarted = false;
 
   constructor(
@@ -36,78 +29,38 @@ export class CameraController {
     this.target = target;
     this.worldWidth = options.worldWidth;
     this.worldHeight = options.worldHeight;
-    this.deadzoneWidthFraction = options.deadzoneWidthFraction ?? 0.46;
-    this.deadzoneHeightFraction = options.deadzoneHeightFraction ?? 0.44;
-    this.followLerp = options.followLerp ?? 0.14;
+    this.followLerp = options.followLerp ?? 0.1;
 
     this.camera.setBounds(0, 0, this.worldWidth, this.worldHeight);
-    this.applyDeadzone();
-  }
-
-  mode(): CameraMode {
-    return this.currentMode;
+    // Removing the deadzone avoids the stop/start motion of the previous
+    // soft-follow box. The interpolated render target and lerp provide smoothing.
+    this.camera.setDeadzone();
   }
 
   setTarget(point: Vec2): void {
     this.target.setPosition(point.x, point.y);
   }
 
-  /** Start follow mode and optionally snap to the player immediately. */
+  /** Begin or restore smooth follow, optionally centering immediately once. */
   recenter(point?: Vec2, immediate = true): void {
     if (point !== undefined) this.setTarget(point);
     this.camera.stopFollow();
-    this.applyDeadzone();
+    this.camera.setDeadzone();
     if (immediate) this.camera.centerOn(this.target.x, this.target.y);
-    this.camera.startFollow(this.target, true, this.followLerp, this.followLerp);
-    this.currentMode = 'follow';
+    // Do not round pixels: the target already uses interpolated render motion,
+    // and sub-pixel camera movement is less jittery on scaled mobile canvases.
+    this.camera.startFollow(this.target, false, this.followLerp, this.followLerp);
     this.followingStarted = true;
-  }
-
-  /** Pan in screen-space pixels. Dragging right reveals world space to the left. */
-  panBy(screenDeltaX: number, screenDeltaY: number): boolean {
-    const becameFree = this.currentMode !== 'free';
-    if (becameFree) {
-      this.camera.stopFollow();
-      this.currentMode = 'free';
-    }
-
-    const zoom = Math.max(0.001, this.camera.zoom);
-    this.setClampedScroll(
-      this.camera.scrollX - screenDeltaX / zoom,
-      this.camera.scrollY - screenDeltaY / zoom
-    );
-    return becameFree;
   }
 
   handleResize(): void {
     this.camera.setBounds(0, 0, this.worldWidth, this.worldHeight);
-    this.applyDeadzone();
-    if (this.currentMode === 'free') {
-      this.setClampedScroll(this.camera.scrollX, this.camera.scrollY);
-    } else if (this.followingStarted) {
-      // Re-applying follow keeps Phaser's deadzone and bounds coherent after
-      // orientation or parent-size changes without moving the world target.
-      this.camera.stopFollow();
-      this.camera.startFollow(this.target, true, this.followLerp, this.followLerp);
-    }
-  }
+    this.camera.setDeadzone();
+    if (!this.followingStarted) return;
 
-  private applyDeadzone(): void {
-    this.camera.setDeadzone(
-      this.camera.width * this.deadzoneWidthFraction,
-      this.camera.height * this.deadzoneHeightFraction
-    );
-  }
-
-  private setClampedScroll(scrollX: number, scrollY: number): void {
-    const zoom = Math.max(0.001, this.camera.zoom);
-    const visibleWidth = this.camera.width / zoom;
-    const visibleHeight = this.camera.height / zoom;
-    const maxX = Math.max(0, this.worldWidth - visibleWidth);
-    const maxY = Math.max(0, this.worldHeight - visibleHeight);
-    this.camera.setScroll(
-      Math.max(0, Math.min(maxX, scrollX)),
-      Math.max(0, Math.min(maxY, scrollY))
-    );
+    // Re-applying follow keeps Phaser's bounds coherent after an orientation or
+    // parent-size change without introducing a free-camera state.
+    this.camera.stopFollow();
+    this.camera.startFollow(this.target, false, this.followLerp, this.followLerp);
   }
 }
