@@ -3,7 +3,12 @@
 // The client, bots, and the future server all drive this same function.
 
 import type { Vec2 } from './geometry';
-import { clearUnitCommands, completeActiveCommand, createUnitCommandState } from './commands';
+import {
+  clearUnitCommands,
+  completeActiveCommand,
+  createUnitCommandState,
+  removeAttackCommandsTargeting,
+} from './commands';
 import { moveCommandDirection, routeDirectionToGoal } from './waypoints';
 import type { UnitCommandState } from './commands';
 import { distance } from './geometry';
@@ -560,31 +565,13 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
     });
   }
 
-  const killedVisibility = new Map<string, Set<Team>>();
   for (const unitId of killedBy.keys()) {
     const target = state.units[unitId];
-    const teams = new Set<Team>();
-    if (target !== undefined) {
-      for (const team of ['red', 'blue'] satisfies Team[]) {
-        if (visibleTo(team, target)) teams.add(team);
-      }
-    }
-    killedVisibility.set(unitId, teams);
+    const observingTeams = target === undefined
+      ? new Set<Team>()
+      : teamsSeeingUnit(target, visibleTo);
     killUnit(state, unitId, t, events);
-  }
-
-  // A team that visibly destroys a target knows the attack is complete. A
-  // hidden death must not silently reveal itself by cancelling the order;
-  // those attackers continue to the last-known position instead.
-  for (const [unitId, teams] of killedVisibility) {
-    for (const other of units) {
-      if (!teams.has(other.team)) continue;
-      if (other.lock?.targetId === unitId) other.lock = null;
-      const active = state.commands[other.id].active;
-      if (active?.type === 'attack' && active.targetId === unitId) {
-        completeActiveCommand(state.commands[other.id]);
-      }
-    }
+    completeKnownTargetDeath(state, unitId, observingTeams);
   }
 
   // 7) CTF: grab and capture by proximity.
@@ -634,7 +621,9 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
           reason: 'camping',
           at: { ...unit.pos },
         });
+        const observingTeams = teamsSeeingUnit(unit, visibleTo);
         killUnit(state, unit.id, t, events);
+        completeKnownTargetDeath(state, unit.id, observingTeams);
       }
     } else if (unit.campStartedTick !== null) {
       if (unit.campExitedTick === null) unit.campExitedTick = t;
@@ -648,11 +637,40 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
   // 9) Match end.
   const remainingMs = GAME_CONFIG.roundDurationMs - ticksToMs(t);
   if (evaluateMatch(state.match, state.ctf, remainingMs, GAME_CONFIG.scoreToWin)) {
-    for (const commandState of Object.values(state.commands)) clearUnitCommands(commandState);
+    for (const unit of units) {
+      clearUnitCommands(state.commands[unit.id]);
+      unit.lock = null;
+    }
     events.push({ type: 'match-end', result: state.match.result! });
   }
 
   return events;
+}
+
+function teamsSeeingUnit(
+  target: Unit,
+  visibleTo: (viewerTeam: Team, unit: Unit) => boolean
+): Set<Team> {
+  const teams = new Set<Team>();
+  for (const team of ['red', 'blue'] satisfies Team[]) {
+    if (visibleTo(team, target)) teams.add(team);
+  }
+  return teams;
+}
+
+// A team that visibly observes a target die knows all of its attack orders for
+// that target are obsolete, including queued duplicates. A hidden death must
+// never call this helper; those orders continue to the last-known position.
+function completeKnownTargetDeath(
+  state: GameState,
+  targetId: string,
+  observingTeams: Set<Team>
+): void {
+  for (const unit of Object.values(state.units)) {
+    if (!observingTeams.has(unit.team)) continue;
+    if (unit.lock?.targetId === targetId) unit.lock = null;
+    removeAttackCommandsTargeting(state.commands[unit.id], targetId);
+  }
 }
 
 function killUnit(state: GameState, unitId: string, tick: number, events: GameEvent[]) {
