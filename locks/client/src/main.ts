@@ -11,7 +11,7 @@ import type { Vec2 } from './shared/geometry';
 import { computeVisionPolygon } from './shared/sim';
 import { TICK_MS } from './shared/state';
 import type { GameEvent, Intent, Unit } from './shared/state';
-import type { Snapshot } from './shared/protocol';
+import type { CommandResultMessage, CommandResultReason, Snapshot } from './shared/protocol';
 import { LocalSession, OnlineSession } from './session';
 import {
   ensureAudio,
@@ -256,6 +256,7 @@ type TapFeedback = {
   startedAt: number;
   until: number;
   confirmedAt: number | null;
+  commandId: number | null;
 };
 
 type CommandMarkerSnapshot = {
@@ -892,10 +893,17 @@ class GameScene extends Phaser.Scene {
 
     if (bestId !== null) {
       if (CONTROL_MODE === 'waypoint') {
-        this.session.issueCommand({ type: 'attack', targetId: bestId }, options.queue);
+        const commandId = this.session.issueCommand(
+          { type: 'attack', targetId: bestId },
+          options.queue
+        );
+        if (commandId === null) {
+          this.setStatus('Command unavailable', 800);
+          return;
+        }
         this.setStatus(options.queue ? 'Attack queued' : 'Attack order', 650);
         if (options.touch && bestPosition !== null) {
-          this.addTapFeedback(bestPosition, 'attack', bestId);
+          this.addTapFeedback(bestPosition, 'attack', bestId, commandId);
         }
       } else {
         this.pendingLockTargetId = bestId;
@@ -918,9 +926,13 @@ class GameScene extends Phaser.Scene {
     }
 
     const command: PlayerCommand = { type: 'move', x: point.x, y: point.y };
-    this.session.issueCommand(command, options.queue);
+    const commandId = this.session.issueCommand(command, options.queue);
+    if (commandId === null) {
+      this.setStatus('Command unavailable', 800);
+      return;
+    }
     this.setStatus(options.queue ? 'Move queued' : 'Move order', 650);
-    if (options.touch) this.addTapFeedback(point, 'move');
+    if (options.touch) this.addTapFeedback(point, 'move', undefined, commandId);
   }
 
   private touchTargetPaddingWorld(): number {
@@ -931,7 +943,12 @@ class GameScene extends Phaser.Scene {
     return Math.max(12, Math.min(30, 15 * logicalPerCssPixel * worldPerLogicalPixel));
   }
 
-  private addTapFeedback(point: Vec2, kind: TapFeedback['kind'], targetId?: string) {
+  private addTapFeedback(
+    point: Vec2,
+    kind: TapFeedback['kind'],
+    targetId?: string,
+    commandId: number | null = null
+  ) {
     const startedAt = this.time.now;
     this.tapFeedbacks.push({
       point: { ...point },
@@ -940,6 +957,7 @@ class GameScene extends Phaser.Scene {
       startedAt,
       until: startedAt + (kind === 'invalid' ? 320 : 900),
       confirmedAt: null,
+      commandId,
     });
   }
 
@@ -1060,8 +1078,58 @@ class GameScene extends Phaser.Scene {
     }
 
     this.lastView = frame.view;
+    this.processCommandResults(frame.commandResults, time);
     this.processEvents(frame.events, time, frame.view);
     this.render(frame, time);
+  }
+
+  private processCommandResults(results: CommandResultMessage[], time: number) {
+    for (const result of results) {
+      const feedback = this.tapFeedbacks.find(
+        (candidate) => candidate.commandId === result.requestId
+      );
+
+      if (result.outcome === 'accepted') {
+        if (feedback !== undefined && feedback.kind !== 'invalid') {
+          feedback.confirmedAt = time;
+          feedback.until = Math.min(feedback.until, time + 140);
+        }
+        continue;
+      }
+
+      if (result.outcome === 'superseded') {
+        if (feedback !== undefined) feedback.until = Math.min(feedback.until, time + 90);
+        continue;
+      }
+
+      if (feedback !== undefined) {
+        feedback.kind = 'invalid';
+        feedback.confirmedAt = null;
+        feedback.startedAt = time;
+        feedback.until = time + 360;
+      }
+      this.setStatus(this.commandRejectionLabel(result.reason), 1_000);
+    }
+  }
+
+  private commandRejectionLabel(reason?: CommandResultReason): string {
+    switch (reason) {
+      case 'dead':
+        return 'Cannot command while respawning';
+      case 'match-ended':
+        return 'Match has ended';
+      case 'invalid-destination':
+        return 'Cannot move there';
+      case 'target-unavailable':
+        return 'Target no longer available';
+      case 'queue-full':
+        return 'Command queue full';
+      case 'input-buffer-full':
+        return 'Too many commands at once';
+      case 'invalid-command':
+      default:
+        return 'Command rejected';
+    }
   }
 
   private processEvents(events: GameEvent[], time: number, view: Snapshot) {
