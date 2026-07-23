@@ -43,6 +43,7 @@ export const GAME_CONFIG = {
   campResetMs: 4_000,
   respawnTimeMs: 2_500,
 
+  // Used only by the hidden `?controls=wasd` development comparison mode.
   mobileJoystickMaxDistance: 60,
 
   flagInteractRadius: 38,
@@ -50,10 +51,7 @@ export const GAME_CONFIG = {
   roundDurationMs: 5 * 60_000,
   scoreToWin: 3,
 
-  // Targeting mode. 'locks' (the intended game): clicking an enemy issues a
-  // sticky attack/chase order; firing auto-resolves from sim conditions.
-  // 'raycast': free-fire hitscan toward the click point (debug/test mode).
-  targetingMode: 'locks' as 'locks' | 'raycast',
+  // Visible-enemy clicks issue sticky attack/chase orders.
   lockClickTolerance: 8,
 
   locks: {
