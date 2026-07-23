@@ -108,6 +108,29 @@ export function completeActiveCommand(state: UnitCommandState): void {
   resetActiveCommandRuntime(state);
 }
 
+
+// Remove every active/queued attack order that a team now knows is invalid
+// (for example, because it visibly saw the target die). Hidden deaths must not
+// call this helper because doing so would leak information through the queue.
+export function removeAttackCommandsTargeting(
+  state: UnitCommandState,
+  targetId: string
+): number {
+  let removed = 0;
+
+  while (state.active?.type === 'attack' && state.active.targetId === targetId) {
+    completeActiveCommand(state);
+    removed += 1;
+  }
+
+  const before = state.queue.length;
+  state.queue = state.queue.filter(
+    (command) => command.type !== 'attack' || command.targetId !== targetId
+  );
+  removed += before - state.queue.length;
+  return removed;
+}
+
 export function clearUnitCommands(state: UnitCommandState): void {
   state.active = null;
   state.queue = [];
