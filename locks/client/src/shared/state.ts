@@ -412,8 +412,8 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
       break;
     }
 
-    // Legacy sticky locks remain for the temporary WASD comparison and bot
-    // intents. An active attack command owns its own A* chase above.
+    // Sticky locks remain for bot intents and the hidden developer WASD
+    // comparison. An active attack command owns its own A* chase above.
     let chasePoint: Vec2 | null = null;
     if (!attackOrderActive && commandState.active?.type !== 'move' && unit.lock !== null) {
       const target = state.units[unit.lock.targetId];
