@@ -39,4 +39,25 @@ export type RosterInfoEntry = {
 export type PlayerCommandMessage = {
   command: PlayerCommand;
   queue: boolean;
+  // Optional for backward compatibility. New clients attach a monotonic ID so
+  // the owning client can reconcile accepted/rejected commands precisely.
+  requestId?: number;
+};
+
+export type CommandResultReason =
+  | 'invalid-command'
+  | 'dead'
+  | 'match-ended'
+  | 'invalid-destination'
+  | 'target-unavailable'
+  | 'queue-full'
+  | 'input-buffer-full'
+  | 'superseded';
+
+export type CommandResultMessage = {
+  requestId: number;
+  outcome: 'accepted' | 'rejected' | 'superseded';
+  reason?: CommandResultReason;
+  activeType: 'move' | 'attack' | null;
+  queuedCount: number;
 };
