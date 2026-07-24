@@ -9,6 +9,7 @@ import { matchMaker, Server } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 
 import { MatchRoom } from './MatchRoom.js';
+import { loadGameplayConfigForNewRoom } from './gameplayConfig.js';
 
 export type GameService = ReturnType<typeof createGameService>;
 
@@ -24,6 +25,16 @@ export function createGameService() {
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true, service: 'locks-game', uptime: process.uptime() });
+  });
+
+  // Public read-only endpoint used by offline practice so the same active
+  // Linode preset can be tested without creating a network room. These values
+  // are gameplay rules, not secrets.
+  app.get('/gameplay-config', (_req, res) => {
+    const loaded = loadGameplayConfigForNewRoom();
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cache-Control', 'no-store');
+    res.json(loaded.active);
   });
 
   app.post('/internal/rooms', requireInternalSecret, async (_req, res) => {
