@@ -8,6 +8,38 @@ import { rectFromCenter } from './geometry';
 
 export const TILE = 36;
 
+export type GameplayTuning = {
+  // Phaser camera zoom. Values below 1 show more of the world.
+  cameraZoom: number;
+  playerVisionRadius: number;
+  shotRange: number;
+  lockAcquireMs: number;
+  playerSpeed: number;
+  respawnTimeMs: number;
+};
+
+export type RuntimeGameplayConfig = GameplayTuning & {
+  presetName: string;
+  configHash: string;
+};
+
+// Built-in fallback and offline-practice values. Production online rooms may
+// override these per match through GAMEPLAY_CONFIG_PATH on the game server.
+export const DEFAULT_GAMEPLAY_TUNING: GameplayTuning = {
+  cameraZoom: 1,
+  playerVisionRadius: 9 * TILE,
+  shotRange: 7 * TILE,
+  lockAcquireMs: 100,
+  playerSpeed: 180,
+  respawnTimeMs: 2_500,
+};
+
+export const DEFAULT_RUNTIME_GAMEPLAY: RuntimeGameplayConfig = {
+  presetName: 'baseline',
+  configHash: 'built-in',
+  ...DEFAULT_GAMEPLAY_TUNING,
+};
+
 export const GAME_CONFIG = {
   // 64x64-tile world, square like the original.
   worldWidth: 64 * TILE, // 2304
@@ -20,11 +52,11 @@ export const GAME_CONFIG = {
   // Fixed simulation timestep. Rendering interpolates between ticks.
   tickRate: 30,
 
-  playerSpeed: 180,
+  playerSpeed: DEFAULT_GAMEPLAY_TUNING.playerSpeed,
   playerRadius: 14,
 
   // Ghost sight range: 9 tiles.
-  playerVisionRadius: 9 * TILE, // 324
+  playerVisionRadius: DEFAULT_GAMEPLAY_TUNING.playerVisionRadius, // 324
   lastSeenLingerMs: 1500,
   // SC-style vision decay: ground you saw stays dimly revealed briefly
   // after you move on, then fog re-covers it.
@@ -33,7 +65,7 @@ export const GAME_CONFIG = {
 
   shotCooldownMs: 600,
   // Ghost attack range: 7 tiles — you can see farther than you can shoot.
-  shotRange: 7 * TILE, // 252
+  shotRange: DEFAULT_GAMEPLAY_TUNING.shotRange, // 252
 
 
   flagVisionRadius: 9 * TILE,
@@ -41,7 +73,7 @@ export const GAME_CONFIG = {
   campGraceMs: 10_000,
   campWarningMs: 3_000,
   campResetMs: 4_000,
-  respawnTimeMs: 2_500,
+  respawnTimeMs: DEFAULT_GAMEPLAY_TUNING.respawnTimeMs,
 
   // Used only by the hidden `?controls=wasd` development comparison mode.
   mobileJoystickMaxDistance: 60,
@@ -60,7 +92,7 @@ export const GAME_CONFIG = {
     requireFacingCone: true,
     attackConeDegrees: 25,
     turnRateDegreesPerSecond: 360,
-    lockAcquireMs: 100,
+    lockAcquireMs: DEFAULT_GAMEPLAY_TUNING.lockAcquireMs,
     // Stop closing distance once this fraction of weapon range is reached
     // and the target is visible.
     chaseStandoffFraction: 0.9,
