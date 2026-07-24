@@ -2,7 +2,7 @@
 // is exactly what perceive() allows a team to know, plus match timing —
 // nothing more ever crosses the wire.
 
-import type { Team } from './config';
+import type { RuntimeGameplayConfig, Team } from './config';
 import type { PlayerCommand, VisibleUnitCommandState } from './commands';
 import type { MatchState } from './sim';
 import type { PerceivedEnemy, Unit } from './state';
@@ -18,6 +18,7 @@ export type Snapshot = {
   allies: Unit[];
   visibleEnemies: PerceivedEnemy[];
   commands: VisibleUnitCommandState;
+  gameplay: RuntimeGameplayConfig;
 };
 
 export type WelcomeMessage = {
