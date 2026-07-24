@@ -7,7 +7,8 @@ import type { Vec2 } from './shared/geometry';
 import { applyPlayerCommand, visibleUnitCommandState } from './shared/commands';
 import type { PlayerCommand } from './shared/commands';
 import { makeBotBrain, assignRole } from './shared/bots';
-import { GAME_CONFIG, MAP } from './shared/config';
+import { DEFAULT_RUNTIME_GAMEPLAY, GAME_CONFIG, MAP } from './shared/config';
+import type { RuntimeGameplayConfig } from './shared/config';
 import { collidesWithWalls } from './shared/movement';
 import type { BotBrain } from './shared/bots';
 import type {
@@ -59,11 +60,17 @@ export class LocalSession implements GameSession {
   readonly playerId = 'r1';
 
   private difficulty: string;
-  private state: GameState = createGameState();
+  private state: GameState;
+  private gameplay: RuntimeGameplayConfig;
   private brains: Map<string, BotBrain> = new Map();
 
-  constructor(difficulty: string = GAME_CONFIG.defaultBotDifficulty) {
+  constructor(
+    difficulty: string = GAME_CONFIG.defaultBotDifficulty,
+    gameplay: RuntimeGameplayConfig = DEFAULT_RUNTIME_GAMEPLAY
+  ) {
     this.difficulty = difficulty;
+    this.gameplay = { ...gameplay };
+    this.state = createGameState(GAME_CONFIG.defaultSeed, this.gameplay);
   }
   private accumulator = 0;
   private prev: Map<string, Vec2> = new Map();
@@ -189,6 +196,7 @@ export class LocalSession implements GameSession {
       ...perceive(this.state, this.playerId),
       remainingMs: remainingRoundMs(this.state),
       commands: visibleUnitCommandState(this.state.commands[this.playerId]),
+      gameplay: { ...this.gameplay },
     };
     const events = this.pendingEvents;
     this.pendingEvents = [];
@@ -288,8 +296,13 @@ export class OnlineSession implements GameSession {
         console.warn(`[locks] ignored stale snapshot tick=${snap.tick} current=${currentTick}`);
         return;
       }
+      const gameplay =
+        (snap as Partial<Snapshot>).gameplay === undefined
+          ? { ...DEFAULT_RUNTIME_GAMEPLAY }
+          : snap.gameplay;
+      const normalized: Snapshot = { ...snap, gameplay };
       session.prevView = session.view;
-      session.view = snap;
+      session.view = normalized;
       session.lastSnapshotAt = performance.now();
     });
     room.onMessage('events', (events: GameEvent[]) => {
