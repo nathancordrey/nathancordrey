@@ -12,8 +12,8 @@ import {
 import { moveCommandDirection, routeDirectionToGoal } from './waypoints';
 import type { UnitCommandState } from './commands';
 import { distance } from './geometry';
-import type { Team } from './config';
-import { GAME_CONFIG, MAP } from './config';
+import type { GameplayTuning, Team } from './config';
+import { DEFAULT_GAMEPLAY_TUNING, GAME_CONFIG, MAP } from './config';
 import { createRng } from './rng';
 import type { RngState } from './rng';
 import type { CtfState, MatchResult, MatchState } from './sim';
@@ -94,6 +94,9 @@ export type GameState = {
   // Authoritative waypoint/attack orders. Kept outside Unit so team
   // snapshots cannot leak another player's queued target or destination.
   commands: Record<string, UnitCommandState>;
+  // Frozen per-match tuning. Online rooms load this when they are created;
+  // offline practice uses the built-in baseline.
+  gameplay: GameplayTuning;
 };
 
 export type GameEvent =
@@ -107,7 +110,10 @@ export type GameEvent =
 
 // --- State creation -------------------------------------------------------
 
-export function createGameState(seed: number = GAME_CONFIG.defaultSeed): GameState {
+export function createGameState(
+  seed: number = GAME_CONFIG.defaultSeed,
+  gameplay: GameplayTuning = DEFAULT_GAMEPLAY_TUNING
+): GameState {
   const units: Record<string, Unit> = {};
   const commands: Record<string, UnitCommandState> = {};
 
@@ -145,6 +151,7 @@ export function createGameState(seed: number = GAME_CONFIG.defaultSeed): GameSta
     match: createMatchState(),
     rng: createRng(seed),
     commands,
+    gameplay: { ...gameplay },
   };
 }
 
@@ -179,7 +186,7 @@ export function isUnitVisibleToTeam(
     viewerTeam,
     unit.pos,
     MAP.walls,
-    GAME_CONFIG.playerVisionRadius,
+    state.gameplay.playerVisionRadius,
     MAP.flags
   );
 }
@@ -385,7 +392,7 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
             targetable: true,
           },
           MAP.walls,
-          GAME_CONFIG.shotRange * GAME_CONFIG.locks.chaseStandoffFraction,
+          state.gameplay.shotRange * GAME_CONFIG.locks.chaseStandoffFraction,
           Math.PI * 2,
           false
         );
@@ -434,7 +441,7 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
         } else if (
           targetVisible &&
           distance(unit.pos, chasePoint) <=
-            GAME_CONFIG.shotRange * GAME_CONFIG.locks.chaseStandoffFraction
+            state.gameplay.shotRange * GAME_CONFIG.locks.chaseStandoffFraction
         ) {
           chasePoint = null;
           const desired = Math.atan2(target.pos.y - unit.pos.y, target.pos.x - unit.pos.x);
@@ -466,8 +473,8 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
       dy /= len;
       unit.pos = moveCircle(
         unit.pos,
-        dx * GAME_CONFIG.playerSpeed * tickSeconds,
-        dy * GAME_CONFIG.playerSpeed * tickSeconds,
+        dx * state.gameplay.playerSpeed * tickSeconds,
+        dy * state.gameplay.playerSpeed * tickSeconds,
         GAME_CONFIG.playerRadius,
         MAP.walls
       );
@@ -506,7 +513,7 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
   for (const unit of units) {
     if (!unit.alive || unit.lock === null) continue;
     if (t - unit.lastShotAtTick < msToTicks(GAME_CONFIG.shotCooldownMs)) continue;
-    if (t - unit.lock.createdAtTick < msToTicks(GAME_CONFIG.locks.lockAcquireMs)) continue;
+    if (t - unit.lock.createdAtTick < msToTicks(state.gameplay.lockAcquireMs)) continue;
 
     const target = state.units[unit.lock.targetId];
     if (target === undefined || !target.alive) continue;
@@ -521,7 +528,7 @@ export function step(state: GameState, intents: Record<string, Intent>): GameEve
         targetable: visibleTo(unit.team, target),
       },
       MAP.walls,
-      GAME_CONFIG.shotRange,
+      state.gameplay.shotRange,
       coneRad,
       GAME_CONFIG.locks.requireFacingCone
     );
@@ -678,7 +685,7 @@ function killUnit(state: GameState, unitId: string, tick: number, events: GameEv
   if (unit === undefined || !unit.alive) return;
 
   unit.alive = false;
-  unit.respawnAtTick = tick + msToTicks(GAME_CONFIG.respawnTimeMs);
+  unit.respawnAtTick = tick + msToTicks(state.gameplay.respawnTimeMs);
   unit.lock = null;
   clearUnitCommands(state.commands[unitId]);
   unit.visionSamples = [];
