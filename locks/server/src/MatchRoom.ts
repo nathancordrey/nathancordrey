@@ -29,6 +29,8 @@ import type {
   Intent,
 } from '../../client/src/shared/state.js';
 import { verifyJoinToken } from './joinToken.js';
+import { loadGameplayConfigForNewRoom } from './gameplayConfig.js';
+import type { LoadedGameplayConfig } from './gameplayConfig.js';
 import { reportLobbyEvent } from './lobbyReporter.js';
 import {
   bufferPendingPlayerCommand,
@@ -55,6 +57,7 @@ export class MatchRoom extends Room {
   autoDispose = false;
 
   private state_!: GameState;
+  private gameplayConfig!: LoadedGameplayConfig;
   private seats: Seat[] = [];
   private botBrains: Map<string, BotBrain> = new Map();
   private shutdownScheduled = false;
@@ -64,7 +67,8 @@ export class MatchRoom extends Room {
 
   onCreate(options: JoinOptions) {
     this.brokered = options.brokered === true;
-    this.state_ = createGameState();
+    this.gameplayConfig = loadGameplayConfigForNewRoom();
+    this.state_ = createGameState(GAME_CONFIG.defaultSeed, this.gameplayConfig.active);
 
     // Seats interleave red/blue so joiner #1 is red, #2 blue, #3 red...
     const red = GAME_CONFIG.roster.filter((r) => r.team === 'red');
@@ -137,7 +141,7 @@ export class MatchRoom extends Room {
     });
 
     console.log(
-      `[locks-game][room ${this.roomId}] created brokered=${this.brokered} seats=${this.maxClients}`
+      `[locks-game][room ${this.roomId}] created brokered=${this.brokered} seats=${this.maxClients} preset=${this.gameplayConfig.active.presetName} config=${this.gameplayConfig.active.configHash}`
     );
     this.setSimulationInterval(() => this.tickSafely(), TICK_MS);
 
@@ -440,6 +444,7 @@ export class MatchRoom extends Room {
       allies: view.allies,
       visibleEnemies: view.visibleEnemies,
       commands: visibleUnitCommandState(this.state_.commands[unitId]),
+      gameplay: { ...this.gameplayConfig.active },
     };
   }
 
