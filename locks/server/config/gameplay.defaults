@@ -1,0 +1,29 @@
+{
+  "activePreset": "baseline",
+  "presets": {
+    "baseline": {
+      "cameraZoom": 1.0,
+      "playerVisionRadius": 324,
+      "shotRange": 252,
+      "lockAcquireMs": 100,
+      "playerSpeed": 180,
+      "respawnTimeMs": 2500
+    },
+    "wide": {
+      "cameraZoom": 0.8,
+      "playerVisionRadius": 396,
+      "shotRange": 252,
+      "lockAcquireMs": 650,
+      "playerSpeed": 180,
+      "respawnTimeMs": 2500
+    },
+    "widePlus": {
+      "cameraZoom": 0.7,
+      "playerVisionRadius": 450,
+      "shotRange": 252,
+      "lockAcquireMs": 850,
+      "playerSpeed": 180,
+      "respawnTimeMs": 2500
+    }
+  }
+}
