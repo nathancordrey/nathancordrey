@@ -14,7 +14,10 @@
     "smoke:attacks": "tsx scripts/attack-command-smoke.ts",
     "smoke:edges": "tsx scripts/edge-case-smoke.ts",
     "smoke:dev-wasd": "tsx scripts/dev-wasd-smoke.ts",
-    "smoke:all": "npm run smoke:commands && npm run smoke:waypoints && npm run smoke:attacks && npm run smoke:edges && npm run smoke && npm run smoke:dev-wasd && npm run smoke:quickplay"
+    "smoke:all": "npm run smoke:commands && npm run smoke:waypoints && npm run smoke:attacks && npm run smoke:edges && npm run smoke:tuning && npm run smoke && npm run smoke:dev-wasd && npm run smoke:quickplay",
+    "tuning:validate": "tsx scripts/tuning-validate.ts",
+    "tuning:show": "tsx scripts/tuning-show.ts",
+    "smoke:tuning": "tsx scripts/tuning-smoke.ts"
   },
   "dependencies": {
     "@colyseus/core": "^0.16.24",
