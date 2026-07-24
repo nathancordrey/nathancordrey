@@ -3,10 +3,10 @@ import Phaser from 'phaser';
 
 import { CameraController } from './cameraController';
 import { PointerGestureController } from './pointerGestureController';
-import { GAME_CONFIG, MAP } from './shared/config';
+import { DEFAULT_RUNTIME_GAMEPLAY, GAME_CONFIG, MAP } from './shared/config';
 import type { ExecutablePlayerCommand, PlayerCommand } from './shared/commands';
 import { collidesWithWalls } from './shared/movement';
-import type { Team } from './shared/config';
+import type { RuntimeGameplayConfig, Team } from './shared/config';
 import type { Vec2 } from './shared/geometry';
 import { computeVisionPolygon } from './shared/sim';
 import { TICK_MS } from './shared/state';
@@ -39,6 +39,10 @@ const DEFAULT_SERVER = (() => {
     : `ws://${window.location.hostname}:2567`;
 })();
 
+const DEFAULT_GAME_HTTP = DEFAULT_SERVER.replace(/^wss:/, 'https:')
+  .replace(/^ws:/, 'http:')
+  .replace(/\/+$/, '');
+
 const DEFAULT_LOBBY = (() => {
   const override = new URLSearchParams(window.location.search).get('lobby');
   if (override !== null && override !== '') return override;
@@ -57,6 +61,47 @@ const CONTROL_MODE: ControlMode =
   new URLSearchParams(window.location.search).get('controls') === 'wasd'
     ? 'wasd'
     : 'waypoint';
+
+function parseRuntimeGameplayConfig(value: unknown): RuntimeGameplayConfig {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('invalid gameplay config response');
+  }
+  const record = value as Record<string, unknown>;
+  const finite = (key: keyof RuntimeGameplayConfig): number => {
+    const candidate = record[key];
+    if (typeof candidate !== 'number' || !Number.isFinite(candidate)) {
+      throw new Error(`invalid gameplay config field ${String(key)}`);
+    }
+    return candidate;
+  };
+  const presetName = typeof record.presetName === 'string' ? record.presetName : '';
+  const configHash = typeof record.configHash === 'string' ? record.configHash : '';
+  if (presetName === '' || configHash === '') throw new Error('invalid gameplay config metadata');
+
+  const gameplay: RuntimeGameplayConfig = {
+    presetName,
+    configHash,
+    cameraZoom: finite('cameraZoom'),
+    playerVisionRadius: finite('playerVisionRadius'),
+    shotRange: finite('shotRange'),
+    lockAcquireMs: finite('lockAcquireMs'),
+    playerSpeed: finite('playerSpeed'),
+    respawnTimeMs: finite('respawnTimeMs'),
+  };
+  const inRange = (number: number, min: number, max: number, label: string) => {
+    if (number < min || number > max) throw new Error(`gameplay ${label} out of range`);
+  };
+  inRange(gameplay.cameraZoom, 0.5, 1.5, 'camera zoom');
+  inRange(gameplay.playerVisionRadius, 100, 900, 'vision radius');
+  inRange(gameplay.shotRange, 50, 800, 'shot range');
+  inRange(gameplay.lockAcquireMs, 0, 3_000, 'lock acquire time');
+  inRange(gameplay.playerSpeed, 60, 420, 'player speed');
+  inRange(gameplay.respawnTimeMs, 0, 15_000, 'respawn time');
+  if (gameplay.shotRange > gameplay.playerVisionRadius) {
+    throw new Error('gameplay shot range exceeds vision range');
+  }
+  return gameplay;
+}
 
 // ---------------------------------------------------------------------------
 
@@ -115,12 +160,10 @@ class MenuScene extends Phaser.Scene {
 
     // Secondary: offline practice against bots.
     this.makeButton(cx, 258, 'PRACTICE — EASY', () => {
-      this.removeNameInput();
-      this.scene.start('GameScene', { session: new LocalSession('easy') });
+      void this.startPractice('easy');
     });
     this.makeButton(cx, 310, 'PRACTICE — NORMAL', () => {
-      this.removeNameInput();
-      this.scene.start('GameScene', { session: new LocalSession('normal') });
+      void this.startPractice('normal');
     });
 
     this.errorText = this.add
@@ -133,6 +176,26 @@ class MenuScene extends Phaser.Scene {
 
     // Clean up the DOM input if the scene shuts down.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.removeNameInput());
+  }
+
+  private async startPractice(difficulty: string) {
+    if (this.busy) return;
+    this.busy = true;
+    this.errorText.setText('Loading gameplay preset...');
+
+    let gameplay = { ...DEFAULT_RUNTIME_GAMEPLAY };
+    try {
+      const response = await fetch(`${DEFAULT_GAME_HTTP}/gameplay-config`, {
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(`game server returned ${response.status}`);
+      gameplay = parseRuntimeGameplayConfig(await response.json());
+    } catch (error) {
+      console.warn('[locks] practice tuning unavailable; using built-in baseline', error);
+    }
+
+    this.removeNameInput();
+    this.scene.start('GameScene', { session: new LocalSession(difficulty, gameplay) });
   }
 
   private nameInput: HTMLInputElement | null = null;
@@ -283,6 +346,8 @@ class GameScene extends Phaser.Scene {
   private cameraTarget!: Phaser.GameObjects.Rectangle;
   private cameraController!: CameraController;
   private cameraInitialized = false;
+  private uiRoot!: Phaser.GameObjects.Container;
+  private appliedGameplayHash = '';
 
   private connectingText!: Phaser.GameObjects.Text;
   private debugText!: Phaser.GameObjects.Text;
@@ -357,6 +422,7 @@ class GameScene extends Phaser.Scene {
     this.tracers = [];
     this.matchEndShown = false;
     this.cameraInitialized = false;
+    this.appliedGameplayHash = '';
     this.connectionOverlay = null;
     this.connectionHeadlineText = null;
     this.connectionDetailText = null;
@@ -381,6 +447,7 @@ class GameScene extends Phaser.Scene {
     this.statusClearEvent = null;
 
     this.cameras.main.setBackgroundColor('#111827');
+    this.uiRoot = this.add.container(0, 0).setDepth(1_000).setScrollFactor(0);
 
     this.createArena();
     this.createFog();
@@ -392,6 +459,8 @@ class GameScene extends Phaser.Scene {
       worldHeight: GAME_CONFIG.worldHeight,
     });
     this.createMobileCommandButtons();
+    this.adoptInitialUiObjects();
+    this.applyGameplayPresentation(DEFAULT_RUNTIME_GAMEPLAY.cameraZoom);
 
     this.input.mouse?.disableContextMenu();
 
@@ -471,9 +540,46 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  private adoptInitialUiObjects() {
+    const candidates = [...this.children.list].filter((object) => {
+      if (object === this.uiRoot) return false;
+      const scrollable = object as unknown as { scrollFactorX?: number; scrollFactorY?: number };
+      return scrollable.scrollFactorX === 0 && scrollable.scrollFactorY === 0;
+    });
+    for (const object of candidates) this.addUiObject(object);
+  }
+
+  private addUiObject<T extends Phaser.GameObjects.GameObject>(object: T): T {
+    if ((object as unknown as { parentContainer?: Phaser.GameObjects.Container | null }).parentContainer === this.uiRoot) {
+      return object;
+    }
+    const scrollable = object as unknown as { setScrollFactor?: (x: number, y?: number) => unknown };
+    scrollable.setScrollFactor?.(1, 1);
+    this.uiRoot.add(object);
+    return object;
+  }
+
+  private applyGameplayPresentation(cameraZoom: number) {
+    const zoom = Math.max(0.5, Math.min(1.5, cameraZoom));
+    this.cameraController.setZoom(zoom);
+
+    // The world camera zoom should not shrink or move HUD elements. The UI
+    // root applies the exact inverse transform around the logical viewport
+    // center while remaining independent of camera scroll.
+    const cx = GAME_CONFIG.viewportWidth / 2;
+    const cy = GAME_CONFIG.viewportHeight / 2;
+    this.uiRoot.setScale(1 / zoom);
+    this.uiRoot.setPosition(cx - cx / zoom, cy - cy / zoom);
+  }
+
   private exitOrRestart() {
     if (this.session.mode === 'practice') {
-      this.scene.restart({ session: new LocalSession() });
+      this.scene.restart({
+        session: new LocalSession(
+          GAME_CONFIG.defaultBotDifficulty,
+          this.lastView?.gameplay ?? DEFAULT_RUNTIME_GAMEPLAY
+        ),
+      });
     } else {
       this.scene.start('MenuScene');
     }
@@ -1103,7 +1209,7 @@ class GameScene extends Phaser.Scene {
             this.disableQueue();
             this.setStatus(
               event.reason === 'camping' ? 'CAMPING — respawning...' : 'YOU DIED — respawning...',
-              GAME_CONFIG.respawnTimeMs
+              view.gameplay.respawnTimeMs
             );
           }
           break;
@@ -1158,6 +1264,12 @@ class GameScene extends Phaser.Scene {
     const { view, prev, alpha } = frame;
     const self = view.self;
     const selfId = this.session.playerId;
+
+    if (this.appliedGameplayHash !== view.gameplay.configHash) {
+      this.appliedGameplayHash = view.gameplay.configHash;
+      this.applyGameplayPresentation(view.gameplay.cameraZoom);
+      this.fogPolygonCache.clear();
+    }
 
     const drawn = new Set<string>();
 
@@ -1239,7 +1351,7 @@ class GameScene extends Phaser.Scene {
     this.drawCommandQueue(view, time);
     this.reconcileTapFeedback(view, time);
     this.drawTapFeedback(time);
-    this.drawAim(self);
+    this.drawAim(self, view.gameplay.shotRange);
     this.drawTracers(time);
     this.drawFog(view);
     this.drawMobileControls();
@@ -1485,7 +1597,7 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  private drawAim(self: Unit) {
+  private drawAim(self: Unit, shotRange: number) {
     this.aimGraphics.clear();
     if (!self.alive) return;
 
@@ -1497,7 +1609,7 @@ class GameScene extends Phaser.Scene {
 
     if (self.lock !== null) {
       const halfCone = ((GAME_CONFIG.locks.attackConeDegrees * Math.PI) / 180) / 2;
-      const coneLength = GAME_CONFIG.shotRange * 0.5;
+      const coneLength = shotRange * 0.5;
       this.aimGraphics.lineStyle(1, 0xfbbf24, 0.3);
       for (const edge of [angle - halfCone, angle + halfCone]) {
         this.aimGraphics.beginPath();
@@ -1546,7 +1658,7 @@ class GameScene extends Phaser.Scene {
         if (!this.fogPolygonCache.has(sample.atTick)) {
           this.fogPolygonCache.set(
             sample.atTick,
-            computeVisionPolygon(sample.pos, MAP.walls, GAME_CONFIG.playerVisionRadius).map(
+            computeVisionPolygon(sample.pos, MAP.walls, view.gameplay.playerVisionRadius).map(
               (p) => new Phaser.Math.Vector2(p.x, p.y)
             )
           );
@@ -1572,7 +1684,7 @@ class GameScene extends Phaser.Scene {
       const livePolygon = computeVisionPolygon(
         renderPos,
         MAP.walls,
-        GAME_CONFIG.playerVisionRadius
+        view.gameplay.playerVisionRadius
       ).map((p) => new Phaser.Math.Vector2(p.x, p.y));
       this.fogMaskGraphics.fillStyle(0xffffff, 1);
       this.fogMaskGraphics.fillPoints(livePolygon, true);
@@ -1588,7 +1700,7 @@ class GameScene extends Phaser.Scene {
       const allyPolygon = computeVisionPolygon(
         ally.pos,
         MAP.walls,
-        GAME_CONFIG.playerVisionRadius
+        view.gameplay.playerVisionRadius
       ).map((p) => new Phaser.Math.Vector2(p.x, p.y));
       this.fogMaskGraphics.fillStyle(0xffffff, 0.9);
       this.fogMaskGraphics.fillPoints(allyPolygon, true);
@@ -1706,6 +1818,7 @@ class GameScene extends Phaser.Scene {
     this.debugText.setText(
       [
         `${this.session.mode} tick=${view.tick}`,
+        `preset=${view.gameplay.presetName} ${view.gameplay.configHash} zoom=${view.gameplay.cameraZoom.toFixed(2)}`,
         `cooldown=${Math.round(cooldownMs)}ms`,
         `lock=${lockLabel}`,
         `orders=${view.commands.active?.type ?? 'none'}+${view.commands.queue.length}`,
@@ -1868,10 +1981,12 @@ class GameScene extends Phaser.Scene {
         }
       );
 
-      this.connectionOverlay = this.add
-        .container(0, 0, [blocker, headline, detail, retryBg, retryText, menuBg, menuText])
-        .setDepth(300)
-        .setScrollFactor(0);
+      this.connectionOverlay = this.addUiObject(
+        this.add
+          .container(0, 0, [blocker, headline, detail, retryBg, retryText, menuBg, menuText])
+          .setDepth(300)
+          .setScrollFactor(0)
+      );
       this.connectionHeadlineText = headline;
       this.connectionDetailText = detail;
     }
@@ -1945,33 +2060,32 @@ class GameScene extends Phaser.Scene {
     this.cancelPointerGestures();
     this.timerText.setText('0:00');
 
-    const overlay = this.add.rectangle(
-      GAME_CONFIG.viewportWidth / 2,
-      GAME_CONFIG.viewportHeight / 2,
-      GAME_CONFIG.viewportWidth,
-      GAME_CONFIG.viewportHeight,
-      0x000000,
-      0.72
-    );
-    overlay.setDepth(200);
-    overlay.setScrollFactor(0);
+    const overlay = this.add
+      .rectangle(
+        GAME_CONFIG.viewportWidth / 2,
+        GAME_CONFIG.viewportHeight / 2,
+        GAME_CONFIG.viewportWidth,
+        GAME_CONFIG.viewportHeight,
+        0x000000,
+        0.72
+      )
+      .setDepth(200);
 
     const result = view.match.result;
     const headline = result === 'draw' ? 'DRAW' : `${(result ?? '').toUpperCase()} TEAM WINS`;
     const headlineColor =
       result === 'red' ? '#fca5a5' : result === 'blue' ? '#93c5fd' : '#e2e8f0';
 
-    this.add
+    const headlineText = this.add
       .text(GAME_CONFIG.viewportWidth / 2, GAME_CONFIG.viewportHeight / 2 - 44, headline, {
         color: headlineColor,
         fontSize: '34px',
         fontFamily: 'system-ui, sans-serif',
       })
       .setOrigin(0.5)
-      .setDepth(201)
-      .setScrollFactor(0);
+      .setDepth(201);
 
-    this.add
+    const scoreText = this.add
       .text(
         GAME_CONFIG.viewportWidth / 2,
         GAME_CONFIG.viewportHeight / 2 + 2,
@@ -1979,10 +2093,9 @@ class GameScene extends Phaser.Scene {
         { color: '#e2e8f0', fontSize: '20px', fontFamily: 'monospace' }
       )
       .setOrigin(0.5)
-      .setDepth(201)
-      .setScrollFactor(0);
+      .setDepth(201);
 
-    this.add
+    const actionText = this.add
       .text(
         GAME_CONFIG.viewportWidth / 2,
         GAME_CONFIG.viewportHeight / 2 + 40,
@@ -1992,8 +2105,11 @@ class GameScene extends Phaser.Scene {
         { color: '#94a3b8', fontSize: '13px', fontFamily: 'system-ui, sans-serif' }
       )
       .setOrigin(0.5)
-      .setDepth(201)
-      .setScrollFactor(0);
+      .setDepth(201);
+
+    this.addUiObject(
+      this.add.container(0, 0, [overlay, headlineText, scoreText, actionText]).setDepth(300)
+    );
   }
 }
 
