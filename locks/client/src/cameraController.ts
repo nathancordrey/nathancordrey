@@ -19,6 +19,7 @@ export class CameraController {
   private readonly worldHeight: number;
   private readonly followLerp: number;
   private followingStarted = false;
+  private zoom = 1;
 
   constructor(
     camera: Phaser.Cameras.Scene2D.Camera,
@@ -35,6 +36,19 @@ export class CameraController {
     // Removing the deadzone avoids the stop/start motion of the previous
     // soft-follow box. The interpolated render target and lerp provide smoothing.
     this.camera.setDeadzone();
+  }
+
+
+  setZoom(zoom: number): void {
+    const safeZoom = Number.isFinite(zoom) ? Math.max(0.5, Math.min(1.5, zoom)) : 1;
+    if (Math.abs(this.zoom - safeZoom) < 0.0001) return;
+    this.zoom = safeZoom;
+    this.camera.setZoom(safeZoom);
+    this.camera.setBounds(0, 0, this.worldWidth, this.worldHeight);
+  }
+
+  currentZoom(): number {
+    return this.zoom;
   }
 
   setTarget(point: Vec2): void {
