@@ -1,7 +1,7 @@
 ---
 title: "Caputo 00 Pizza Dough"
 date: 2026-09-22
-image: static/images/recipes/caputo-00-pizza-dough.jpg
+image: static/images/recipes/redbudjelly.jpg
 category: Main Dishes
 tags:
   - Pizza
