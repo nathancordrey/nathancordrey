@@ -1,0 +1,45 @@
+{
+  "artist": "Artist Name",
+  "tagline": "Original paintings and archival giclée prints.",
+  "about": "Every print is a giclée on archival cotton paper with pigment inks, made to last for decades. Prints ship flat or rolled within about a week of ordering.",
+  "contact_email": "",
+  "prints": [
+    {
+      "slug": "example-one",
+      "title": "Example Print One",
+      "medium": "Giclée on Hahnemühle Photo Rag",
+      "description": "Placeholder entry. Replace the title, image, and sizes with a real piece.",
+      "image": "images/shop/example-one.jpg",
+      "sizes": [
+        {
+          "label": "8 × 10 in",
+          "price": 35,
+          "payment_link": "",
+          "edition": "Open edition"
+        },
+        {
+          "label": "11 × 14 in",
+          "price": 55,
+          "payment_link": "",
+          "edition": "Limited edition of 25"
+        }
+      ]
+    },
+    {
+      "slug": "example-two",
+      "title": "Example Print Two",
+      "medium": "Giclée on Hahnemühle Photo Rag",
+      "description": "Placeholder entry showing a sold-out size.",
+      "image": "images/shop/example-two.jpg",
+      "sizes": [
+        {
+          "label": "8 × 10 in",
+          "price": 35,
+          "payment_link": "",
+          "sold_out": true,
+          "edition": "Limited edition of 10"
+        }
+      ]
+    }
+  ]
+}

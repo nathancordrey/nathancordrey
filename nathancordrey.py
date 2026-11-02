@@ -24,6 +24,10 @@ app.config['FLATPAGES_EXTENSION'] = '.md'
 pages = FlatPages(app)
 recipes=[]
 
+# Art print shop at /shop (catalog in shop/catalog.json; checkout via Stripe Payment Links)
+from shop import shop as shop_blueprint
+app.register_blueprint(shop_blueprint)
+
 # Resolve the worldcup data path relative to this file, so it works regardless
 # of what working directory gunicorn/systemd launches the app from on Linode.
 _WORLDCUP_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'worldcup.json')
