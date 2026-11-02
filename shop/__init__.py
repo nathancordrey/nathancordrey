@@ -9,6 +9,7 @@ so this app never sees card data. See shop/README.md for setup.
 
 import json
 import os
+from datetime import date
 
 from flask import Blueprint, abort, render_template
 
@@ -31,6 +32,11 @@ def load_catalog():
         prints.append(p)
     data['prints'] = prints
     return data
+
+
+@shop.context_processor
+def inject_year():
+    return {'year': date.today().year}
 
 
 @shop.app_template_filter('usd')

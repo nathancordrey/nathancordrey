@@ -26,7 +26,10 @@ The JSON is re-read on every request, so changes go live without a restart.
 - A size with no `payment_link` shows **Coming soon**.
 - `"sold_out": true` on a size shows **Sold out**.
 - `"hidden": true` on a print removes it from the shop.
-- Set `artist`, `tagline`, `about`, and `contact_email` at the top of the file.
+- Optional per print: `"year"` shows after the artist's name on the print page.
+- Set `artist`, `tagline`, `about`, `contact_email`, and `instagram` (handle only, no @) at the top of the file. Separate `about` paragraphs with a blank line (`\n\n`). Contact and Instagram links appear in the header only when filled in.
+
+The shop has its own layout (`shop/templates/shop/base.html`, `static/css/shop.css`) separate from the rest of the site.
 
 ## Stripe setup (once)
 

@@ -1,42 +1,46 @@
-{% extends "base.html" %}
+{% extends "shop/base.html" %}
 
 {% block title %}{{ catalog.artist }} · Prints{% endblock title %}
 
-{% block head %}
-{% include "shop/_style.html" %}
-{% endblock head %}
+{% block og_image %}
+{% if catalog.prints %}<meta property="og:image" content="{{ url_for('static', filename=catalog.prints[0].image, _external=True) }}">{% endif %}
+{% endblock og_image %}
 
 {% block content %}
-<div class="shop">
-  <div class="shop-header">
-    <h2>{{ catalog.artist }}</h2>
-    {% if catalog.tagline %}<p>{{ catalog.tagline }}</p>{% endif %}
-  </div>
+  {% if catalog.tagline %}<p class="intro">{{ catalog.tagline }}</p>{% endif %}
 
   {% if catalog.prints %}
-  <div class="shop-grid">
+  <div class="wall">
     {% for p in catalog.prints %}
     {% set prices = p.sizes | map(attribute='price') | list %}
-    <a class="shop-card" href="{{ url_for('shop.detail', slug=p.slug) }}">
-      <div class="shop-thumb">
-        <img src="{{ url_for('static', filename=p.image) }}" alt="{{ p.title }}" loading="lazy">
+    <a class="piece" href="{{ url_for('shop.detail', slug=p.slug) }}">
+      <div class="hang">
+        <div class="mat">
+          <img src="{{ url_for('static', filename=p.image) }}" alt="{{ p.title }}, by {{ catalog.artist }}" loading="lazy">
+        </div>
       </div>
-      <p class="shop-card-title">{{ p.title }}</p>
-      <div class="shop-card-meta">
-        {% if not p.available %}
-          {% if p.sizes | selectattr('sold_out') | list | length == p.sizes | length %}Sold out{% else %}Coming soon{% endif %}
-        {% elif prices | length > 1 %}From {{ prices | min | usd }}
-        {% else %}{{ prices[0] | usd }}{% endif %}
+      <div class="label">
+        <p class="label-title">{{ p.title }}</p>
+        <p class="label-meta">
+          {% if p.available %}{% if prices | length > 1 %}From {{ prices | min | usd }}{% else %}{{ prices[0] | usd }}{% endif %}
+          {% elif p.sizes | selectattr('sold_out') | list | length == p.sizes | length %}Sold out
+          {% else %}Coming soon{% endif %}
+        </p>
       </div>
     </a>
     {% endfor %}
   </div>
   {% else %}
-  <p class="shop-note">New prints are on the way. Check back soon.</p>
+  <p class="empty">New prints are on the way.{% if catalog.contact_email %} Email <a href="mailto:{{ catalog.contact_email }}">{{ catalog.contact_email }}</a> to hear when they're ready.{% endif %}</p>
   {% endif %}
 
   {% if catalog.about %}
-  <p class="shop-note mt-5">{{ catalog.about }}</p>
+  <section class="about" id="about">
+    <h2>About</h2>
+    <div>
+      {% for para in catalog.about.split('\n\n') %}<p>{{ para }}</p>{% endfor %}
+      {% if catalog.contact_email %}<p>For commissions or questions, email <a href="mailto:{{ catalog.contact_email }}">{{ catalog.contact_email }}</a>.</p>{% endif %}
+    </div>
+  </section>
   {% endif %}
-</div>
 {% endblock content %}

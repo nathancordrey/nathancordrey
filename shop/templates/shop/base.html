@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ catalog.artist }}{% endblock title %}</title>
+  {% set og_title = self.title() %}
+  <meta name="description" content="{% block description %}{{ catalog.tagline }}{% endblock description %}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ og_title }}">
+  <meta property="og:description" content="{{ self.description() }}">
+  <meta property="og:url" content="{{ request.base_url }}">
+  {% block og_image %}{% endblock og_image %}
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+</head>
+<body class="shop-body">
+  <header class="site-head">
+    <a class="wordmark" href="{{ url_for('shop.index') }}">{{ catalog.artist }}</a>
+    <nav class="site-nav" aria-label="Shop">
+      <a href="{{ url_for('shop.index') }}"{% if request.endpoint == 'shop.index' %} aria-current="page"{% endif %}>Prints</a>
+      {% if catalog.about %}<a href="{{ url_for('shop.index') }}#about">About</a>{% endif %}
+      {% if catalog.contact_email %}<a href="mailto:{{ catalog.contact_email }}">Contact</a>{% endif %}
+      {% if catalog.instagram %}<a href="https://instagram.com/{{ catalog.instagram }}">Instagram</a>{% endif %}
+    </nav>
+  </header>
+
+  <main class="shop-main">
+    {% block content %}{% endblock content %}
+  </main>
+
+  <footer class="site-foot">
+    <span>&copy; {{ year }} {{ catalog.artist }}</span>
+    <span>Secure checkout by Stripe</span>
+  </footer>
+</body>
+</html>
