@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Thank you · {{ catalog.artist }}{% endblock title %}
+
+{% block head %}
+{% include "shop/_style.html" %}
+{% endblock head %}
+
+{% block content %}
+<div class="shop">
+  <h2>Thank you for your order</h2>
+  <p>A receipt is on its way to your email. Your print will be made and shipped within about a week, and you'll get tracking when it ships.</p>
+  {% if catalog.contact_email %}
+  <p class="shop-note">Questions about your order? <a href="mailto:{{ catalog.contact_email }}">{{ catalog.contact_email }}</a></p>
+  {% endif %}
+  <a class="shop-back mt-3" href="{{ url_for('shop.index') }}">&larr; Back to all prints</a>
+</div>
+{% endblock content %}

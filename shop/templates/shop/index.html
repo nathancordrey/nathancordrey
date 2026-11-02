@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{{ catalog.artist }} · Prints{% endblock title %}
+
+{% block head %}
+{% include "shop/_style.html" %}
+{% endblock head %}
+
+{% block content %}
+<div class="shop">
+  <div class="shop-header">
+    <h2>{{ catalog.artist }}</h2>
+    {% if catalog.tagline %}<p>{{ catalog.tagline }}</p>{% endif %}
+  </div>
+
+  {% if catalog.prints %}
+  <div class="shop-grid">
+    {% for p in catalog.prints %}
+    {% set prices = p.sizes | map(attribute='price') | list %}
+    <a class="shop-card" href="{{ url_for('shop.detail', slug=p.slug) }}">
+      <div class="shop-thumb">
+        <img src="{{ url_for('static', filename=p.image) }}" alt="{{ p.title }}" loading="lazy">
+      </div>
+      <p class="shop-card-title">{{ p.title }}</p>
+      <div class="shop-card-meta">
+        {% if not p.available %}
+          {% if p.sizes | selectattr('sold_out') | list | length == p.sizes | length %}Sold out{% else %}Coming soon{% endif %}
+        {% elif prices | length > 1 %}From {{ prices | min | usd }}
+        {% else %}{{ prices[0] | usd }}{% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="shop-note">New prints are on the way. Check back soon.</p>
+  {% endif %}
+
+  {% if catalog.about %}
+  <p class="shop-note mt-5">{{ catalog.about }}</p>
+  {% endif %}
+</div>
+{% endblock content %}
