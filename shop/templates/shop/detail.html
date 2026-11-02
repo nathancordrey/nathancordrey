@@ -1,48 +1,46 @@
-{% extends "base.html" %}
+{% extends "shop/base.html" %}
 
-{% block title %}{{ item.title }} · {{ catalog.artist }}{% endblock title %}
-
-{% block head %}
-{% include "shop/_style.html" %}
-{% endblock head %}
+{% block title %}{{ item.title }} by {{ catalog.artist }}{% endblock title %}
+{% block description %}{{ item.description or item.medium }}{% endblock description %}
+{% block og_image %}<meta property="og:image" content="{{ url_for('static', filename=item.image, _external=True) }}">{% endblock og_image %}
 
 {% block content %}
-<div class="shop">
-  <a class="shop-back" href="{{ url_for('shop.index') }}">&larr; All prints</a>
+  <a class="back" href="{{ url_for('shop.index') }}">&larr; All prints</a>
 
-  <div class="shop-detail">
-    <div class="shop-detail-img">
-      <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.title }}">
+  <div class="detail">
+    <div class="detail-wall">
+      <div class="mat">
+        <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.title }}, by {{ catalog.artist }}">
+      </div>
     </div>
 
-    <div>
-      <h2>{{ item.title }}</h2>
-      {% if item.medium %}<p class="shop-note">{{ item.medium }}</p>{% endif %}
-      {% if item.description %}<p>{{ item.description }}</p>{% endif %}
+    <div class="placard">
+      <h1>{{ item.title }}</h1>
+      <p class="by">{{ catalog.artist }}{% if item.year %}, {{ item.year }}{% endif %}</p>
+      {% if item.medium %}<p class="medium">{{ item.medium }}</p>{% endif %}
+      {% if item.description %}<p class="desc">{{ item.description }}</p>{% endif %}
 
-      <ul class="shop-sizes">
+      <ul class="sizes">
         {% for s in item.sizes %}
         <li>
           <div>
-            <strong>{{ s.label }}</strong> &middot; {{ s.price | usd }}
-            {% if s.edition %}<small>{{ s.edition }}</small>{% endif %}
+            <span class="size-name">{{ s.label }}</span>
+            {% if s.edition %}<span class="size-ed">{{ s.edition }}</span>{% endif %}
           </div>
+          <span class="size-price">{{ s.price | usd }}</span>
           {% if s.available %}
-            <a class="shop-buy" href="{{ s.payment_link }}">Buy</a>
+            <a class="buy" href="{{ s.payment_link }}">Buy print</a>
           {% elif s.sold_out %}
-            <span class="shop-unavailable">Sold out</span>
+            <span class="unavailable">Sold out</span>
           {% else %}
-            <span class="shop-unavailable">Coming soon</span>
+            <span class="unavailable">Coming soon</span>
           {% endif %}
         </li>
         {% endfor %}
       </ul>
 
-      <p class="shop-note">Secure checkout by Stripe. Shipping and any sales tax are added at checkout.</p>
-      {% if catalog.contact_email %}
-      <p class="shop-note">Questions? <a href="mailto:{{ catalog.contact_email }}">{{ catalog.contact_email }}</a></p>
-      {% endif %}
+      <p class="fine">Archival giclée on cotton paper. Shipping and any sales tax are added at checkout. Prints ship within about a week.</p>
+      {% if catalog.contact_email %}<p class="fine">Questions? Email <a href="mailto:{{ catalog.contact_email }}">{{ catalog.contact_email }}</a>.</p>{% endif %}
     </div>
   </div>
-</div>
 {% endblock content %}

@@ -1,13 +1,15 @@
 {
   "artist": "Artist Name",
-  "tagline": "Original paintings and archival giclée prints.",
-  "about": "Every print is a giclée on archival cotton paper with pigment inks, made to last for decades. Prints ship flat or rolled within about a week of ordering.",
+  "tagline": "Paintings of light, water, and quiet places, offered as archival prints and a few originals.",
+  "about": "A short paragraph about the artist goes here: what they paint, where, and what draws them to it.\n\nEvery print is a giclée on archival cotton paper with pigment inks, made to last for decades and signed by hand.",
   "contact_email": "",
+  "instagram": "",
   "prints": [
     {
       "slug": "example-one",
       "title": "Example Print One",
-      "medium": "Giclée on Hahnemühle Photo Rag",
+      "year": 2026,
+      "medium": "Giclée print on Hahnemühle Photo Rag",
       "description": "Placeholder entry. Replace the title, image, and sizes with a real piece.",
       "image": "images/shop/example-one.jpg",
       "sizes": [
@@ -26,9 +28,26 @@
       ]
     },
     {
+      "slug": "example-three",
+      "title": "Example Print Three",
+      "year": 2025,
+      "medium": "Giclée print on Hahnemühle Photo Rag",
+      "description": "Placeholder entry for a landscape-format piece.",
+      "image": "images/shop/example-three.jpg",
+      "sizes": [
+        {
+          "label": "10 × 8 in",
+          "price": 35,
+          "payment_link": "",
+          "edition": "Open edition"
+        }
+      ]
+    },
+    {
       "slug": "example-two",
       "title": "Example Print Two",
-      "medium": "Giclée on Hahnemühle Photo Rag",
+      "year": 2025,
+      "medium": "Giclée print on Hahnemühle Photo Rag",
       "description": "Placeholder entry showing a sold-out size.",
       "image": "images/shop/example-two.jpg",
       "sizes": [
