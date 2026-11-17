@@ -295,6 +295,18 @@
                 </div>
               </div>
 
+              {% if pool.competition.slug.startswith('ncaa-mens-soccer-') %}
+              <div class="show-row" style="display:block">
+                <label class="show-title" for="advance_{{ g.id }}">If tied, who advances on penalties?</label>
+                <select id="advance_{{ g.id }}" name="advance_{{ g.id }}" style="display:block;margin-top:.4rem;padding:.5rem;width:100%;max-width:350px;border:1px solid var(--line);border-radius:10px">
+                  <option value="">Select only if predicting a tie</option>
+                  <option value="home" {% if pick and pick.winner == 'home' and pick.home_score == pick.away_score %}selected{% endif %}>{{ g.home }}</option>
+                  <option value="away" {% if pick and pick.winner == 'away' and pick.home_score == pick.away_score %}selected{% endif %}>{{ g.away }}</option>
+                </select>
+                <div class="show-help">For a tied score, choose the team you expect to advance. For a non-tied score, this is ignored.</div>
+              </div>
+              {% endif %}
+
               <label class="show-row">
                 <input
                   type="checkbox"

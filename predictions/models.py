@@ -176,6 +176,8 @@ class Game(db.Model):
 
     home_score = db.Column(db.Integer)
     away_score = db.Column(db.Integer)
+    # NCAA: official drawn score can still advance a team via penalty kicks.
+    tiebreak_winner = db.Column(db.String(4), nullable=True)
     status = db.Column(db.String(16), nullable=False, default="scheduled", index=True)
 
     # For migration/debugging: seed_from_json.py stores original ids as
@@ -206,7 +208,7 @@ class Game(db.Model):
             return "home"
         if self.home_score < self.away_score:
             return "away"
-        return "draw"
+        return self.tiebreak_winner or "draw"
 
     @property
     def locked(self):

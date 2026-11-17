@@ -263,6 +263,7 @@
                 <th class="num" rowspan="2">Pos</th>
                 <th rowspan="2">Player</th>
                 {% if show_money %}<th class="num" rowspan="2">$</th>{% endif %}
+                {% if is_ncaa %}<th class="num" rowspan="2">Total</th>{% endif %}
                 {% if daily_label %}<th class="num" rowspan="2">{{ daily_label }}</th>{% endif %}
 
                 {% if lb_active %}
@@ -292,6 +293,7 @@
                     <td class="stat num money {% if row.money > 0 %}pos{% elif row.money < 0 %}neg{% endif %}">{{ row.money_str }}</td>
                   {% endif %}
 
+                  {% if is_ncaa %}<td class="points num">{{ row.total }}</td>{% endif %}
                   {% if daily_label %}
                     <td class="stat num">{{ row.daily }}{% if row.daily_win %} ✓{% endif %}</td>
                   {% endif %}
@@ -317,7 +319,7 @@
           {% if show_money %}<b>$</b> season net — $1 ante each match day; the day's top scorer takes the pot (a tie goes to whoever was closest that day). {% endif %}
           {% if daily_label %}<b>{{ daily_label }}</b> points on the latest match day; ✓ marks that day's winner once it's complete. {% endif %}
           {% if lb_active %}<b>{{ lb_active.short }}</b> — points (Pts), winners called (✓), and exact scores (🎯) for the matchday in progress; the table ranks by this, ties broken by closeness within the matchday. {% endif %}
-          🥇🥈🥉 are each completed matchday's top three (they stack). 🤡 is last place each matchday from MD2 on. 👑 leads the current matchday.
+          {% if is_ncaa %}🥇🥈🥉 recognize each completed round's top scorers; 🤡 marks last. 👑 leads the current round.{% else %}🥇🥈🥉 are each completed matchday's top three (they stack). 🤡 is last place each matchday from MD2 on. 👑 leads the current matchday.{% endif %}
         </p>
 
         <div class="section-label">Open / live</div>

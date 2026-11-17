@@ -68,10 +68,13 @@ def _leaderboard(pool):
     members = [m.user for m in pool.members]
     member_ids = [u.id for u in members]
     open_date = _pick_open_date()
+    is_ncaa = timing.is_ncaa_soccer(pool.competition)
+    wager_enabled = pool.competition.slug == "wc-2026"
+    daily_from = DAILY_WAGER_FROM if wager_enabled else "0001-01-01"
 
     games = [
         g for g in sorted(pool.competition.games, key=lambda g: g.kickoff_at)
-        if _as_app_tz(g.kickoff_at).date() <= open_date
+        if timing.is_released(g)
     ]
 
     preds = {(p.user_id, p.game_id): p for p in pool.predictions}
@@ -151,7 +154,9 @@ def _leaderboard(pool):
     #   🥇🥈🥉 to the top three, 🤡 to last place.
     # Awards stack across matchdays (in matchday order) so earlier ones are
     # never lost — a player can carry e.g. 🥇🤡 across two matchdays.
-    medal_stages = [s for s in timing.STAGE_ORDER if s.startswith("Group Stage")]
+    medal_stages = timing.NCAA_STAGES if is_ncaa else [
+        s for s in timing.STAGE_ORDER if s.startswith("Group Stage")
+    ]
     all_games = list(pool.competition.games)
 
     def _stage_complete(stage):
@@ -180,7 +185,7 @@ def _leaderboard(pool):
         # Matchday 1 is exempt: people weren't really playing yet, so it would
         # be unfair to saddle anyone with the clown for that round (medals for
         # MD1 still stand).
-        if len(ranked) > 3 and stage != _MD1:
+        if len(ranked) > 3 and (is_ncaa or stage != _MD1):
             rows[ranked[-1]]["medals"].append("🤡")
 
     for uid in member_ids:
@@ -219,7 +224,7 @@ def _leaderboard(pool):
     wager_dates = sorted({
         _et_date(g)
         for g in games
-        if g.is_final and _et_date(g) >= DAILY_WAGER_FROM
+        if g.is_final and _et_date(g) >= daily_from
     })
 
     if wager_dates:
@@ -262,7 +267,7 @@ def _leaderboard(pool):
     result_dates = [_et_date(g) for g in games if g.is_final]
     wager_active = False
 
-    if result_dates:
+    if wager_enabled and result_dates:
         last_result_date = max(result_dates)
         wager_days = sorted({
             _et_date(g)
@@ -344,6 +349,7 @@ def _leaderboard(pool):
         "lb_active": lb_active,
         "daily_label": daily_label,
         "show_money": wager_active,
+        "is_ncaa": is_ncaa,
     }
 
 
@@ -492,7 +498,11 @@ def _game_card(pool, game, pred_by_user, member_count):
         "reveal_picks": reveal_picks,
         "pick_count": pick_count,
         "missing_count": max(member_count - pick_count, 0),
-        "scoreline": f"{game.home_score}–{game.away_score}" if game.is_final else None,
+        "scoreline": (
+            f"{game.home_score}–{game.away_score}"
+            + (" (PK: " + (game.home if game.tiebreak_winner == "home" else game.away) + ")" if game.tiebreak_winner else "")
+            if game.is_final else None
+        ),
         "roster_rows": _roster_rows(pool=pool, game=game, pred_by_user=pred_by_user),
         "pick_rows": (
             _pick_rows(pool=pool, game=game, pred_by_user=pred_by_user)
@@ -632,6 +642,7 @@ def pool_home(pool_slug):
         lb_active=board["lb_active"],
         daily_label=board["daily_label"],
         show_money=board["show_money"],
+        is_ncaa=board["is_ncaa"],
         current_games=current_games,
         recent_results=recent_results,
         member_count=member_count,

@@ -39,6 +39,8 @@ STAGE_ORDER = [
     "Round of 4",
     "Final",
 ]
+NCAA_STAGES = ["First Round", "Second Round", "Third Round", "Quarterfinals", "Semifinals", "Final"]
+
 STAGE_SHORT = {
     "Group Stage: Matchday 1": "MD1",
     "Group Stage: Matchday 2": "MD2",
@@ -48,6 +50,11 @@ STAGE_SHORT = {
     "Round of 8": "R8",
     "Round of 4": "R4",
     "Final": "F",
+    "First Round": "R1",
+    "Second Round": "R2",
+    "Third Round": "R3",
+    "Quarterfinals": "QF",
+    "Semifinals": "SF",
 }
 
 
@@ -98,8 +105,15 @@ def has_kicked_off(game, at=None):
     return as_utc(game.kickoff_at) <= moment
 
 
+def is_ncaa_soccer(competition):
+    """NCAA men's soccer tournaments allow picks as soon as fixtures are added."""
+    return bool(competition and (competition.slug or "").startswith("ncaa-mens-soccer-"))
+
+
 def is_released(game, at=None):
-    """Whether a game's slate has opened (visible on picks page + dashboard)."""
+    """NCAA opens immediately; World Cup retains its day-ahead schedule."""
+    if is_ncaa_soccer(game.competition):
+        return True
     return as_app_tz(game.kickoff_at).date() <= release_date(at)
 
 
@@ -115,9 +129,11 @@ def started_stages_ordered(games, at=None):
     Released-but-not-started stages are excluded, so opening tomorrow's slate
     for picks does NOT advance the active matchday -- only a real kickoff does.
     """
+    games = list(games)
+    order = NCAA_STAGES if any(is_ncaa_soccer(g.competition) for g in games) else STAGE_ORDER
     started = {g.stage for g in games if has_kicked_off(g, at)}
-    ordered = [s for s in STAGE_ORDER if s in started]
-    ordered += sorted(started - set(STAGE_ORDER))
+    ordered = [s for s in order if s in started]
+    ordered += sorted(started - set(order))
     return ordered
 
 

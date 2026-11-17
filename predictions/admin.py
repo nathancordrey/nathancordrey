@@ -378,18 +378,27 @@ def pool_results(pool_slug):
                 away_score = _score_from_form("away_score")
                 game.home_score = home_score
                 game.away_score = away_score
+                if timing.is_ncaa_soccer(pool.competition) and home_score == away_score:
+                    advance = request.form.get("tiebreak_winner", "")
+                    if advance not in {"home", "away"}:
+                        raise ValueError("Select which team advanced on penalties for a tied NCAA game.")
+                    game.tiebreak_winner = advance
+                else:
+                    game.tiebreak_winner = None
                 game.status = "final"
                 flash(f"Saved final: {game.home} {home_score}–{away_score} {game.away}")
 
             elif action == "live":
                 game.home_score = None
                 game.away_score = None
+                game.tiebreak_winner = None
                 game.status = "live"
                 flash(f"Marked live: {game.home} v {game.away}")
 
             elif action in {"scheduled", "clear"}:
                 game.home_score = None
                 game.away_score = None
+                game.tiebreak_winner = None
                 game.status = "scheduled"
                 flash(f"Cleared result: {game.home} v {game.away}")
 
@@ -488,7 +497,12 @@ def pool_game_picks(pool_slug, game_id):
 
                 pred.home_score = home_score
                 pred.away_score = away_score
-                pred.winner = _winner_from_score(home_score, away_score)
+                winner = _winner_from_score(home_score, away_score)
+                if timing.is_ncaa_soccer(pool.competition) and winner == "draw":
+                    winner = request.form.get(f"advance_{user_id}", "")
+                    if winner not in {"home", "away"}:
+                        raise ValueError(f"Select penalty winner for {user.name}'s tied pick.")
+                pred.winner = winner
                 pred.show_before_kickoff = request.form.get(f"show_{user_id}") == "1"
                 saved += 1
 
