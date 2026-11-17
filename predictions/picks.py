@@ -157,8 +157,16 @@ def save_picks(pool_slug):
             skipped_invalid += 1
             continue
 
-        prediction = mine.get(game_id)
+        # Validate the complete pick before adding it to the session. Otherwise
+        # an invalid tied NCAA pick could leave a half-filled Prediction pending.
+        winner = _winner_from_score(home_score, away_score)
+        if timing.is_ncaa_soccer(pool.competition) and winner == "draw":
+            winner = request.form.get(f"advance_{game_id}", "")
+            if winner not in ("home", "away"):
+                skipped_invalid += 1
+                continue
 
+        prediction = mine.get(game_id)
         if prediction is None:
             prediction = Prediction(
                 pool_id=pool.id,
@@ -167,13 +175,6 @@ def save_picks(pool_slug):
             )
             db.session.add(prediction)
             mine[game_id] = prediction
-
-        winner = _winner_from_score(home_score, away_score)
-        if timing.is_ncaa_soccer(pool.competition) and winner == "draw":
-            winner = request.form.get(f"advance_{game_id}", "")
-            if winner not in ("home", "away"):
-                skipped_invalid += 1
-                continue
 
         prediction.winner = winner
         prediction.home_score = home_score
