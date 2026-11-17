@@ -28,6 +28,9 @@ recipes=[]
 from shop import shop as shop_blueprint
 app.register_blueprint(shop_blueprint)
 
+from art import art as art_blueprint
+app.register_blueprint(art_blueprint)
+
 # Resolve the worldcup data path relative to this file, so it works regardless
 # of what working directory gunicorn/systemd launches the app from on Linode.
 _WORLDCUP_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'worldcup.json')
@@ -785,3 +788,4 @@ def page(path):
     return render_template('page.html', page=page, images=image_urls)
 if __name__ == '__main__':
     app.run()
+

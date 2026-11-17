@@ -1,0 +1,2 @@
+# Install in the existing site's virtual environment.
+Pillow>=10.4,<14
