@@ -498,7 +498,11 @@ def _game_card(pool, game, pred_by_user, member_count):
         "reveal_picks": reveal_picks,
         "pick_count": pick_count,
         "missing_count": max(member_count - pick_count, 0),
-        "scoreline": f"{game.home_score}–{game.away_score}" if game.is_final else None,
+        "scoreline": (
+            f"{game.home_score}–{game.away_score}"
+            + (" (PK: " + (game.home if game.tiebreak_winner == "home" else game.away) + ")" if game.tiebreak_winner else "")
+            if game.is_final else None
+        ),
         "roster_rows": _roster_rows(pool=pool, game=game, pred_by_user=pred_by_user),
         "pick_rows": (
             _pick_rows(pool=pool, game=game, pred_by_user=pred_by_user)

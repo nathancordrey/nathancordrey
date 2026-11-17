@@ -68,6 +68,7 @@
               <th>Player</th>
               <th>{{ game.home }}</th>
               <th>{{ game.away }}</th>
+              {% if pool.competition.slug.startswith('ncaa-mens-soccer-') %}<th>Advances if tied</th>{% endif %}
               <th>Show before kickoff</th>
               <th>Clear pick</th>
             </tr>
@@ -79,6 +80,13 @@
                 <td class="player">{{ u.name }}</td>
                 <td><input type="number" name="h_{{ u.id }}" min="0" max="50" inputmode="numeric" value="{{ row.home_score }}"></td>
                 <td><input type="number" name="a_{{ u.id }}" min="0" max="50" inputmode="numeric" value="{{ row.away_score }}"></td>
+                {% if pool.competition.slug.startswith('ncaa-mens-soccer-') %}
+                <td><select name="advance_{{ u.id }}">
+                  <option value="">Only for tied pick</option>
+                  <option value="home" {% if row.prediction and row.prediction.home_score == row.prediction.away_score and row.prediction.winner == 'home' %}selected{% endif %}>{{ game.home }}</option>
+                  <option value="away" {% if row.prediction and row.prediction.home_score == row.prediction.away_score and row.prediction.winner == 'away' %}selected{% endif %}>{{ game.away }}</option>
+                </select></td>
+                {% endif %}
                 <td>
                   <label class="check-label">
                     <input type="checkbox" name="show_{{ u.id }}" value="1" {% if row.show_before_kickoff %}checked{% endif %}>

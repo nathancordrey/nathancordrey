@@ -102,6 +102,13 @@
               <div><label>{{ g.home }}</label><input type="number" name="home_score" min="0" max="50" inputmode="numeric" value="{{ g.home_score if g.home_score is not none else '' }}"></div>
               <div><label>{{ g.away }}</label><input type="number" name="away_score" min="0" max="50" inputmode="numeric" value="{{ g.away_score if g.away_score is not none else '' }}"></div>
 
+              {% if pool.competition.slug.startswith('ncaa-mens-soccer-') %}
+                <div><label>Advances if tied (PK)</label><select name="tiebreak_winner" style="padding:.55rem;border:1px solid var(--line);border-radius:10px">
+                  <option value="">Not tied</option>
+                  <option value="home" {% if g.tiebreak_winner == 'home' %}selected{% endif %}>{{ g.home }}</option>
+                  <option value="away" {% if g.tiebreak_winner == 'away' %}selected{% endif %}>{{ g.away }}</option>
+                </select></div>
+              {% endif %}
               <button class="final" type="submit" name="action" value="final">Save final</button>
               <button class="live" type="submit" name="action" value="live">Mark live</button>
               <button class="clear" type="submit" name="action" value="clear">Clear</button>
