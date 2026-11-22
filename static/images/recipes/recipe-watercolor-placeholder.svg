@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Watercolor illustration of kitchen ingredients">
+  <defs>
+    <linearGradient id="paper" x2="1" y2="1"><stop stop-color="#fcf8ef"/><stop offset="1" stop-color="#eee8d9"/></linearGradient>
+    <linearGradient id="wood" x2="0" y2="1"><stop stop-color="#cba884"/><stop offset="1" stop-color="#a77a61"/></linearGradient>
+    <linearGradient id="bowl" x2="0" y2="1"><stop stop-color="#f7edda"/><stop offset="1" stop-color="#c6a88b"/></linearGradient>
+    <filter id="wash" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence baseFrequency=".013" numOctaves="3" seed="6" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="12"/></filter>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".58" numOctaves="3" seed="9" result="grain"/><feColorMatrix in="grain" type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".065"/></feComponentTransfer></filter>
+  </defs>
+  <rect width="1200" height="800" fill="url(#paper)"/>
+  <g filter="url(#wash)" opacity=".25"><ellipse cx="570" cy="260" rx="490" ry="220" fill="#9cbaad"/><ellipse cx="960" cy="380" rx="260" ry="220" fill="#b8c8ce"/><ellipse cx="120" cy="380" rx="190" ry="250" fill="#b9bb8f"/></g>
+  <path d="M0 540 Q380 513 650 545 T1200 542 V800 H0Z" fill="url(#wood)" opacity=".7" filter="url(#wash)"/>
+  <g filter="url(#wash)"><path d="M185 460 Q130 365 150 240" stroke="#677e48" stroke-width="13" fill="none"/><path d="M193 464 Q250 330 238 175" stroke="#617d46" stroke-width="12" fill="none"/><path d="M170 385 Q100 304 102 210" stroke="#668347" stroke-width="12" fill="none"/>
+    <g fill="#789457" opacity=".9"><ellipse cx="122" cy="255" rx="70" ry="33" transform="rotate(28 122 255)"/><ellipse cx="190" cy="202" rx="75" ry="39" transform="rotate(-40 190 202)"/><ellipse cx="253" cy="265" rx="76" ry="37" transform="rotate(30 253 265)"/><ellipse cx="92" cy="345" rx="68" ry="33" transform="rotate(-15 92 345)"/><ellipse cx="266" cy="352" rx="66" ry="35" transform="rotate(-35 266 352)"/></g>
+    <path d="M100 405 Q185 430 283 401 L257 548 Q190 580 126 543Z" fill="#9aafac" stroke="#6c8390" stroke-width="8"/><path d="M113 428 Q190 447 270 421" stroke="#426684" stroke-width="11" fill="none"/>
+  </g>
+  <g filter="url(#wash)"><path d="M330 540 V340 Q333 318 355 316 L355 266 H406 V316 Q429 320 430 346 V543Z" fill="#ebd2a3" stroke="#96784c" stroke-width="8" opacity=".92"/><path d="M342 436 Q382 421 419 436 V543 H342Z" fill="#bf9a3f" opacity=".82"/><rect x="355" y="250" width="51" height="43" rx="8" fill="#a47e4f"/></g>
+  <g filter="url(#wash)"><path d="M580 355 Q597 602 824 622 Q1032 583 1041 358Z" fill="url(#bowl)" stroke="#aa9179" stroke-width="10"/><ellipse cx="810" cy="356" rx="234" ry="55" fill="#f7f0e5" stroke="#b7a28f" stroke-width="12"/><path d="M603 434 Q802 474 1017 432" stroke="#4e708c" stroke-width="17" fill="none" opacity=".9"/><path d="M635 473 Q800 507 982 471" stroke="#879bae" stroke-width="9" fill="none"/><path d="M871 347 L991 117 Q1008 89 1032 104 Q1048 118 1030 146 L907 367Z" fill="#ad7750" stroke="#946d4c" stroke-width="6"/></g>
+  <g filter="url(#wash)"><ellipse cx="224" cy="642" rx="109" ry="76" fill="#c44b3f"/><ellipse cx="346" cy="659" rx="86" ry="65" fill="#d25a42"/><path d="M218 573 L236 552 M203 574 Q158 549 152 578 M234 576 Q279 550 286 582" stroke="#517446" stroke-width="12" fill="none"/><path d="M346 605 L359 582" stroke="#537647" stroke-width="11"/></g>
+  <g filter="url(#wash)"><path d="M478 653 Q438 622 454 584 Q463 556 486 552 Q508 570 518 603 Q546 638 511 672Z" fill="#eee5d3" stroke="#b3a78f" stroke-width="7"/><path d="M486 552 Q469 530 488 520" stroke="#b7a78e" stroke-width="8" fill="none"/></g>
+  <path d="M1040 566 L1200 536 V800 L975 800Z" fill="#f1eee4" opacity=".88"/><g fill="none" stroke="#68839f" opacity=".75" stroke-width="13"><path d="M1058 573 Q1073 684 1009 800"/><path d="M1114 550 Q1135 666 1077 800"/><path d="M1176 542 Q1190 672 1149 800"/></g>
+  <rect width="1200" height="800" filter="url(#grain)" opacity=".9"/>
+</svg>
