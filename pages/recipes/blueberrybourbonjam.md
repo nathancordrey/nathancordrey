@@ -1,7 +1,7 @@
 ---
 title: 'Blueberry Bourbon Jam'
 date: 2026-01-18
-image: static/images/recipes/figchutney.jpg
+image: static/images/recipes/recipe-watercolor-placeholder.svg
 category: Jams and Preserves
 tags:
   - Blueberry

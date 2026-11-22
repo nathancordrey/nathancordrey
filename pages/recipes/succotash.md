@@ -1,7 +1,7 @@
 ---
 title: "Summer Succotash"
 date: 2026-08-26
-image: static/images/recipes/aunt-carols-baked-beans.jpg
+image: static/images/recipes/recipe-watercolor-placeholder.svg
 category: Sides
 tags:
   - Beans

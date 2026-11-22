@@ -1,7 +1,7 @@
 ---
 title: "Crock Pot Ranch Chicken"
 date: 2026-09-01
-image: static/images/recipes/aunt-carols-baked-beans.jpg
+image: static/images/recipes/recipe-watercolor-placeholder.svg
 category: Main Dishes
 tags:
   - Ranch

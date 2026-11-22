@@ -1,7 +1,7 @@
 ---
 title: 'Grilled Oysters with Green Garlic Butter'
 date: 2025-04-19
-image: static/images/recipes/redbudjelly.jpg
+image: static/images/recipes/recipe-watercolor-placeholder.svg
 category: Appetizers
 tags:
   - Oysters

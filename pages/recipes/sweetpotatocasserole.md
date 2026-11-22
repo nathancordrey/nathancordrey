@@ -1,7 +1,7 @@
 ---
 title: 'Sweet Potato Casserole'
 date: 2022-07-01
-image: static/images/recipes/strawberry.JPG
+image: static/images/recipes/recipe-watercolor-placeholder.svg
 category: Appetizers
 tags: 
   - Sweet Potato

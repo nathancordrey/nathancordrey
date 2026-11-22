@@ -1,7 +1,7 @@
 ---
 title: "Aunt Carol's Crockpot Baked Beans"
 date: 2026-06-19
-image: static/images/recipes/aunt-carols-baked-beans.jpg
+image: static/images/recipes/recipe-watercolor-placeholder.svg
 category: Sides
 tags:
   - Beans
