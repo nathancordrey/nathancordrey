@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ details.title }} · Our Family</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#333a33;background:#f9f8f4}*{box-sizing:border-box}
+main{max-width:1250px;margin:auto;padding:18px}h1{font:normal 2rem Georgia,serif}a{color:#315b44}
+nav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:20px 0}
+img{width:100%;height:auto;display:block;box-shadow:0 2px 16px #0002;background:white}
+.button{padding:10px 15px;border:1px solid #c4c9c0;border-radius:5px;text-decoration:none}
+small,p{color:#697065}.frame{overflow:auto}
+</style></head><body><main>
+<a href="{{ url_for('family.index') }}">← All revisions</a>
+<h1>{{ details.title }}</h1><p>{{ details.description }} · {{ spread_count }} spreads</p>
+<nav>
+{% if spread > 1 %}<a class="button" href="{{ url_for('family.revision_view',revision=revision,spread=spread-1) }}">← Previous</a>{% else %}<span></span>{% endif %}
+<strong>Spread {{ spread }} of {{ spread_count }}</strong>
+{% if spread < spread_count %}<a class="button" href="{{ url_for('family.revision_view',revision=revision,spread=spread+1) }}">Next →</a>{% else %}<span></span>{% endif %}
+</nav>
+{% if has_spread %}
+<div class="frame"><img loading="eager" alt="Family album spread {{ spread }} of {{ spread_count }}" src="{{ url_for('family.revision_spread',revision=revision,spread=spread) }}"></div>
+{% else %}
+<p>Spread preview not yet uploaded to private storage.</p>
+{% endif %}
+{% if has_pdf %}<p><a href="{{ url_for('family.revision_pdf',revision=revision) }}">Download this revision's review PDF</a></p>{% endif %}
+<p><small>For family review only. Original photos are unchanged.</small></p>
+</main></body></html>
