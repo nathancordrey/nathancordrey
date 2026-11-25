@@ -84,7 +84,8 @@ class SharingTests(unittest.TestCase):
             "csrf": csrf, "username": username, "password": password,
         })
         self.assertEqual(response.status_code, 302)
-        return csrf
+        with self.client.session_transaction() as sess:
+            return sess["family_csrf"]
 
     def publish(self):
         csrf = self.login()
