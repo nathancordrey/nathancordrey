@@ -62,7 +62,8 @@ class FamilyTests(unittest.TestCase):
             "password": "test-password-for-local-tests"
         })
         self.assertEqual(response.status_code, 302)
-        return csrf
+        with self.client.session_transaction() as sess:
+            return sess["family_csrf"]
 
     def test_anonymous_assets_rejected(self):
         for url in ("/family/", "/family/revisions/2/pdf",
