@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Review snapshot — {{ snapshot.title }}</title><style>
+body{background:#f8f7f2;color:#334038;font:16px system-ui,sans-serif}main{max-width:1220px;margin:24px auto;padding:15px}
+h1{font:normal 2rem Georgia,serif}nav{display:flex;align-items:center;justify-content:space-between;margin:18px 0}
+img{display:block;width:100%;height:auto;background:white;box-shadow:0 2px 16px #0002}
+a{color:#325943}small{color:#656d65}
+</style></head><body><main>
+<a href="{{ url_for('family.sharing') }}">← Sharing settings</a>
+<h1>{{ snapshot.title }}</h1>
+<p>Private publisher preview. Check every spread before issuing a link.</p>
+<nav>
+{% if spread>1 %}<a href="{{ url_for('family.preview_snapshot',snapshot_id=snapshot.id,spread=spread-1) }}">← Previous</a>{% else %}<span></span>{% endif %}
+<strong>{{ spread }} / {{ snapshot.spread_count }}</strong>
+{% if spread<snapshot.spread_count %}<a href="{{ url_for('family.preview_snapshot',snapshot_id=snapshot.id,spread=spread+1) }}">Next →</a>{% else %}<span></span>{% endif %}
+</nav>
+<img src="{{ url_for('family.preview_image',snapshot_id=snapshot.id,spread=spread) }}" alt="Private preview of spread {{ spread }}">
+<p><small>To make this snapshot accessible to guests, return to Sharing settings and create a separate link.</small></p>
+</main></body></html>
