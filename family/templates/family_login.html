@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Our Family</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#30352d;background:#f8f7f2}
+*{box-sizing:border-box}main{max-width:440px;margin:9vh auto;padding:24px}
+h1{font-family:Georgia,serif;font-weight:400;font-size:2.5rem}
+p{color:#60675d;line-height:1.5}label{display:block;margin-top:18px;font-size:.95rem}
+input{width:100%;padding:13px;border:1px solid #b8bbb3;border-radius:7px;font-size:1rem;margin-top:5px}
+button{width:100%;padding:14px;margin-top:24px;background:#384b3c;color:white;border:0;border-radius:7px;cursor:pointer;font-size:1rem}
+.error{color:#9b2d26}small{color:#70746d}
+</style>
+</head><body><main>
+<p>PRIVATE FAMILY ARCHIVE</p>
+<h1>Our Family</h1><p>Sign in to review our photo album drafts.</p>
+<form method="post" action="{{ url_for('family.login') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="username">Username</label><input id="username" name="username" autocomplete="username" autocapitalize="none" required autofocus>
+<label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<button type="submit">Sign in</button>
+</form><p><small>Private access for our family album editors.</small></p>
+</main></body></html>
