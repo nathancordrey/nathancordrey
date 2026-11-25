@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Private family album</title><style>
+*{box-sizing:border-box}body{font:16px system-ui,sans-serif;background:#f7f7f2;color:#303b33}
+main{max-width:450px;margin:8vh auto;padding:28px;background:white;border:1px solid #dedfd6;border-radius:12px}
+h1{font:normal 2rem Georgia,serif}label,input{display:block;width:100%}input{padding:12px;font-size:1rem;margin-top:6px;border:1px solid #999;border-radius:6px}
+button{margin-top:18px;width:100%;padding:14px;color:white;background:#36543f;border:0;border-radius:6px}
+small,p{color:#646c65;line-height:1.5}.error{color:#a33429}
+</style></head><body><main>
+<small>PRIVATE FAMILY ALBUM</small><h1>{{ title }}</h1>
+<p>Enter the PIN shared with you to view this album. No account is needed.</p>
+<form method="post" action="{{ url_for('album.enter', token=token) }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="pin">Album PIN</label><input id="pin" name="pin" type="password" required autocomplete="off">
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<button type="submit">View album</button>
+</form></main></body></html>
