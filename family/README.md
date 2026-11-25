@@ -47,3 +47,95 @@ Make sure /family requests still pass to Gunicorn; check for conflicting static 
 ## Notes
 The existing art blueprint has its own separate shared password; this viewer does not reuse it. Existing Flask sessions use WORLDCUP_SECRET_KEY, so changing it requires planning.
 Print masters stay offline for now. First release uploads only reduced-size review assets securely through SSH/SFTP.
+## Semi-public read-only sharing (developed on family, NOT live)
+
+The /family/sharing page is restricted to publisher accounts. After the offline
+account setup, grant each publisher permission explicitly:
+
+    python family/scripts/init_family.py grant-publisher nathan
+    python family/scripts/init_family.py grant-publisher rachel
+
+Run the init command again during upgrades; it creates new sharing tables
+idempotently without deleting existing accounts.
+
+1. Sign in to /family and navigate to Sharing settings.
+2. Choose a revision and type the *specific spread numbers* approved for sharing.
+   Explicitly check the approval box; publishing copies only the selected spreads.
+3. Open the publisher-only snapshot preview; verify every selected spread before
+   issuing a link.
+4. Create a share link, optionally protected by a PIN, with 7-, 30-, 90-day, or
+   no expiration. Only the hash of the link secret is saved in SQLite. The actual
+   link is shown once; keep it in a private channel.
+5. A recipient follows the secret link at /album/<token> (and enters the PIN if
+   configured). The token is exchanged for a private session and redirected to
+   tokenless /album/view/<id> URLs. All image requests recheck revocation/expiry.
+6. Revoking an individual link stops all future page/image reads immediately.
+   Unpublishing a snapshot disables all links for that snapshot.
+
+This is a read-only *snapshot* feature; editing the source draft does not alter
+the published images. Images are resized and re-encoded as JPEG without EXIF,
+GPS, or attached original file metadata.
+
+Guests never access the private archive, original uploads, draft PDFs, editor
+data or login pages through share links. Share links can be forwarded and
+screenshots cannot be prevented; keep the PIN option for more sensitive shares.
+
+The Flask app must register BOTH blueprints. /family is private management;
+/album is the guest read-only viewer. Do not redirect /album to a static
+directory or Nginx public alias.
+
+### Additional internal Nginx location
+
+Inside the EXISTING TLS server block, add:
+
+```nginx
+location ^~ /__family_published__/ {
+    internal;
+    alias /srv/family-album/published/;
+    add_header Cache-Control "private, no-store" always;
+    add_header X-Robots-Tag "noindex, nofollow, noarchive, noimageindex" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Content-Type-Options "nosniff" always;
+}
+```
+
+This path must only be readable through a backend-authorized
+X-Accel-Redirect. Do **not** remove the internal directive. Never add a public
+alias serving /srv/family-album, and never serve SQLite or originals this way.
+Grant Nginx read/traverse access only to /srv/family-album/revisions and
+/srv/family-album/published as necessary, not the database. Make sure the
+Gunicorn worker can create and rename snapshot files in published/. Configure
+ACLs or group permissions intentionally; a root directory set to 0700 without
+the proper ACL will block Nginx internal delivery.
+
+The /album/<token> path contains a bearer secret. Exclude these token-bearing
+URLs from HTTP access logs (including reverse proxies, analytics and error
+trackers), avoid referrer leakage, and keep link screenshots private. Other
+album URLs have no bearer token. Consider request throttling on the
+token-entry and guest PIN endpoints as a further defense. Avoid collecting
+or exposing submitted PIN values.
+
+Run nginx -t and reload only after validation. Run the test suite in the
+actual deployed virtualenv BEFORE exposing private photos:
+
+    python -m unittest discover -s family/tests -v
+
+### Sharing-specific acceptance tests
+- [ ] Unauthorized user (including a valid non-publisher account) cannot publish.
+- [ ] A snapshot cannot be created without explicit approval and CSRF.
+- [ ] Publisher preview requires authentication.
+- [ ] Direct /__family_published__/... request is blocked.
+- [ ] Tokenless /album/view/... without the granted session fails.
+- [ ] Correct PIN grants access; wrong PIN fails and throttles.
+- [ ] Link with no PIN still requires a secret to grant the viewing session.
+- [ ] Expired, revoked, or unpublished shares reject all subsequent image requests.
+- [ ] Public JPEG copies contain no EXIF/GPS.
+- [ ] Printed or original photo PDFs remain private and are never shared.
+
+### Not yet implemented
+The existing /art blueprint still uses its older shared password. A migration
+to the shared personal-account system is planned but is not included in this
+sharing change. Do not remove ART_PASSWORD_HASH or alter /art access before its
+separate migration has been validated. Publication currently approves a set of
+*whole spreads*, not individual images within a spread. A later editor can
+introduce more fine-grained selections without changing the snapshot principle.
