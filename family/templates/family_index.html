@@ -10,7 +10,7 @@ header{display:flex;justify-content:space-between;align-items:start;gap:16px}but
 </style></head><body><main>
 <header><div><span class="label">PRIVATE FAMILY ARCHIVE</span><h1>Our Family</h1><p>Welcome, {{ current_user.display_name }}. These drafts are just for review.</p></div>
 <form method="post" action="{{ url_for('family.logout') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">Sign out</button></form></header>
-<p><a href="{{ url_for('family.sharing') }}">Sharing settings — approved snapshots and links</a></p>
+{% if can_publish %}<p><a href="{{ url_for('family.sharing') }}">Sharing settings — approved snapshots and links</a></p>{% endif %}
 <h2>2026 · January–October</h2>
 {% for number, item in revisions|dictsort(reverse=true) %}
 <a class="card" href="{{ url_for('family.revision_view',revision=number) }}">
