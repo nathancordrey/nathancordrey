@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ title }}</title><style>
+*{box-sizing:border-box}body{background:#f8f7f2;color:#303b33;font:16px system-ui,sans-serif}
+main{max-width:1250px;margin:24px auto;padding:16px}h1{font:normal 2.2rem Georgia,serif}
+nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 0}
+a{padding:10px 14px;color:#2d5d41;border:1px solid #c9d0c8;border-radius:6px;text-decoration:none}
+img{width:100%;height:auto;display:block;box-shadow:0 1px 16px #0002}small{color:#5c645c}
+</style></head><body><main>
+<small>SHARED FAMILY ALBUM</small><h1>{{ title }}</h1>
+<nav>
+{% if spread > 1 %}<a href="{{ url_for('album.view',share_id=share_id,spread=spread-1) }}">← Previous</a>{% else %}<span></span>{% endif %}
+<span>Spread {{ spread }} of {{ spread_count }}</span>
+{% if spread < spread_count %}<a href="{{ url_for('album.view',share_id=share_id,spread=spread+1) }}">Next →</a>{% else %}<span></span>{% endif %}
+</nav>
+<img alt="Family album spread {{ spread }}" src="{{ url_for('album.spread_image',share_id=share_id,spread=spread) }}">
+<p><small>This is a read-only, privately shared selection. Please respect our family's privacy.</small></p>
+</main></body></html>
