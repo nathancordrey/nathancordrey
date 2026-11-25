@@ -36,6 +36,10 @@ from family import family as family_blueprint, init_app as init_family_app
 init_family_app(app)
 app.register_blueprint(family_blueprint)
 
+# Read-only guest views of explicitly approved snapshots.
+from family.sharing import album as album_blueprint
+app.register_blueprint(album_blueprint)
+
 # Resolve the worldcup data path relative to this file, so it works regardless
 # of what working directory gunicorn/systemd launches the app from on Linode.
 _WORLDCUP_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'worldcup.json')
