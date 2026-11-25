@@ -139,3 +139,34 @@ sharing change. Do not remove ART_PASSWORD_HASH or alter /art access before its
 separate migration has been validated. Publication currently approves a set of
 *whole spreads*, not individual images within a spread. A later editor can
 introduce more fine-grained selections without changing the snapshot principle.
+
+## Preparing the initial two revision asset sets
+
+A reproducible offline exporter lives at family/scripts/export_spreads.py.
+From a trusted local computer, with PyMuPDF and Pillow installed:
+
+    python family/scripts/export_spreads.py --revision 1 --input /private/revision1.pdf --output-root /private/transfer
+    python family/scripts/export_spreads.py --revision 2 --input /private/revision2.pdf --output-root /private/transfer
+
+Each generated 3200px-wide JPEG is a two-page facing spread rendered from the
+corresponding review PDF. The script refuses to overwrite nonempty spread
+directories and checks output JPEGs for EXIF. Do not regenerate or modify the
+source photographs.
+
+Copy revision1.pdf to /private/transfer/revision-1/review.pdf and revision2.pdf
+to /private/transfer/revision-2/review.pdf. The ready-made package created in
+the development conversation contains this exact folder layout:
+
+    revision-1/review.pdf
+    revision-1/spreads/spread-01.jpg ... spread-18.jpg
+    revision-2/review.pdf
+    revision-2/spreads/spread-01.jpg ... spread-20.jpg
+
+Upload over SSH/SFTP into /srv/family-album/revisions. Do NOT add this transfer
+package to the public Git repository or site static directory. Verify file
+permissions and use a private off-server backup.
+
+The guest-sharing tool creates derived web copies under the separate
+/srv/family-album/published directory; only explicitly selected and approved
+spreads can be published. Guest share links must never point at source review
+PDFs or the private original photographs.
