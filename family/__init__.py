@@ -210,7 +210,15 @@ def logout():
 @family.get("/")
 @login_required
 def index():
-    return render_template("family_index.html", revisions=REVISIONS, csrf=csrf_token())
+    with db_connection() as conn:
+        can_publish = conn.execute(
+            "SELECT 1 FROM family_publishers WHERE user_id=?",
+            (int(current_user.get_id()),),
+        ).fetchone() is not None
+    return render_template(
+        "family_index.html", revisions=REVISIONS,
+        csrf=csrf_token(), can_publish=can_publish,
+    )
 
 
 def protected_file(revision: int, filename: str, content_type: str, download: bool = False):
