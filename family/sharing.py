@@ -357,3 +357,50 @@ def unpublish(snapshot_id):
         db.execute("UPDATE family_snapshots SET active=0 WHERE id=?", (snapshot_id,))
         db.commit()
     return redirect(url_for("family.sharing"), code=303)
+
+
+@family.get("/sharing/preview/<snapshot_id>")
+@login_required
+def preview_snapshot(snapshot_id):
+    publisher_only()
+    if not valid_id(snapshot_id):
+        abort(404)
+    with db_connection() as db:
+        row = db.execute(
+            "SELECT id,title,spread_count,active FROM family_snapshots WHERE id=?",
+            (snapshot_id,),
+        ).fetchone()
+    if not row:
+        abort(404)
+    try:
+        spread = int(request.args.get("spread", "1"))
+    except ValueError:
+        spread = 1
+    spread = min(max(spread, 1), row["spread_count"])
+    return render_template(
+        "family_snapshot_preview.html", snapshot=row, spread=spread,
+    )
+
+
+@family.get("/sharing/preview/<snapshot_id>/spreads/<int:spread>")
+@login_required
+def preview_image(snapshot_id, spread):
+    publisher_only()
+    if not valid_id(snapshot_id):
+        abort(404)
+    with db_connection() as db:
+        row = db.execute(
+            "SELECT spread_count FROM family_snapshots WHERE id=?",
+            (snapshot_id,),
+        ).fetchone()
+    if not row or spread < 1 or spread > row["spread_count"]:
+        abort(404)
+    path = root() / "published" / snapshot_id / "spreads" / ("spread-%02d.jpg" % spread)
+    if not path.is_file() or path.is_symlink():
+        abort(404)
+    response = make_response("", 200)
+    response.headers["X-Accel-Redirect"] = (
+        "/__family_published__/" + snapshot_id + "/spreads/spread-%02d.jpg" % spread
+    )
+    response.headers["Content-Type"] = "image/jpeg"
+    return response
