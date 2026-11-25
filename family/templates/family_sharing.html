@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Family sharing settings</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f8f7f2;color:#303a31;font:16px system-ui,sans-serif}
+main{max-width:900px;margin:35px auto;padding:20px}h1,h2{font-family:Georgia,serif;font-weight:normal}
+section{background:white;border:1px solid #d9ded7;padding:22px;margin:18px 0;border-radius:9px}
+label{display:block;margin:12px 0 5px}input,select{padding:10px;max-width:100%;border:1px solid #a6b1a5;border-radius:5px}
+button{padding:10px 15px;background:#365740;color:white;border:0;border-radius:5px;cursor:pointer}
+button.danger{background:#813b38}li{margin:12px 0;line-height:1.6}small,p{color:#616c61;line-height:1.5}
+.inline{display:inline-block;margin-left:9px}a{color:#345840}input[type=checkbox]{width:auto}
+</style></head><body><main>
+<a href="{{ url_for('family.index') }}">← Family archive</a><h1>Share a family album</h1>
+<p>Only approved, selected spreads are published. Creating a snapshot does not make it accessible to anyone; you must also create a share link. Shared copies are smaller and stripped of original photo metadata.</p>
+<section><h2>1. Publish an approved snapshot</h2>
+<form action="{{ url_for('family.publish') }}" method="post">
+<input name="csrf" type="hidden" value="{{ csrf }}">
+<label for="title">Snapshot title</label><input id="title" name="title" maxlength="100" minlength="3" required placeholder="2026 family highlights">
+<label for="revision">Source draft</label><select id="revision" name="revision">
+{% for number,item in revisions|dictsort %}<option value="{{ number }}" {% if number==2 %}selected{% endif %}>{{ item.title }} ({{ item.spreads }} spreads)</option>{% endfor %}
+</select>
+<label for="spreads">Approved spread numbers</label><input id="spreads" name="spreads" required placeholder="1 2 3 5" size="35">
+<p><small>Enter spread numbers separated by spaces or commas. Only these spreads are copied, in numerical order. Review the result before sharing.</small></p>
+<label><input type="checkbox" name="approved" value="yes" required> I have reviewed these spreads and approve this exact selection for sharing.</label>
+<button type="submit">Create private snapshot</button>
+</form></section>
+<section><h2>2. Snapshots</h2>
+{% if not snapshots %}<p>No snapshots yet.</p>{% endif %}
+<ul>{% for s in snapshots %}
+<li><strong>{{ s.title }}</strong> — revision {{ s.source_revision }}, {{ s.spread_count }} spreads.
+{% if s.active %}
+<form action="{{ url_for('family.create_link',snapshot_id=s.id) }}" method="post">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label>Optional PIN <input name="pin" minlength="6" maxlength="128" autocomplete="new-password" placeholder="Leave blank for no PIN"></label>
+<label>Link expiration <select name="duration"><option value="7">7 days</option><option value="30" selected>30 days</option><option value="90">90 days</option><option value="0">No expiration</option></select></label>
+<button type="submit">Create share link</button>
+</form>
+<form action="{{ url_for('family.unpublish',snapshot_id=s.id) }}" method="post">
+<input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit">Unpublish snapshot</button>
+</form>
+{% else %}<small>Unpublished</small>{% endif %}</li>{% endfor %}</ul></section>
+<section><h2>3. Active and revoked links</h2>
+<p><small>Full link secrets are shown only once, at creation. Use the revoke button to disable a link immediately.</small></p>
+{% if not links %}<p>No links yet.</p>{% endif %}
+<ul>{% for link in links %}<li>{{ link.title }} —
+{% if link.revoked_at %}revoked
+{% elif link.expires_at and link.expires_at < now %}expired
+{% else %}active
+<form class="inline" method="post" action="{{ url_for('family.revoke',share_id=link.id) }}">
+<input name="csrf" type="hidden" value="{{ csrf }}"><button class="danger" type="submit">Revoke link</button>
+</form>{% endif %}
+</li>{% endfor %}</ul>
+</section></main></body></html>
