@@ -6,6 +6,7 @@ import secrets
 import sqlite3
 import time
 from pathlib import Path
+from contextlib import contextmanager
 
 from flask import (
     Blueprint, abort, current_app, make_response, redirect,
@@ -53,6 +54,7 @@ def db_path() -> Path | None:
     return folder / "family.sqlite3" if folder else None
 
 
+@contextmanager
 def db_connection():
     path = db_path()
     if not path or not path.is_file():
@@ -60,7 +62,14 @@ def db_connection():
     # rw mode prevents SQLite silently creating a new empty database.
     connection = sqlite3.connect(path.as_uri() + "?mode=rw", uri=True, timeout=10)
     connection.row_factory = sqlite3.Row
-    return connection
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def is_ready() -> bool:
