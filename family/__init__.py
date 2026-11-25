@@ -263,3 +263,7 @@ def revision_spread(revision, spread):
     return protected_file(
         revision, "spreads/spread-%02d.jpg" % spread, "image/jpeg",
     )
+
+
+# Register publishing routes on the family blueprint before the app attaches it.
+from . import sharing  # noqa: E402,F401
