@@ -186,7 +186,7 @@ class CommentTests(unittest.TestCase):
         self.assertNotIn(b"Remove this root text", page.data)
         with sqlite3.connect(self.directory / "family.sqlite3") as db:
             row = db.execute("SELECT body, deleted_at FROM family_comments WHERE id=?", (root_id,)).fetchone()
-            self.assertEqual(row[0], "")
+            self.assertEqual(row[0], "[deleted]")
             self.assertIsNotNone(row[1])
         self.assertEqual(self.update_comment(csrf, root_id, "Restore secret").status_code, 404)
         self.assertEqual(self.remove_comment(csrf, root_id).status_code, 404)
