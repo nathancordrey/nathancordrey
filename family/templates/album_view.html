@@ -7,31 +7,30 @@ nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margi
 a{padding:10px 14px;color:#2d5d41;border:1px solid #c9d0c8;border-radius:6px;text-decoration:none}
 img{width:100%;height:auto;display:block;box-shadow:0 1px 16px #0002}small{color:#5c645c}
 
-/* Three CSS-only reading modes. Each original JPEG remains behind Flask authorization. */
-.spread-reader{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
-.spread-reader input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
-.spread-reader label{flex:1;display:flex;align-items:center;justify-content:center;min-height:44px;padding:10px 6px;border:1px solid #aab8ab;border-radius:7px;cursor:pointer;font-weight:600;text-align:center}
-.spread-reader input:focus-visible + label{outline:3px solid #42815d;outline-offset:2px}
-.spread-reader input:checked + label{background:#365740;color:white;border-color:#365740}
-.image-frame{flex:1 1 100%;overflow:hidden;border-radius:5px}
-.image-frame img{width:100%;max-width:none;transform:none}
-#left-page:checked ~ .image-frame img,#right-page:checked ~ .image-frame img{width:200%}
-#right-page:checked ~ .image-frame img{transform:translateX(-50%)}
-.hint{font-size:.9rem;line-height:1.5;color:#5c645c}.hint .image-link{border:0;padding:0;text-decoration:underline}
+/* Images remain behind authenticated X-Accel-Redirect endpoints. */
+.album-gallery a.album-tap{display:block;cursor:zoom-in;touch-action:manipulation}
+.album-gallery a.album-tap:focus-visible{outline:3px solid #426e4d;outline-offset:3px}
+.album-gallery a[hidden]{display:none!important}
+.album-gallery img{width:100%;height:auto;display:block;box-shadow:0 1px 16px #0002;background:#fff}
+.hint{font-size:.92rem;line-height:1.5;color:#5c645c}
 @media(max-width:600px){main{padding:12px;margin:10px auto}h1{font-size:1.75rem}nav{gap:6px}nav a{padding:10px 8px;min-height:44px;display:flex;align-items:center}nav span{font-size:.88rem;text-align:center}}
-</style></head><body><main>
+</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/photoswipe/photoswipe.css') }}">
+<script type="module" src="{{ url_for('static', filename='album-gallery.js') }}"></script>
+</head><body><main>
 <small>SHARED FAMILY ALBUM</small><h1>{{ title }}</h1>
 <nav>
 {% if spread > 1 %}<a href="{{ url_for('album.view',share_id=share_id,spread=spread-1) }}">← Previous</a>{% else %}<span></span>{% endif %}
 <span>Spread {{ spread }} of {{ spread_count }}</span>
 {% if spread < spread_count %}<a href="{{ url_for('album.view',share_id=share_id,spread=spread+1) }}">Next →</a>{% else %}<span></span>{% endif %}
 </nav>
-<div class="spread-reader" role="group" aria-label="Album page viewing options">
-<input type="radio" name="page-view" id="fit-spread" checked><label for="fit-spread">Full spread</label>
-<input type="radio" name="page-view" id="left-page"><label for="left-page">Left page</label>
-<input type="radio" name="page-view" id="right-page"><label for="right-page">Right page</label>
-<div class="image-frame"><img alt="Family album spread {{ spread }}" src="{{ url_for('album.spread_image',share_id=share_id,spread=spread) }}"></div>
+<div id="album-gallery" class="album-gallery" aria-label="Tap for full-screen gallery">
+{% for item in image_items %}
+<a href="{{ item.url }}" data-pswp-width="{{ item.width }}" data-pswp-height="{{ item.height }}" {% if item.number != spread %}hidden tabindex="-1"{% else %}class="album-tap" aria-label="Open spread {{ spread }} full-screen"{% endif %}>
+{% if item.number == spread %}<img alt="Family album spread {{ spread }}" src="{{ item.url }}">{% endif %}
+</a>
+{% endfor %}
 </div>
-<p class="hint">On a phone, select Left or Right page to enlarge the photos. <a class="image-link" href="{{ url_for('album.spread_image',share_id=share_id,spread=spread) }}" target="_blank" rel="noopener noreferrer">Open full image to pinch and zoom</a>.</p>
+<p class="hint">Tap the spread to view full-screen. Pinch to zoom and swipe between spreads.</p>
 <p><small>This is a read-only, privately shared selection. Please respect our family's privacy.</small></p>
 </main></body></html>
