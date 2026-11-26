@@ -253,6 +253,11 @@ def revision_view(revision):
     number = min(max(number, 1), details["spreads"])
     spread_name = "spreads/spread-%02d.jpg" % number
     root_path = root() / "revisions" / ("revision-" + str(revision))
+    from .comments import editor_allowed, fetch_discussions, summary_for_revision
+    with db_connection() as db:
+        can_comment = editor_allowed(db)
+        discussions = fetch_discussions(db, revision, number) if can_comment else []
+        comment_summary = summary_for_revision(db, revision) if can_comment else {}
     return render_template(
         "family_revision.html",
         details=details,
@@ -261,6 +266,8 @@ def revision_view(revision):
         spread_count=details["spreads"],
         has_spread=(root_path / spread_name).is_file(),
         has_pdf=(root_path / "review.pdf").is_file(),
+        discussions=discussions, comment_summary=comment_summary,
+        can_comment=can_comment,
         csrf=csrf_token(),
     )
 
@@ -284,3 +291,4 @@ def revision_spread(revision, spread):
 
 # Register publishing routes on the family blueprint before the app attaches it.
 from . import sharing  # noqa: E402,F401
+from . import comments  # noqa: E402,F401
