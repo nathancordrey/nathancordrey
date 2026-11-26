@@ -129,6 +129,34 @@ class SharingTests(unittest.TestCase):
         body["csrf"] = "invalid"
         self.assertEqual(self.client.post(endpoint, data=body).status_code, 403)
 
+    def test_publish_all_spreads_and_keep_manual_selection(self):
+        # Build all 20 small, synthetic spread fixtures for the complete-revision option.
+        source = self.root / "revisions" / "revision-2" / "spreads"
+        original = (source / "spread-01.jpg").read_bytes()
+        for number in range(2, 21):
+            (source / ("spread-%02d.jpg" % number)).write_bytes(original)
+        csrf = self.login()
+        response = self.client.post("/family/sharing/publish", data={
+            "csrf": csrf, "title": "Complete test revision", "revision": "2",
+            "spread_selection": "all", "approved": "yes",
+        })
+        self.assertEqual(response.status_code, 303)
+        with sqlite3.connect(self.root / "family.sqlite3") as db:
+            record = db.execute(
+                "SELECT id,spread_count FROM family_snapshots "
+                "WHERE title='Complete test revision' ORDER BY created_at DESC LIMIT 1"
+            ).fetchone()
+        self.assertIsNotNone(record)
+        self.assertEqual(record[1], 20)
+        target = self.root / "published" / record[0] / "spreads"
+        self.assertEqual(len(list(target.glob("spread-*.jpg"))), 20)
+
+        invalid = self.client.post("/family/sharing/publish", data={
+            "csrf": csrf, "title": "Invalid selection", "revision": "2",
+            "spread_selection": "unknown", "approved": "yes",
+        })
+        self.assertEqual(invalid.status_code, 400)
+
     def test_snapshot_metadata_removed_and_publisher_preview(self):
         csrf, snapshot = self.publish()
         path = self.root / "published" / snapshot / "spreads" / "spread-01.jpg"
