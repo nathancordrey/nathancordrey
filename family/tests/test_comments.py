@@ -222,20 +222,32 @@ class CommentTests(unittest.TestCase):
         self.assertEqual(self.remove_comment(csrf, comment_id, revision=1).status_code, 404)
         self.assertEqual(self.client.get("/album/view/" + "x"*32).status_code, 404)
 
-    def test_mobile_page_controls_on_private_revision(self):
-        # No real family photos in tests. Simulate one uploaded private spread.
-        spread = self.directory / "revisions" / "revision-2" / "spreads" / "spread-01.jpg"
-        spread.parent.mkdir(parents=True, exist_ok=True)
-        spread.write_bytes(b"synthetic-image-for-ui-test")
+    def test_photoswipe_in_private_revision_and_no_public_paths(self):
+        # Use only synthetic test data; check dimensions are read from the file.
+        from PIL import Image
+        folder = self.directory / "revisions" / "revision-2" / "spreads"
+        folder.mkdir(parents=True, exist_ok=True)
+        first = folder / "spread-01.jpg"
+        second = folder / "spread-02.jpg"
+        Image.new("RGB", (300, 150)).save(first)
+        Image.new("RGB", (400, 200)).save(second)
         try:
             self.login("nathan")
             response = self.client.get("/family/revisions/2?spread=1")
             self.assertEqual(response.status_code, 200)
-            for choice in (b"Full spread", b"Left page", b"Right page", b"Open full image"):
-                self.assertIn(choice, response.data)
-            self.assertIn(b"/family/revisions/2/spreads/1", response.data)
+            self.assertIn(b'id="album-gallery"', response.data)
+            self.assertIn(b'data-pswp-width="300"', response.data)
+            self.assertIn(b'data-pswp-height="200"', response.data)
+            self.assertIn(b'/static/album-gallery.js', response.data)
+            self.assertIn(b'/static/vendor/photoswipe/photoswipe.css', response.data)
+            self.assertIn(b'/family/revisions/2/spreads/1', response.data)
+            self.assertIn(b'/family/revisions/2/spreads/2', response.data)
+            self.assertNotIn(str(self.directory).encode(), response.data)
+            response_2 = self.client.get("/family/revisions/2?spread=2")
+            self.assertIn(b'aria-label="Open spread 2 full-screen"', response_2.data)
         finally:
-            spread.unlink(missing_ok=True)
+            first.unlink(missing_ok=True)
+            second.unlink(missing_ok=True)
 
     def test_no_leak_to_guest_blueprint(self):
         csrf = self.login("nathan")
