@@ -253,6 +253,11 @@ def revision_view(revision):
     number = min(max(number, 1), details["spreads"])
     spread_name = "spreads/spread-%02d.jpg" % number
     root_path = root() / "revisions" / ("revision-" + str(revision))
+    from .gallery import gallery_items
+    image_items = gallery_items(
+        root_path / "spreads", details["spreads"],
+        lambda n: url_for("family.revision_spread", revision=revision, spread=n),
+    )
     from .comments import editor_allowed, fetch_discussions, summary_for_revision
     with db_connection() as db:
         can_comment = editor_allowed(db)
@@ -266,6 +271,7 @@ def revision_view(revision):
         spread_count=details["spreads"],
         has_spread=(root_path / spread_name).is_file(),
         has_pdf=(root_path / "review.pdf").is_file(),
+        image_items=image_items,
         discussions=discussions, comment_summary=comment_summary,
         can_comment=can_comment,
         csrf=csrf_token(),
