@@ -258,3 +258,27 @@ run `python -m unittest discover -s family/tests -v`, and restart
 `nathancordrey.service`. Test with an authenticated editor and a guest
 share link in a private browser. Revoke the share and verify new image
 requests fail, even if the gallery was previously open.
+
+## Collapsible private spread overview
+
+On each private `/family/revisions/<revision>` page, a collapsed
+**Browse all spreads** panel appears above the current spread. Expanding it
+shows a lightweight thumbnail grid, current-spread highlight, and open
+discussion counts for editors (Nathan and Rachel). Clicking a card navigates
+to the corresponding spread. Existing PhotoSwipe full-screen viewing and
+private notes remain intact.
+
+Thumbnails are derived from the existing private JPEG spreads on first
+authorized request and cached at
+`/srv/family-album/revisions/revision-N/thumbs/thumb-NN.jpg`.
+A source change invalidates the thumbnail. The original spread images are
+never modified. No thumbnails or family photos enter public `static/` or
+Git. The thumbnails use `/family/revisions/<revision>/thumbs/<spread>`
+with Flask-Login and the existing Nginx `internal` X-Accel alias. The
+grid uses lazy `data-src` URLs until the panel opens; if JavaScript is off,
+the numbered navigation links below still work.
+
+No database migration or Nginx changes are required. Run the existing
+`family/tests` suite, pull `family`, restart Gunicorn and test on a phone.
+The first opening may take longer while thumbnail files are generated, but
+subsequent loads use cached small JPEGs.
