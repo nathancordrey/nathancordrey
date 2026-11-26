@@ -7,7 +7,7 @@ main{max-width:1250px;margin:auto;padding:18px}h1{font:normal 2rem Georgia,serif
 nav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:20px 0}
 img{width:100%;height:auto;display:block;box-shadow:0 2px 16px #0002;background:white}
 .button{padding:10px 15px;border:1px solid #c4c9c0;border-radius:5px;text-decoration:none}
-small,p{color:#697065}.frame{overflow:auto}.comments{margin:34px 0 55px;padding:22px;background:white;border:1px solid #e2e3db;border-radius:10px}.comment{margin:12px 0;padding:15px;border:1px solid #dcded7;border-radius:8px;overflow-wrap:anywhere}.comment.resolved{background:#f2f5f1}.comment p{white-space:pre-wrap;color:#323e35}.reply{margin:12px 0 6px 22px;border-left:3px solid #cbd7ce;padding-left:14px}.comment textarea{width:100%;min-height:75px;font:inherit;padding:10px;border:1px solid #abb5ac;border-radius:6px}button{background:#365740;color:white;border:0;border-radius:5px;padding:9px 13px;cursor:pointer}.comment button{margin-top:9px}.comment form{margin-top:10px}summary{cursor:pointer;color:#315b44}.spread-links{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0}.spread-links a{padding:5px 9px;border:1px solid #d7ded7;border-radius:5px;text-decoration:none;font-size:.88rem}.spread-links a.active{background:#365740;color:white}
+small,p{color:#697065}.frame{overflow:auto}.comments{margin:34px 0 55px;padding:22px;background:white;border:1px solid #e2e3db;border-radius:10px}.comment{margin:12px 0;padding:15px;border:1px solid #dcded7;border-radius:8px;overflow-wrap:anywhere}.comment.resolved{background:#f2f5f1}.comment p{white-space:pre-wrap;color:#323e35}.reply{margin:12px 0 6px 22px;border-left:3px solid #cbd7ce;padding-left:14px}.comment textarea{width:100%;min-height:75px;font:inherit;padding:10px;border:1px solid #abb5ac;border-radius:6px}button{background:#365740;color:white;border:0;border-radius:5px;padding:9px 13px;cursor:pointer}.comment button{margin-top:9px}.comment form{margin-top:10px}summary{cursor:pointer;color:#315b44}.comment-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.comment-actions form{margin:0}.danger{background:#85413d}.comment .edit-control{margin-top:12px}.muted{font-style:italic;color:#6b736b}.spread-links{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0}.spread-links a{padding:5px 9px;border:1px solid #d7ded7;border-radius:5px;text-decoration:none;font-size:.88rem}.spread-links a.active{background:#365740;color:white}
 </style></head><body><main>
 <a href="{{ url_for('family.index') }}">← All revisions</a>
 <h1>{{ details.title }}</h1><p>{{ details.description }} · {{ spread_count }} spreads</p>
@@ -35,9 +35,31 @@ small,p{color:#697065}.frame{overflow:auto}.comments{margin:34px 0 55px;padding:
 {% for c in discussions %}
 <article class="comment {% if c.resolved %}resolved{% endif %}">
 <strong>{{ c.author }}</strong> <small>· {{ c.date }} · {% if c.resolved %}Resolved{% else %}Open{% endif %}</small>
-<p>{{ c.body }}</p>
+{% if c.deleted %}<p class="muted">This comment was deleted.</p>{% else %}<p>{{ c.body }}</p>{% endif %}
+{% if c.edited and not c.deleted %}<small>(edited)</small>{% endif %}
+{% if c.mine and not c.deleted %}
+<details class="edit-control"><summary>Edit comment</summary>
+<form action="{{ url_for('family.edit_comment',revision=revision,comment_id=c.id) }}" method="post">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="edit-{{ c.id }}">Edit your comment</label>
+<textarea id="edit-{{ c.id }}" name="body" maxlength="2000" required>{{ c.body }}</textarea>
+<button type="submit">Save changes</button></form></details>
+<form method="post" action="{{ url_for('family.delete_comment',revision=revision,comment_id=c.id) }}" onsubmit="return confirm('Delete this comment? Replies, if any, will be kept.')">
+<input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit">Delete comment</button></form>
+{% endif %}
 {% for reply in c.replies %}
-<div class="reply"><strong>{{ reply.author }}</strong> <small>· {{ reply.date }}</small><p>{{ reply.body }}</p></div>
+<div class="reply"><strong>{{ reply.author }}</strong> <small>· {{ reply.date }}{% if reply.edited %} · edited{% endif %}</small><p>{{ reply.body }}</p>
+{% if reply.mine %}
+<details class="edit-control"><summary>Edit reply</summary>
+<form action="{{ url_for('family.edit_comment',revision=revision,comment_id=reply.id) }}" method="post">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="edit-{{ reply.id }}">Edit your reply</label>
+<textarea id="edit-{{ reply.id }}" name="body" maxlength="2000" required>{{ reply.body }}</textarea>
+<button type="submit">Save changes</button></form></details>
+<form method="post" action="{{ url_for('family.delete_comment',revision=revision,comment_id=reply.id) }}" onsubmit="return confirm('Delete this reply?')">
+<input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit">Delete reply</button></form>
+{% endif %}
+</div>
 {% endfor %}
 <details><summary>Reply</summary>
 <form action="{{ url_for('family.create_comment',revision=revision) }}" method="post">
