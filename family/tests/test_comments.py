@@ -249,6 +249,47 @@ class CommentTests(unittest.TestCase):
             first.unlink(missing_ok=True)
             second.unlink(missing_ok=True)
 
+    def test_private_thumbnail_overview_and_authentication(self):
+        from PIL import Image
+        folder = self.directory / "revisions" / "revision-2" / "spreads"
+        folder.mkdir(parents=True, exist_ok=True)
+        target = folder / "spread-03.jpg"
+        Image.new("RGB", (1200, 600)).save(target)
+        try:
+            no_login = self.client.get("/family/revisions/2/thumbs/3")
+            self.assertEqual(no_login.status_code, 302)
+            self.assertNotIn("X-Accel-Redirect", no_login.headers)
+            csrf = self.login("nathan")
+            self.add(csrf, "Important change on spread three", spread=3)
+            page = self.client.get("/family/revisions/2?spread=3")
+            self.assertEqual(page.status_code, 200)
+            self.assertIn(b'id="spread-overview"', page.data)
+            self.assertIn(b'aria-current="page"', page.data)
+            self.assertIn(b'1 open', page.data)
+            self.assertIn(b'data-src="/family/revisions/2/thumbs/3"', page.data)
+            self.assertIn(b'/static/family-thumbnails.js', page.data)
+            thumb_response = self.client.get("/family/revisions/2/thumbs/3")
+            self.assertEqual(thumb_response.status_code, 200)
+            self.assertEqual(
+                thumb_response.headers.get("X-Accel-Redirect"),
+                "/__family_private__/revision-2/thumbs/thumb-03.jpg",
+            )
+            thumbnail = self.directory / "revisions" / "revision-2" / "thumbs" / "thumb-03.jpg"
+            self.assertTrue(thumbnail.is_file())
+            with Image.open(thumbnail) as image:
+                self.assertLessEqual(image.width, 420)
+                self.assertLessEqual(image.height, 280)
+                self.assertFalse(bool(image.getexif()))
+            self.assertEqual(self.client.get("/family/revisions/2/thumbs/21").status_code, 404)
+            self.client.post("/family/logout", data={"csrf": csrf})
+            self.assertEqual(self.client.get("/family/revisions/2/thumbs/3").status_code, 302)
+            self.assertNotIn(
+                "X-Accel-Redirect",
+                self.client.get("/family/revisions/2/thumbs/3").headers,
+            )
+        finally:
+            target.unlink(missing_ok=True)
+
     def test_no_leak_to_guest_blueprint(self):
         csrf = self.login("nathan")
         self.add(csrf, "PRIVATE EDITORIAL NOTE")
