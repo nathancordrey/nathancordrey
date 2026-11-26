@@ -222,6 +222,14 @@ class CommentTests(unittest.TestCase):
         self.assertEqual(self.remove_comment(csrf, comment_id, revision=1).status_code, 404)
         self.assertEqual(self.client.get("/album/view/" + "x"*32).status_code, 404)
 
+    def test_mobile_page_controls_on_private_revision(self):
+        self.login("nathan")
+        response = self.client.get("/family/revisions/2?spread=1")
+        self.assertEqual(response.status_code, 200)
+        for choice in (b"Full spread", b"Left page", b"Right page", b"Open full image"):
+            self.assertIn(choice, response.data)
+        self.assertIn(b"/family/revisions/2/spreads/1", response.data)
+
     def test_no_leak_to_guest_blueprint(self):
         csrf = self.login("nathan")
         self.add(csrf, "PRIVATE EDITORIAL NOTE")
