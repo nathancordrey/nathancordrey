@@ -31,7 +31,7 @@
     const maxY = Math.max(0, (fitted.height * zoom - stage.clientHeight) / 2);
     offsetX = Math.max(-maxX, Math.min(maxX, offsetX));
     offsetY = Math.max(-maxY, Math.min(maxY, offsetY));
-    image.style.transform = \`translate(\${offsetX}px, \${offsetY}px) scale(\${zoom})\`;
+    image.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
     stage.setAttribute("aria-label",
       zoom > 1 ? "Zoomed spread. Drag to move; pinch to zoom out." :
         "Album spread. Swipe left or right to change spreads; pinch to zoom.");
