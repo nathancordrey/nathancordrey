@@ -5,7 +5,7 @@ body{background:#f8f7f2;color:#334038;font:16px system-ui,sans-serif}main{max-wi
 h1{font:normal 2rem Georgia,serif}nav{display:flex;align-items:center;justify-content:space-between;margin:18px 0}
 img{display:block;width:100%;height:auto;background:white;box-shadow:0 2px 16px #0002}
 a{color:#325943}small{color:#656d65}
-</style></head><body><main>
+.spread-reader{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.spread-reader input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.spread-reader label{flex:1;text-align:center;display:flex;align-items:center;justify-content:center;min-height:44px;padding:8px 6px;border:1px solid #aab8ab;border-radius:7px;cursor:pointer;font-weight:600}.spread-reader input:checked+label{background:#365740;color:white;border-color:#365740}.spread-reader input:focus-visible+label{outline:3px solid #42815d;outline-offset:2px}.image-frame{flex:1 1 100%;overflow:hidden;border-radius:5px}.image-frame img{width:100%;max-width:none;transform:none}#left-page:checked~.image-frame img,#right-page:checked~.image-frame img{width:200%}#right-page:checked~.image-frame img{transform:translateX(-50%)}.hint{font-size:.9rem;line-height:1.5}@media(max-width:600px){main{padding:12px;margin:10px auto}h1{font-size:1.7rem}nav{gap:8px}}</style></head><body><main>
 <a href="{{ url_for('family.sharing') }}">← Sharing settings</a>
 <h1>{{ snapshot.title }}</h1>
 <p>Private publisher preview. Check every spread before issuing a link.</p>
@@ -14,6 +14,12 @@ a{color:#325943}small{color:#656d65}
 <strong>{{ spread }} / {{ snapshot.spread_count }}</strong>
 {% if spread<snapshot.spread_count %}<a href="{{ url_for('family.preview_snapshot',snapshot_id=snapshot.id,spread=spread+1) }}">Next →</a>{% else %}<span></span>{% endif %}
 </nav>
-<img src="{{ url_for('family.preview_image',snapshot_id=snapshot.id,spread=spread) }}" alt="Private preview of spread {{ spread }}">
+<div class="spread-reader" role="group" aria-label="Snapshot page viewing options">
+<input type="radio" name="page-view" id="fit-spread" checked><label for="fit-spread">Full spread</label>
+<input type="radio" name="page-view" id="left-page"><label for="left-page">Left page</label>
+<input type="radio" name="page-view" id="right-page"><label for="right-page">Right page</label>
+<div class="image-frame"><img src="{{ url_for('family.preview_image',snapshot_id=snapshot.id,spread=spread) }}" alt="Private preview of spread {{ spread }}"></div>
+</div>
+<p class="hint">On a phone, select Left or Right page to see larger photos. <a href="{{ url_for('family.preview_image',snapshot_id=snapshot.id,spread=spread) }}" target="_blank" rel="noopener noreferrer">Open full image</a> to pinch and zoom.</p>
 <p><small>To make this snapshot accessible to guests, return to Sharing settings and create a separate link.</small></p>
 </main></body></html>
