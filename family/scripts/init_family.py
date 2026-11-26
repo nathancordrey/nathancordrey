@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS family_comments (
     created_at REAL NOT NULL,
     resolved_at REAL,
     resolved_by INTEGER REFERENCES family_users(id),
+    edited_at REAL,
+    deleted_at REAL,
     CHECK (revision >= 1 AND spread >= 1)
 );
 CREATE INDEX IF NOT EXISTS idx_family_comments_spread
@@ -88,6 +90,12 @@ def main():
         raise SystemExit("Usage: init | set-user <username> <display name> | grant-publisher <username>")
     with sqlite3.connect(path) as db:
         db.executescript(SCHEMA)
+        # Existing installations have family_comments without edit/delete columns.
+        # SQLite's ADD COLUMN is additive and preserves comments, users and links.
+        columns = {row[1] for row in db.execute("PRAGMA table_info(family_comments)")}
+        for name in ("edited_at", "deleted_at"):
+            if name not in columns:
+                db.execute("ALTER TABLE family_comments ADD COLUMN " + name + " REAL")
         if sys.argv[1] == "grant-publisher":
             if len(sys.argv) != 3:
                 raise SystemExit("Usage: grant-publisher <username>")
