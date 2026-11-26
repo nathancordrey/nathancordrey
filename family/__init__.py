@@ -272,10 +272,31 @@ def revision_view(revision):
         has_spread=(root_path / spread_name).is_file(),
         has_pdf=(root_path / "review.pdf").is_file(),
         image_items=image_items,
+        thumbnail_spreads=[
+            item["number"] for item in image_items
+        ],
         discussions=discussions, comment_summary=comment_summary,
         can_comment=can_comment,
         csrf=csrf_token(),
     )
+
+
+@family.get("/revisions/<int:revision>/thumbs/<int:spread>")
+@login_required
+def revision_thumbnail(revision, spread):
+    details = REVISIONS.get(revision)
+    if not details or spread < 1 or spread > details["spreads"]:
+        abort(404)
+    from .gallery import ensure_private_thumbnail
+    location = root() / "revisions" / ("revision-" + str(revision))
+    if not ensure_private_thumbnail(location, spread):
+        abort(404)
+    response = make_response("", 200)
+    response.headers["X-Accel-Redirect"] = (
+        "/__family_private__/revision-%d/thumbs/thumb-%02d.jpg" % (revision, spread)
+    )
+    response.headers["Content-Type"] = "image/jpeg"
+    return response
 
 
 @family.get("/revisions/<int:revision>/pdf")
