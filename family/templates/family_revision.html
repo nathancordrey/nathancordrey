@@ -7,7 +7,7 @@ main{max-width:1250px;margin:auto;padding:18px}h1{font:normal 2rem Georgia,serif
 nav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:20px 0}
 img{width:100%;height:auto;display:block;box-shadow:0 2px 16px #0002;background:white}
 .button{padding:10px 15px;border:1px solid #c4c9c0;border-radius:5px;text-decoration:none}
-small,p{color:#697065}.frame{overflow:auto}
+small,p{color:#697065}.frame{overflow:auto}.comments{margin:34px 0 55px;padding:22px;background:white;border:1px solid #e2e3db;border-radius:10px}.comment{margin:12px 0;padding:15px;border:1px solid #dcded7;border-radius:8px;overflow-wrap:anywhere}.comment.resolved{background:#f2f5f1}.comment p{white-space:pre-wrap;color:#323e35}.reply{margin:12px 0 6px 22px;border-left:3px solid #cbd7ce;padding-left:14px}.comment textarea{width:100%;min-height:75px;font:inherit;padding:10px;border:1px solid #abb5ac;border-radius:6px}button{background:#365740;color:white;border:0;border-radius:5px;padding:9px 13px;cursor:pointer}.comment button{margin-top:9px}.comment form{margin-top:10px}summary{cursor:pointer;color:#315b44}.spread-links{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0}.spread-links a{padding:5px 9px;border:1px solid #d7ded7;border-radius:5px;text-decoration:none;font-size:.88rem}.spread-links a.active{background:#365740;color:white}
 </style></head><body><main>
 <a href="{{ url_for('family.index') }}">← All revisions</a>
 <h1>{{ details.title }}</h1><p>{{ details.description }} · {{ spread_count }} spreads</p>
@@ -22,5 +22,46 @@ small,p{color:#697065}.frame{overflow:auto}
 <p>Spread preview not yet uploaded to private storage.</p>
 {% endif %}
 {% if has_pdf %}<p><a href="{{ url_for('family.revision_pdf',revision=revision) }}">Download this revision's review PDF</a></p>{% endif %}
+{% if can_comment %}
+<section id="comments" class="comments">
+<h2>Private layout notes</h2>
+<p>Only our signed-in album editors can read or write these notes. They are never included in shared albums.</p>
+<nav class="spread-links" aria-label="Spreads and open comments">
+{% for n in range(1,spread_count+1) %}
+<a {% if n==spread %}class="active"{% endif %} href="{{ url_for('family.revision_view',revision=revision,spread=n) }}#comments" title="Spread {{ n }}{% if comment_summary.get(n) %} — {{ comment_summary[n].open }} open discussions{% endif %}">{{ n }}{% if comment_summary.get(n) and comment_summary[n].open %} · {{ comment_summary[n].open }}{% endif %}</a>
+{% endfor %}
+</nav>
+{% if not discussions %}<p>No discussions for this spread yet.</p>{% endif %}
+{% for c in discussions %}
+<article class="comment {% if c.resolved %}resolved{% endif %}">
+<strong>{{ c.author }}</strong> <small>· {{ c.date }} · {% if c.resolved %}Resolved{% else %}Open{% endif %}</small>
+<p>{{ c.body }}</p>
+{% for reply in c.replies %}
+<div class="reply"><strong>{{ reply.author }}</strong> <small>· {{ reply.date }}</small><p>{{ reply.body }}</p></div>
+{% endfor %}
+<details><summary>Reply</summary>
+<form action="{{ url_for('family.create_comment',revision=revision) }}" method="post">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="spread" value="{{ spread }}">
+<input type="hidden" name="parent_id" value="{{ c.id }}">
+<label for="reply-{{ c.id }}">Reply to this discussion</label>
+<textarea id="reply-{{ c.id }}" name="body" maxlength="2000" required></textarea>
+<button type="submit">Post reply</button></form>
+</details>
+<form method="post" action="{{ url_for('family.comment_status',revision=revision,comment_id=c.id) }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<input type="hidden" name="action" value="{% if c.resolved %}reopen{% else %}resolve{% endif %}">
+<button type="submit">{% if c.resolved %}Reopen discussion{% else %}Mark resolved{% endif %}</button>
+</form>
+</article>
+{% endfor %}
+<h3>Start a discussion</h3>
+<form action="{{ url_for('family.create_comment',revision=revision) }}" method="post">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="spread" value="{{ spread }}">
+<label for="new-comment">What would you change in this spread?</label>
+<textarea id="new-comment" name="body" maxlength="2000" required></textarea>
+<p><button type="submit">Add private comment</button></p>
+</form>
+</section>
+{% endif %}
 <p><small>For family review only. Original photos are unchanged.</small></p>
 </main></body></html>
