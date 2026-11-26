@@ -129,6 +129,99 @@ class CommentTests(unittest.TestCase):
         self.assertEqual(self.add(csrf, "bad", spread=999).status_code, 404)
         self.assertEqual(self.add(csrf, "bad", revision=999).status_code, 404)
 
+    def update_comment(self, csrf, comment_id, text, revision=2):
+        return self.client.post(
+            f"/family/revisions/{revision}/comments/{comment_id}/edit",
+            data={"csrf": csrf, "body": text},
+        )
+
+    def remove_comment(self, csrf, comment_id, revision=2):
+        return self.client.post(
+            f"/family/revisions/{revision}/comments/{comment_id}/delete",
+            data={"csrf": csrf},
+        )
+
+    def test_author_can_edit_and_delete_unreplied_comment(self):
+        csrf = self.login("nathan")
+        self.assertEqual(self.add(csrf, "Original comment").status_code, 303)
+        comment_id = self.only_id()
+        self.assertEqual(self.update_comment(csrf, comment_id, "Revised photo selection").status_code, 303)
+        page = self.client.get("/family/revisions/2?spread=1")
+        self.assertIn(b"Revised photo selection", page.data)
+        self.assertIn(b"edited", page.data)
+        self.assertNotIn(b"Original comment", page.data)
+        self.assertEqual(self.remove_comment(csrf, comment_id).status_code, 303)
+        with sqlite3.connect(self.directory / "family.sqlite3") as db:
+            self.assertIsNone(db.execute(
+                "SELECT id FROM family_comments WHERE id=?", (comment_id,)
+            ).fetchone())
+        self.assertNotIn(b"Revised photo selection", self.client.get("/family/revisions/2?spread=1").data)
+
+    def test_cannot_edit_or_delete_others_comments(self):
+        csrf = self.login("nathan")
+        self.assertEqual(self.add(csrf, "Nathan's private note").status_code, 303)
+        comment_id = self.only_id()
+        self.client.post("/family/logout", data={"csrf": csrf})
+        csrf = self.login("rachel")
+        self.assertEqual(self.update_comment(csrf, comment_id, "Overwritten").status_code, 403)
+        self.assertEqual(self.remove_comment(csrf, comment_id).status_code, 403)
+        page = self.client.get("/family/revisions/2?spread=1")
+        self.assertIn(b"Nathan", page.data)
+        self.assertNotIn(b"Overwritten", page.data)
+        self.assertNotIn(b'action="/family/revisions/2/comments/'+str(comment_id).encode()+b'/edit"', page.data)
+
+    def test_delete_root_keeps_replies_without_original_text(self):
+        csrf = self.login("nathan")
+        self.add(csrf, "Remove this root text")
+        root_id = self.only_id()
+        self.client.post("/family/logout", data={"csrf": csrf})
+        rachel_csrf = self.login("rachel")
+        self.assertEqual(self.add(rachel_csrf, "Keep Rachel's reply", parent=root_id).status_code, 303)
+        self.client.post("/family/logout", data={"csrf": rachel_csrf})
+        csrf = self.login("nathan")
+        self.assertEqual(self.remove_comment(csrf, root_id).status_code, 303)
+        page = self.client.get("/family/revisions/2?spread=1")
+        self.assertIn(b"This comment was deleted.", page.data)
+        self.assertIn(b"Keep Rachel", page.data)
+        self.assertNotIn(b"Remove this root text", page.data)
+        with sqlite3.connect(self.directory / "family.sqlite3") as db:
+            row = db.execute("SELECT body, deleted_at FROM family_comments WHERE id=?", (root_id,)).fetchone()
+            self.assertEqual(row[0], "")
+            self.assertIsNotNone(row[1])
+        self.assertEqual(self.update_comment(csrf, root_id, "Restore secret").status_code, 404)
+        self.assertEqual(self.remove_comment(csrf, root_id).status_code, 404)
+
+    def test_reply_author_can_edit_and_delete_reply(self):
+        csrf = self.login("nathan")
+        self.add(csrf, "Root question")
+        root_id = self.only_id()
+        self.client.post("/family/logout", data={"csrf": csrf})
+        csrf = self.login("rachel")
+        self.add(csrf, "Initial reply", parent=root_id)
+        with sqlite3.connect(self.directory / "family.sqlite3") as db:
+            reply_id = db.execute(
+                "SELECT id FROM family_comments WHERE parent_id=?", (root_id,)
+            ).fetchone()[0]
+        self.assertEqual(self.update_comment(csrf, reply_id, "Updated reply").status_code, 303)
+        page = self.client.get("/family/revisions/2?spread=1")
+        self.assertIn(b"Updated reply", page.data)
+        self.assertNotIn(b"Initial reply", page.data)
+        self.assertEqual(self.remove_comment(csrf, reply_id).status_code, 303)
+        page = self.client.get("/family/revisions/2?spread=1")
+        self.assertNotIn(b"Updated reply", page.data)
+        self.assertIn(b"Root question", page.data)
+
+    def test_invalid_edits_and_wrong_revision_rejected(self):
+        csrf = self.login("nathan")
+        self.add(csrf, "Good content")
+        comment_id = self.only_id()
+        self.assertEqual(self.update_comment("wrong", comment_id, "Bad").status_code, 403)
+        self.assertEqual(self.update_comment(csrf, comment_id, " ").status_code, 400)
+        self.assertEqual(self.update_comment(csrf, comment_id, "x"*2001).status_code, 400)
+        self.assertEqual(self.update_comment(csrf, comment_id, "Bad", revision=1).status_code, 404)
+        self.assertEqual(self.remove_comment(csrf, comment_id, revision=1).status_code, 404)
+        self.assertEqual(self.client.get("/album/view/" + "x"*32).status_code, 404)
+
     def test_no_leak_to_guest_blueprint(self):
         csrf = self.login("nathan")
         self.add(csrf, "PRIVATE EDITORIAL NOTE")
