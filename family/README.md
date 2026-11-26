@@ -229,3 +229,32 @@ to add `edited_at` and `deleted_at` to existing `family_comments`
 tables without erasing comments or other data. Use the same private SQLite
 backup workflow before a database schema change. Editors' notes never appear
 on guest /album routes.
+
+## Mobile PhotoSwipe reader
+
+The private revision viewer, publisher snapshot preview, and guest collection
+now use [PhotoSwipe 5.4.4](https://photoswipe.com/) for tap-to-open,
+full-viewport browsing, pinch-to-zoom and swipe navigation. The MIT-licensed
+JavaScript/CSS and its license are vendored under
+`static/vendor/photoswipe/` and served from our own site; no CDN is loaded.
+`static/album-gallery.js` initializes the same reader for all three contexts.
+
+Album JPEGs themselves **remain outside the repository and public static
+directory**. Flask emits one anchor per spread using image dimensions read
+from the private JPEG headers. Every image still uses the existing protected
+`/family/revisions/...`, `/family/sharing/preview/...`, or
+`/album/view/...` route, preserving authentication, PIN/session access,
+expiration and revocation. Guest pages never include editor comments.
+
+On the phone, tap the preview image, pinch to zoom, swipe between spreads,
+then close to return to that spread's review page. On desktop, clicking also
+opens the full-viewport reader. If JavaScript fails to load, tapping the
+visible image opens its protected original URL in the browser instead.
+No database migration, change to Nginx internal aliases, or photo
+regeneration is required.
+
+Deploy from the family branch with `git pull --ff-only origin family`,
+run `python -m unittest discover -s family/tests -v`, and restart
+`nathancordrey.service`. Test with an authenticated editor and a guest
+share link in a private browser. Revoke the share and verify new image
+requests fail, even if the gallery was previously open.
