@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ details.title }} · Our Family</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#333a33;background:#f9f8f4}*{box-sizing:border-box}
+main{max-width:1250px;margin:auto;padding:18px}h1{font:normal 2rem Georgia,serif}a{color:#315b44}
+nav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:20px 0}
+img{width:100%;height:auto;display:block;box-shadow:0 2px 16px #0002;background:white}
+.button{padding:10px 15px;border:1px solid #c4c9c0;border-radius:5px;text-decoration:none}
+small,p{color:#697065}.frame{overflow:auto}.comments{margin:34px 0 55px;padding:22px;background:white;border:1px solid #e2e3db;border-radius:10px}.comment{margin:12px 0;padding:15px;border:1px solid #dcded7;border-radius:8px;overflow-wrap:anywhere}.comment.resolved{background:#f2f5f1}.comment p{white-space:pre-wrap;color:#323e35}.reply{margin:12px 0 6px 22px;border-left:3px solid #cbd7ce;padding-left:14px}.comment textarea{width:100%;min-height:75px;font:inherit;padding:10px;border:1px solid #abb5ac;border-radius:6px}button{background:#365740;color:white;border:0;border-radius:5px;padding:9px 13px;cursor:pointer}.comment button{margin-top:9px}.comment form{margin-top:10px}summary{cursor:pointer;color:#315b44}.comment-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.comment-actions form{margin:0}.danger{background:#85413d}.comment .edit-control{margin-top:12px}.muted{font-style:italic;color:#6b736b}.spread-links{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0}.spread-links a{padding:5px 9px;border:1px solid #d7ded7;border-radius:5px;text-decoration:none;font-size:.88rem}.spread-links a.active{background:#365740;color:white}
+
+/* PhotoSwipe lightbox opens a private, authorized full-spread image on tap. */
+.album-gallery a.album-tap{display:block;cursor:zoom-in;border-radius:6px;overflow:hidden;touch-action:manipulation}
+.album-gallery a.album-tap:focus-visible{outline:3px solid #426e4d;outline-offset:3px}
+.album-gallery a[hidden]{display:none!important}
+.album-gallery img{width:100%;height:auto;display:block;box-shadow:0 2px 16px #0002;background:white}
+.reader-help{font-size:.92rem;line-height:1.5}
+@media(max-width:600px){main{padding:12px}h1{font-size:1.7rem}nav{gap:8px}nav .button{min-height:44px;display:inline-flex;align-items:center}.comments{padding:14px}}
+.spread-overview{margin:20px 0;background:#fff;border:1px solid #d5ddd5;border-radius:10px;padding:13px}
+.spread-overview>summary{cursor:pointer;font-weight:650;color:#315b44;padding:8px;min-height:44px}
+.spread-overview>summary:focus-visible{outline:3px solid #3e7053;outline-offset:2px}
+.overview-hint{font-size:.86rem;font-weight:400;color:#656e65}
+.thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:12px;padding:15px 0 5px}
+.thumb-card{min-width:0;text-decoration:none;color:#34423a;border:2px solid #dce1da;border-radius:8px;overflow:hidden;background:#fff;display:block}
+.thumb-card.current{border-color:#356b47;background:#eff6ee}
+.thumb-card:focus-visible{outline:3px solid #356b47;outline-offset:2px}
+.thumb-preview{aspect-ratio:2/1;background:#edf0eb}
+.thumb-preview img{width:100%;height:100%;display:block;object-fit:contain;box-shadow:none}
+.thumb-meta{padding:8px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px;font-size:.85rem}
+.thumb-meta strong{font-size:.85rem}.open-notes{color:#754b11;background:#fdf0d6;border-radius:12px;padding:2px 6px;font-size:.75rem;white-space:nowrap}
+@media(max-width:600px){.thumb-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.spread-overview{padding:10px}.overview-hint{display:block;margin-top:3px}}
+</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/photoswipe/photoswipe.css') }}">
+<script type="module" src="{{ url_for('static', filename='album-gallery.js') }}"></script>
+<script defer src="{{ url_for('static', filename='family-thumbnails.js') }}"></script>
+</head><body><main>
+<a href="{{ url_for('family.index') }}">← All revisions</a>
+<h1>{{ details.title }}</h1><p>{{ details.description }} · {{ spread_count }} spreads</p>
+<details id="spread-overview" class="spread-overview">
+<summary>Browse all {{ spread_count }} spreads <span class="overview-hint">· thumbnails and open notes</span></summary>
+<div class="thumb-grid" aria-label="Jump to a spread">
+{% for n in thumbnail_spreads %}
+<a class="thumb-card{% if n == spread %} current{% endif %}" href="{{ url_for('family.revision_view',revision=revision,spread=n) }}" {% if n == spread %}aria-current="page"{% endif %} aria-label="Go to spread {{ n }}{% if can_comment and comment_summary.get(n) and comment_summary[n].open %}, {{ comment_summary[n].open }} open notes{% endif %}">
+<div class="thumb-preview"><img alt="" loading="lazy" width="210" height="112" data-src="{{ url_for('family.revision_thumbnail',revision=revision,spread=n) }}"></div>
+<div class="thumb-meta"><strong>Spread {{ n }}</strong>{% if can_comment and comment_summary.get(n) and comment_summary[n].open %}<small class="open-notes">{{ comment_summary[n].open }} open</small>{% endif %}</div>
+</a>
+{% endfor %}
+</div>
+</details>
+<nav>
+{% if spread > 1 %}<a class="button" href="{{ url_for('family.revision_view',revision=revision,spread=spread-1) }}">← Previous</a>{% else %}<span></span>{% endif %}
+<strong>Spread {{ spread }} of {{ spread_count }}</strong>
+{% if spread < spread_count %}<a class="button" href="{{ url_for('family.revision_view',revision=revision,spread=spread+1) }}">Next →</a>{% else %}<span></span>{% endif %}
+</nav>
+{% if has_spread %}
+<div id="album-gallery" class="album-gallery" aria-label="Tap to open full-screen album viewer">
+{% for item in image_items %}
+<a href="{{ item.url }}" data-pswp-width="{{ item.width }}" data-pswp-height="{{ item.height }}" {% if item.number != spread %}hidden tabindex="-1"{% else %}class="album-tap" aria-label="Open spread {{ spread }} full-screen"{% endif %}>
+{% if item.number == spread %}<img loading="eager" alt="Family album spread {{ spread }} of {{ spread_count }}" src="{{ item.url }}">{% endif %}
+</a>
+{% endfor %}
+</div>
+<p class="reader-help">Tap the spread for full-screen viewing, then swipe between spreads or pinch to zoom. Close to return to your notes.</p>
+{% else %}
+<p>Spread preview not yet uploaded to private storage.</p>
+{% endif %}
+{% if has_pdf %}<p><a href="{{ url_for('family.revision_pdf',revision=revision) }}">Download this revision's review PDF</a></p>{% endif %}
+{% if can_comment %}
+<section id="comments" class="comments">
+<h2>Private layout notes</h2>
+<p>Only our signed-in album editors can read or write these notes. They are never included in shared albums.</p>
+<nav class="spread-links" aria-label="Spreads and open comments">
+{% for n in range(1,spread_count+1) %}
+<a {% if n==spread %}class="active"{% endif %} href="{{ url_for('family.revision_view',revision=revision,spread=n) }}#comments" title="Spread {{ n }}{% if comment_summary.get(n) %} — {{ comment_summary[n].open }} open discussions{% endif %}">{{ n }}{% if comment_summary.get(n) and comment_summary[n].open %} · {{ comment_summary[n].open }}{% endif %}</a>
+{% endfor %}
+</nav>
+{% if not discussions %}<p>No discussions for this spread yet.</p>{% endif %}
+{% for c in discussions %}
+<article class="comment {% if c.resolved %}resolved{% endif %}">
+<strong>{{ c.author }}</strong> <small>· {{ c.date }} · {% if c.resolved %}Resolved{% else %}Open{% endif %}</small>
+{% if c.deleted %}<p class="muted">This comment was deleted.</p>{% else %}<p>{{ c.body }}</p>{% endif %}
+{% if c.edited and not c.deleted %}<small>(edited)</small>{% endif %}
+{% if c.mine and not c.deleted %}
+<details class="edit-control"><summary>Edit comment</summary>
+<form action="{{ url_for('family.edit_comment',revision=revision,comment_id=c.id) }}" method="post">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="edit-{{ c.id }}">Edit your comment</label>
+<textarea id="edit-{{ c.id }}" name="body" maxlength="2000" required>{{ c.body }}</textarea>
+<button type="submit">Save changes</button></form></details>
+<details class="edit-control"><summary>Delete comment</summary>
+<p><small>This removes your comment text. Any replies will remain visible.</small></p>
+<form method="post" action="{{ url_for('family.delete_comment',revision=revision,comment_id=c.id) }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit">Confirm delete</button></form>
+</details>
+{% endif %}
+{% for reply in c.replies %}
+<div class="reply"><strong>{{ reply.author }}</strong> <small>· {{ reply.date }}{% if reply.edited %} · edited{% endif %}</small><p>{{ reply.body }}</p>
+{% if reply.mine %}
+<details class="edit-control"><summary>Edit reply</summary>
+<form action="{{ url_for('family.edit_comment',revision=revision,comment_id=reply.id) }}" method="post">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="edit-{{ reply.id }}">Edit your reply</label>
+<textarea id="edit-{{ reply.id }}" name="body" maxlength="2000" required>{{ reply.body }}</textarea>
+<button type="submit">Save changes</button></form></details>
+<details class="edit-control"><summary>Delete reply</summary>
+<form method="post" action="{{ url_for('family.delete_comment',revision=revision,comment_id=reply.id) }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit">Confirm delete</button></form>
+</details>
+{% endif %}
+</div>
+{% endfor %}
+<details><summary>Reply</summary>
+<form action="{{ url_for('family.create_comment',revision=revision) }}" method="post">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="spread" value="{{ spread }}">
+<input type="hidden" name="parent_id" value="{{ c.id }}">
+<label for="reply-{{ c.id }}">Reply to this discussion</label>
+<textarea id="reply-{{ c.id }}" name="body" maxlength="2000" required></textarea>
+<button type="submit">Post reply</button></form>
+</details>
+<form method="post" action="{{ url_for('family.comment_status',revision=revision,comment_id=c.id) }}">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<input type="hidden" name="action" value="{% if c.resolved %}reopen{% else %}resolve{% endif %}">
+<button type="submit">{% if c.resolved %}Reopen discussion{% else %}Mark resolved{% endif %}</button>
+</form>
+</article>
+{% endfor %}
+<h3>Start a discussion</h3>
+<form action="{{ url_for('family.create_comment',revision=revision) }}" method="post">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="spread" value="{{ spread }}">
+<label for="new-comment">What would you change in this spread?</label>
+<textarea id="new-comment" name="body" maxlength="2000" required></textarea>
+<p><button type="submit">Add private comment</button></p>
+</form>
+</section>
+{% endif %}
+<p><small>For family review only. Original photos are unchanged.</small></p>
+</main></body></html>

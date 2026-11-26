@@ -1,0 +1,30 @@
+name: Family privacy and access tests
+on:
+  push:
+    branches: [family]
+    paths:
+      - 'family/**'
+      - 'nathancordrey.py'
+      - '.github/workflows/family-security-tests.yml'
+  pull_request:
+    paths:
+      - 'family/**'
+      - 'nathancordrey.py'
+      - '.github/workflows/family-security-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  family-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install minimal test dependencies
+        run: python -m pip install 'Flask>=3,<4' 'Flask-Login>=0.6.3,<1' 'Pillow>=10,<13'
+      - name: Run family authentication and sharing tests
+        run: python -m unittest discover -s family/tests -v

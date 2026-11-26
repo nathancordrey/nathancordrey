@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ title }}</title><style>
+*{box-sizing:border-box}body{background:#f8f7f2;color:#303b33;font:16px system-ui,sans-serif}
+main{max-width:1250px;margin:24px auto;padding:16px}h1{font:normal 2.2rem Georgia,serif}
+nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 0}
+a{padding:10px 14px;color:#2d5d41;border:1px solid #c9d0c8;border-radius:6px;text-decoration:none}
+img{width:100%;height:auto;display:block;box-shadow:0 1px 16px #0002}small{color:#5c645c}
+
+/* Images remain behind authenticated X-Accel-Redirect endpoints. */
+.album-gallery a.album-tap{display:block;cursor:zoom-in;touch-action:manipulation}
+.album-gallery a.album-tap:focus-visible{outline:3px solid #426e4d;outline-offset:3px}
+.album-gallery a[hidden]{display:none!important}
+.album-gallery img{width:100%;height:auto;display:block;box-shadow:0 1px 16px #0002;background:#fff}
+.hint{font-size:.92rem;line-height:1.5;color:#5c645c}
+@media(max-width:600px){main{padding:12px;margin:10px auto}h1{font-size:1.75rem}nav{gap:6px}nav a{padding:10px 8px;min-height:44px;display:flex;align-items:center}nav span{font-size:.88rem;text-align:center}}
+</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/photoswipe/photoswipe.css') }}">
+<script type="module" src="{{ url_for('static', filename='album-gallery.js') }}"></script>
+</head><body><main>
+<small>SHARED FAMILY ALBUM</small><h1>{{ title }}</h1>
+<nav>
+{% if spread > 1 %}<a href="{{ url_for('album.view',share_id=share_id,spread=spread-1) }}">← Previous</a>{% else %}<span></span>{% endif %}
+<span>Spread {{ spread }} of {{ spread_count }}</span>
+{% if spread < spread_count %}<a href="{{ url_for('album.view',share_id=share_id,spread=spread+1) }}">Next →</a>{% else %}<span></span>{% endif %}
+</nav>
+<div id="album-gallery" class="album-gallery" aria-label="Tap for full-screen gallery">
+{% for item in image_items %}
+<a href="{{ item.url }}" data-pswp-width="{{ item.width }}" data-pswp-height="{{ item.height }}" {% if item.number != spread %}hidden tabindex="-1"{% else %}class="album-tap" aria-label="Open spread {{ spread }} full-screen"{% endif %}>
+{% if item.number == spread %}<img alt="Family album spread {{ spread }}" src="{{ item.url }}">{% endif %}
+</a>
+{% endfor %}
+</div>
+<p class="hint">Tap the spread to view full-screen. Pinch to zoom and swipe between spreads.</p>
+<p><small>This is a read-only, privately shared selection. Please respect our family's privacy.</small></p>
+</main></body></html>
