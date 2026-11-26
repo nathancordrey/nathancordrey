@@ -57,6 +57,22 @@ CREATE TABLE IF NOT EXISTS family_pin_attempts (
 );
 CREATE INDEX IF NOT EXISTS idx_family_share_snapshot ON family_share_links(snapshot_id);
 CREATE INDEX IF NOT EXISTS idx_family_pin_attempt_key ON family_pin_attempts(lookup_key, created_at);
+CREATE TABLE IF NOT EXISTS family_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    revision INTEGER NOT NULL,
+    spread INTEGER NOT NULL,
+    parent_id INTEGER REFERENCES family_comments(id),
+    author_user_id INTEGER NOT NULL REFERENCES family_users(id),
+    body TEXT NOT NULL CHECK(length(body) BETWEEN 1 AND 2000),
+    created_at REAL NOT NULL,
+    resolved_at REAL,
+    resolved_by INTEGER REFERENCES family_users(id),
+    CHECK (revision >= 1 AND spread >= 1)
+);
+CREATE INDEX IF NOT EXISTS idx_family_comments_spread
+ON family_comments(revision, spread, created_at, id);
+CREATE INDEX IF NOT EXISTS idx_family_comments_parent
+ON family_comments(parent_id);
 """
 
 
