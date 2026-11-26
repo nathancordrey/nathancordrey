@@ -44,8 +44,11 @@ small,p{color:#697065}.frame{overflow:auto}.comments{margin:34px 0 55px;padding:
 <label for="edit-{{ c.id }}">Edit your comment</label>
 <textarea id="edit-{{ c.id }}" name="body" maxlength="2000" required>{{ c.body }}</textarea>
 <button type="submit">Save changes</button></form></details>
-<form method="post" action="{{ url_for('family.delete_comment',revision=revision,comment_id=c.id) }}" onsubmit="return confirm('Delete this comment? Replies, if any, will be kept.')">
-<input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit">Delete comment</button></form>
+<details class="edit-control"><summary>Delete comment</summary>
+<p><small>This removes your comment text. Any replies will remain visible.</small></p>
+<form method="post" action="{{ url_for('family.delete_comment',revision=revision,comment_id=c.id) }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit">Confirm delete</button></form>
+</details>
 {% endif %}
 {% for reply in c.replies %}
 <div class="reply"><strong>{{ reply.author }}</strong> <small>· {{ reply.date }}{% if reply.edited %} · edited{% endif %}</small><p>{{ reply.body }}</p>
@@ -56,8 +59,10 @@ small,p{color:#697065}.frame{overflow:auto}.comments{margin:34px 0 55px;padding:
 <label for="edit-{{ reply.id }}">Edit your reply</label>
 <textarea id="edit-{{ reply.id }}" name="body" maxlength="2000" required>{{ reply.body }}</textarea>
 <button type="submit">Save changes</button></form></details>
-<form method="post" action="{{ url_for('family.delete_comment',revision=revision,comment_id=reply.id) }}" onsubmit="return confirm('Delete this reply?')">
-<input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit">Delete reply</button></form>
+<details class="edit-control"><summary>Delete reply</summary>
+<form method="post" action="{{ url_for('family.delete_comment',revision=revision,comment_id=reply.id) }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit">Confirm delete</button></form>
+</details>
 {% endif %}
 </div>
 {% endfor %}
