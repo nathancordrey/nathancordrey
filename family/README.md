@@ -204,3 +204,28 @@ interactive shell may not have it exported in a new SSH session.
 
 The comment data lives in `/srv/family-album/family.sqlite3`, covered by
 the same private SQLite backup routine. Do not add this DB to GitHub.
+
+## Editing and deleting private layout notes
+
+Each signed-in editor can **edit or delete only their own comments and replies**.
+A revised comment displays an edited marker. A deleted reply disappears.
+Deleting a parent comment with replies clears its text and leaves a
+"This comment was deleted" placeholder so the replies remain in context.
+Resolved/open thread status is preserved when deleting a parent with replies.
+
+The existing database is upgraded idempotently by:
+
+```bash
+cd /home/nathan/code/nathancordrey
+git pull --ff-only origin family
+export FAMILY_DATA_DIR=/srv/family-album
+python family/scripts/init_family.py init
+python -m unittest discover -s family/tests -v
+sudo systemctl restart nathancordrey
+```
+
+**Run init before restart:** it uses PRAGMA table_info / ALTER TABLE ADD COLUMN
+to add `edited_at` and `deleted_at` to existing `family_comments`
+tables without erasing comments or other data. Use the same private SQLite
+backup workflow before a database schema change. Editors' notes never appear
+on guest /album routes.
