@@ -170,3 +170,37 @@ The guest-sharing tool creates derived web copies under the separate
 /srv/family-album/published directory; only explicitly selected and approved
 spreads can be published. Guest share links must never point at source review
 PDFs or the private original photographs.
+
+## Private spread discussions (Nathan + Rachel only)
+
+The authenticated revision viewer now shows an editor-only **Private layout notes**
+section below each spread, with new discussions, replies, open counts, and
+resolve/reopen controls. Discussions are scoped to a **revision and spread**;
+they do not move or become public when a new revision is published. There are
+no editor notes in the /album guest blueprint, shared snapshot files, or PDFs.
+
+No separate registration, passwords or new storage directory is required.
+Only accounts already granted the `family_publishers` role can read/write
+these discussions. Other signed-in family accounts cannot see the notes.
+All write routes require CSRF and comments are length-limited and escaped
+in HTML.
+
+**Mandatory upgrade order on existing Linode:**
+
+```bash
+cd /home/nathan/code/nathancordrey
+git pull --ff-only origin family
+export FAMILY_DATA_DIR=/srv/family-album
+python family/scripts/init_family.py init
+python -m unittest discover -s family/tests -v
+sudo systemctl restart nathancordrey
+```
+
+The `init` command adds the `family_comments` table and indexes with
+CREATE TABLE IF NOT EXISTS and preserves existing family accounts, album
+snapshots, and links. **Run `init` before restarting Gunicorn.** The live
+service already has `FAMILY_DATA_DIR` in its systemd override, but your
+interactive shell may not have it exported in a new SSH session.
+
+The comment data lives in `/srv/family-album/family.sqlite3`, covered by
+the same private SQLite backup routine. Do not add this DB to GitHub.
