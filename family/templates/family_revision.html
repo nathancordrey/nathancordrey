@@ -9,19 +9,17 @@ img{width:100%;height:auto;display:block;box-shadow:0 2px 16px #0002;background:
 .button{padding:10px 15px;border:1px solid #c4c9c0;border-radius:5px;text-decoration:none}
 small,p{color:#697065}.frame{overflow:auto}.comments{margin:34px 0 55px;padding:22px;background:white;border:1px solid #e2e3db;border-radius:10px}.comment{margin:12px 0;padding:15px;border:1px solid #dcded7;border-radius:8px;overflow-wrap:anywhere}.comment.resolved{background:#f2f5f1}.comment p{white-space:pre-wrap;color:#323e35}.reply{margin:12px 0 6px 22px;border-left:3px solid #cbd7ce;padding-left:14px}.comment textarea{width:100%;min-height:75px;font:inherit;padding:10px;border:1px solid #abb5ac;border-radius:6px}button{background:#365740;color:white;border:0;border-radius:5px;padding:9px 13px;cursor:pointer}.comment button{margin-top:9px}.comment form{margin-top:10px}summary{cursor:pointer;color:#315b44}.comment-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.comment-actions form{margin:0}.danger{background:#85413d}.comment .edit-control{margin-top:12px}.muted{font-style:italic;color:#6b736b}.spread-links{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0}.spread-links a{padding:5px 9px;border:1px solid #d7ded7;border-radius:5px;text-decoration:none;font-size:.88rem}.spread-links a.active{background:#365740;color:white}
 
-/* Read either half of a facing spread at comfortable mobile size, without editing JPEGs. */
-.spread-reader{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.spread-reader input[type=radio]{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
-.spread-reader .view-label{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;min-height:44px;flex:1;cursor:pointer;border:1px solid #aab7ad;border-radius:7px;background:white;color:#2d563d;font-weight:600;text-align:center}
-.spread-reader input:focus-visible + .view-label{outline:3px solid #4c8e66;outline-offset:2px}
-.spread-reader input:checked + .view-label{background:#365740;border-color:#365740;color:white}
-.spread-reader .frame{flex:1 1 100%;overflow:hidden;border-radius:5px}
-.spread-reader .frame img{width:100%;max-width:none;height:auto;display:block;transform:none}
-#review-left:checked ~ .frame img,#review-right:checked ~ .frame img{width:200%}
-#review-right:checked ~ .frame img{transform:translateX(-50%)}
-.reader-help{font-size:.88rem;line-height:1.45}
-@media(max-width:600px){main{padding:12px}h1{font-size:1.7rem}nav{gap:8px}nav .button{min-height:44px;display:inline-flex;align-items:center}.spread-reader .view-label{padding:10px 5px;font-size:.9rem}.comments{padding:14px}}
-</style></head><body><main>
+/* PhotoSwipe lightbox opens a private, authorized full-spread image on tap. */
+.album-gallery a.album-tap{display:block;cursor:zoom-in;border-radius:6px;overflow:hidden;touch-action:manipulation}
+.album-gallery a.album-tap:focus-visible{outline:3px solid #426e4d;outline-offset:3px}
+.album-gallery a[hidden]{display:none!important}
+.album-gallery img{width:100%;height:auto;display:block;box-shadow:0 2px 16px #0002;background:white}
+.reader-help{font-size:.92rem;line-height:1.5}
+@media(max-width:600px){main{padding:12px}h1{font-size:1.7rem}nav{gap:8px}nav .button{min-height:44px;display:inline-flex;align-items:center}.comments{padding:14px}}
+</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/photoswipe/photoswipe.css') }}">
+<script type="module" src="{{ url_for('static', filename='album-gallery.js') }}"></script>
+</head><body><main>
 <a href="{{ url_for('family.index') }}">← All revisions</a>
 <h1>{{ details.title }}</h1><p>{{ details.description }} · {{ spread_count }} spreads</p>
 <nav>
@@ -30,16 +28,14 @@ small,p{color:#697065}.frame{overflow:auto}.comments{margin:34px 0 55px;padding:
 {% if spread < spread_count %}<a class="button" href="{{ url_for('family.revision_view',revision=revision,spread=spread+1) }}">Next →</a>{% else %}<span></span>{% endif %}
 </nav>
 {% if has_spread %}
-<div class="spread-reader" role="group" aria-label="Viewing options for this spread">
-  <input type="radio" id="review-fit" name="review-view" checked>
-  <label for="review-fit" class="view-label">Full spread</label>
-  <input type="radio" id="review-left" name="review-view">
-  <label for="review-left" class="view-label">Left page</label>
-  <input type="radio" id="review-right" name="review-view">
-  <label for="review-right" class="view-label">Right page</label>
-  <div class="frame"><img loading="eager" alt="Family album spread {{ spread }} of {{ spread_count }}" src="{{ url_for('family.revision_spread',revision=revision,spread=spread) }}"></div>
+<div id="album-gallery" class="album-gallery" aria-label="Tap to open full-screen album viewer">
+{% for item in image_items %}
+<a href="{{ item.url }}" data-pswp-width="{{ item.width }}" data-pswp-height="{{ item.height }}" {% if item.number != spread %}hidden tabindex="-1"{% else %}class="album-tap" aria-label="Open spread {{ spread }} full-screen"{% endif %}>
+{% if item.number == spread %}<img loading="eager" alt="Family album spread {{ spread }} of {{ spread_count }}" src="{{ item.url }}">{% endif %}
+</a>
+{% endfor %}
 </div>
-<p class="reader-help">On a phone, choose Left or Right page to make photos larger. <a target="_blank" rel="noopener noreferrer" href="{{ url_for('family.revision_spread',revision=revision,spread=spread) }}">Open full image</a> for further pinch-zooming.</p>
+<p class="reader-help">Tap the spread for full-screen viewing, then swipe between spreads or pinch to zoom. Close to return to your notes.</p>
 {% else %}
 <p>Spread preview not yet uploaded to private storage.</p>
 {% endif %}
