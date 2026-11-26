@@ -253,10 +253,16 @@ def publish():
     title = request.form.get("title", "").strip()[:100]
     if not title or len(title) < 3:
         abort(400)
-    try:
-        chosen = sorted({int(s) for s in request.form.get("spreads", "").replace(",", " ").split()})
-    except ValueError:
-        abort(400)
+    selection = request.form.get("spread_selection", "selected")
+    if selection == "all":
+        chosen = list(range(1, REVISIONS[revision]["spreads"] + 1))
+    elif selection == "selected":
+        try:
+            chosen = sorted({int(s) for s in request.form.get("spreads", "").replace(",", " ").split()})
+        except ValueError:
+            abort(400)
+    else:
+        abort(400, "Unknown spread selection.")
     if not chosen or len(chosen) > REVISIONS[revision]["spreads"] or any(
         i < 1 or i > REVISIONS[revision]["spreads"] for i in chosen
     ):
