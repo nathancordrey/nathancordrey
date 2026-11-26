@@ -173,9 +173,15 @@ def view(share_id):
     except ValueError:
         spread = 1
     spread = min(max(1, spread), row["spread_count"])
+    from .gallery import gallery_items
+    items = gallery_items(
+        root() / "published" / row["snapshot_id"] / "spreads",
+        row["spread_count"],
+        lambda n: url_for("album.spread_image", share_id=share_id, spread=n),
+    )
     return render_template(
         "album_view.html", title=row["title"], share_id=share_id,
-        spread=spread, spread_count=row["spread_count"],
+        spread=spread, spread_count=row["spread_count"], image_items=items,
     )
 
 
@@ -383,8 +389,14 @@ def preview_snapshot(snapshot_id):
     except ValueError:
         spread = 1
     spread = min(max(spread, 1), row["spread_count"])
+    from .gallery import gallery_items
+    items = gallery_items(
+        root() / "published" / snapshot_id / "spreads",
+        row["spread_count"],
+        lambda n: url_for("family.preview_image", snapshot_id=snapshot_id, spread=n),
+    )
     return render_template(
-        "family_snapshot_preview.html", snapshot=row, spread=spread,
+        "family_snapshot_preview.html", snapshot=row, spread=spread, image_items=items,
     )
 
 
