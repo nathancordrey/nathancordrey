@@ -218,7 +218,7 @@ def delete_comment(revision, comment_id):
         ).fetchone():
             # Keeping the root keeps its replies reachable. Clear its text.
             db.execute(
-                "UPDATE family_comments SET body='', deleted_at=strftime('%s','now') "
+                "UPDATE family_comments SET body='[deleted]', deleted_at=strftime('%s','now') "
                 "WHERE id=? AND revision=? AND author_user_id=? AND deleted_at IS NULL",
                 (comment_id, revision, int(current_user.get_id())),
             )
