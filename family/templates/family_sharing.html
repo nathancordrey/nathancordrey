@@ -18,8 +18,14 @@ button.danger{background:#813b38}li{margin:12px 0;line-height:1.6}small,p{color:
 <label for="revision">Source draft</label><select id="revision" name="revision">
 {% for number,item in revisions|dictsort %}<option value="{{ number }}" {% if number==2 %}selected{% endif %}>{{ item.title }} ({{ item.spreads }} spreads)</option>{% endfor %}
 </select>
-<label for="spreads">Approved spread numbers</label><input id="spreads" name="spreads" required placeholder="1 2 3 5" size="35">
-<p><small>Enter spread numbers separated by spaces or commas. Only these spreads are copied, in numerical order. Review the result before sharing.</small></p>
+<fieldset style="border:1px solid #d9ded7;border-radius:7px;padding:12px 16px;margin:18px 0">
+<legend>Which spreads should be included?</legend>
+<label><input type="radio" name="spread_selection" value="all" checked> <strong>All spreads in this revision</strong></label>
+<label><input type="radio" name="spread_selection" value="selected"> Choose specific spreads</label>
+<label for="spreads">Specific spread numbers (only used when "Choose specific spreads" is selected)</label>
+<input id="spreads" name="spreads" placeholder="1 2 3 5" size="35" inputmode="text">
+<p><small>For specific spreads, enter numbers separated by spaces or commas. All selected spreads will be copied in numerical order. Review the resulting snapshot before creating a link.</small></p>
+</fieldset>
 <label><input type="checkbox" name="approved" value="yes" required> I have reviewed these spreads and approve this exact selection for sharing.</label>
 <button type="submit">Create private snapshot</button>
 </form></section>
